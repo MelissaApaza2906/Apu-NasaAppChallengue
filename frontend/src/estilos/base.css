@@ -1,0 +1,32 @@
+@import './variables.css';
+@import './botones.css';
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--noche); color: var(--nieve); font-family: var(--letra-texto); overflow: hidden; }
+#app { position: fixed; inset: 0; container-type: size; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+
+/* Panel tipo visor */
+.panel-apu {
+  background: linear-gradient(160deg, rgba(14, 30, 72, .88), rgba(8, 18, 48, .88));
+  border: 1px solid rgba(91, 160, 255, .45);
+  border-radius: var(--radio-panel);
+  backdrop-filter: blur(10px);
+}
+
+/* Título con // rojas */
+.titulo-apu { font-family: var(--letra-titulo); letter-spacing: .3em; text-transform: uppercase; }
+.titulo-apu::before { content: '// '; color: var(--rojo-apu); font-style: italic; }
+
+/* Celular y tablet: solo horizontal */
+.girar { display: none; }
+@media (orientation: portrait) and (max-width: 1024px) {
+  .girar { position: fixed; inset: 0; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: var(--noche); text-align: center; padding: 24px; }
+  .girar img { width: 120px; height: 120px; border-radius: 50%; border: 3px solid var(--rojo-apu); }
+  .girar p { font-family: var(--letra-titulo); letter-spacing: .12em; }
+  #app { display: none; }
+}
+
+/* Accesibilidad: quien pide menos movimiento, lo tiene */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

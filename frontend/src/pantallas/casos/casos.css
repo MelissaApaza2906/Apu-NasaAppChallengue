@@ -1,0 +1,4 @@
+/* Estilos solo de la pantalla casos. Usa las variables de src/estilos/variables.css */
+.pantalla-casos {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqh;
+}

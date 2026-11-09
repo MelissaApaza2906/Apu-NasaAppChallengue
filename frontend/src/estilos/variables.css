@@ -1,0 +1,32 @@
+/* APU · paleta y letras. Todas las pantallas usan SOLO estas variables. */
+:root {
+  /* Noche andina */
+  --noche: #0B192E;
+  --noche-2: #0C294D;
+  --cielo: #1F416C;
+  --horizonte: #446598;
+  /* Nieve y luz */
+  --nieve: #F2F4F8;
+  --nieve-sombra: #A9B4CC;
+  --alpenglow: #F6DBC3;
+  /* Acento: solo botones, marcos y avisos */
+  --rojo-apu: #D12021;
+  --rojo-oscuro: #8E1A1D;
+  /* Datos: nunca rojo */
+  --dato-nieve: #8FDBFF;
+  --dato-lluvia: #4F8DFF;
+  --dato-tendencia: #F9C80E;
+  /* Bandera (solo detalles) */
+  --bandera-rojo: #D52B1E;
+  --bandera-amarillo: #F8AE05;
+  --bandera-verde: #3B6C24;
+
+  /* Letras */
+  --letra-titulo: 'Michroma', sans-serif;     /* títulos y botones, en MAYÚSCULAS */
+  --letra-texto: 'Inter', system-ui, sans-serif;
+  --letra-dato: 'JetBrains Mono', monospace;
+
+  /* Medidas */
+  --toque-minimo: 44px;
+  --radio-panel: 18px;
+}

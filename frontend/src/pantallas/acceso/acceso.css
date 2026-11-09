@@ -1,0 +1,10 @@
+.pantalla-acceso { position: absolute; inset: 0; display: grid; place-items: center; background: var(--noche) url('/img/fondo-illimani.webp') center/cover no-repeat; overflow-y: auto; }
+.acceso { width: min(460px, 92cqw); padding: 3cqh; display: flex; flex-direction: column; gap: 1.6cqh; }
+.acceso .logo { height: 12cqh; align-self: center; }
+.acceso label { display: flex; flex-direction: column; gap: .6cqh; font-size: 14px; }
+.acceso input { min-height: var(--toque-minimo); padding: 0 14px; border-radius: 999px; border: 1.5px solid rgba(242, 244, 248, .7); background: rgba(8, 18, 48, .8); color: var(--nieve); font: inherit; }
+.acceso input:focus-visible { outline: 3px solid var(--rojo-apu); }
+.acceso .aviso { margin: 0; font-size: 13px; color: var(--nieve-sombra); }
+.acceso .fila { display: flex; gap: 1cqh; flex-wrap: wrap; }
+.acceso .error { margin: 0; min-height: 1.2em; color: #FF8A8A; font-size: 14px; }
+.acceso details summary { cursor: pointer; color: var(--nieve-sombra); }
