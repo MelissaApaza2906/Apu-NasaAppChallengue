@@ -1,0 +1,22 @@
+# Dependencias y compilación
+node_modules/
+dist/
+.vercel/
+__pycache__/
+*.pyc
+.venv/
+
+# Secretos: NUNCA subir
+.env
+.env.local
+.env.*.local
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
+.netrc
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
