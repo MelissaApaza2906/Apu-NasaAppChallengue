@@ -39,7 +39,7 @@ Lee [docs/como-trabajamos.md](docs/como-trabajamos.md) antes de tu primer cambio
 ## Datos
 
 - Nieve: NASA MODIS MOD10A1 (Google Earth Engine), 2001–2025.
-- Lluvia: NASA GPM IMERG mensual (Giovanni), 2001–2025.
+- Lluvia: NASA GPM IMERG mensual (Giovanni), 2001–2024.
 - Imágenes del globo: NASA GIBS, en vivo.
 
 Licencia: MIT.
