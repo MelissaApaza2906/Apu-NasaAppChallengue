@@ -19,7 +19,7 @@ const PICOS = [
 ];
 const PERIODOS = [[2001, 2005, 2021, 2025], [2006, 2010, 2016, 2020]];
 const INTRO_CR = 'Explora la nieve de la Cordillera Real y analiza su evolución con datos reales del satélite MODIS de NASA.';
-const SIN_DATOS = 'Aquí vemos la nieve del satélite MODIS de hoy. El análisis de 25 años de este glaciar todavía no está en APU.';
+const SIN_DATOS = 'Aquí vemos la nieve del satélite MODIS. El análisis de 25 años de este glaciar todavía no está en APU.';
 const AVISO_CAPA = 'No se pudo cargar la capa de NASA. Los números del panel son los mismos.';
 // Capas del botón "Capas de datos" (variable = qué datos muestra el panel)
 const CAPAS_MENU = [
