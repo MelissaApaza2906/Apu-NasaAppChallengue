@@ -128,10 +128,9 @@
 .menu-pestana[hidden] { display: none; }
 .menu-pestana.entra { animation: pestanaEntra .45s cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes pestanaEntra { from { transform: translateX(100%); } to { transform: none; } }
-/* Portada: el Illimani con degradado oscuro abajo (otros glaciares: la misma imagen en otro tono) */
-.pestana-portada { position: relative; isolation: isolate; flex: none; height: 22cqh; min-height: 120px; padding: 2cqh 2.4cqh; display: flex; flex-direction: column; justify-content: flex-end; gap: .6cqh; overflow: hidden; }
-.pestana-portada::before { content: ''; position: absolute; inset: 0; z-index: -2; background: url('/img/fondo-illimani.webp') center 30% / cover no-repeat; }
-.menu-pestana:not(.principal) .pestana-portada::before { filter: hue-rotate(180deg) saturate(.7); }
+/* Portada: la foto real del glaciar (--foto, la pone JS) con degradado oscuro abajo y su crédito */
+.pestana-portada { position: relative; isolation: isolate; flex: none; height: 22cqh; min-height: 120px; padding: 2cqh 2.4cqh calc(2cqh + 12px); display: flex; flex-direction: column; justify-content: flex-end; gap: .6cqh; overflow: hidden; }
+.pestana-portada::before { content: ''; position: absolute; inset: 0; z-index: -2; background: var(--foto, url('/img/fondo-illimani.webp')) center 35% / cover no-repeat; }
 .pestana-portada::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(6, 14, 34, 0) 25%, rgba(6, 14, 34, .92) 100%); }
 .pestana-caso { align-self: flex-start; max-width: calc(100% - 52px); padding: .4cqh 1.2cqh; border-radius: 4px; background: var(--rojo-apu); font: 400 clamp(10px, 1.3cqh, 11px) / 1.35 var(--letra-titulo); letter-spacing: .06em; }
 .pestana-caso[hidden] { display: none; }
@@ -146,6 +145,10 @@
 .pestana-titulo .barras { color: var(--rojo-apu); font-style: italic; letter-spacing: -.1em; }
 /* Línea de tiempo vertical: la línea se dibuja y los puntos aparecen uno por uno */
 .pestana-linea { position: relative; margin: 0; padding: 0 0 0 26px; list-style: none; display: flex; flex-direction: column; gap: 2cqh; }
+.pestana-foto { position: absolute; right: 1.2cqh; bottom: 3px; max-width: calc(100% - 2.4cqh); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 10px / 1.2 var(--letra-texto); color: #F2F4F8; opacity: .7; text-decoration: none; }
+.pestana-foto[hidden] { display: none; }
+.pestana-foto:hover, .pestana-foto:focus-visible { opacity: 1; text-decoration: underline; }
+.pestana-foto:focus-visible { outline: 2px solid var(--rojo-apu); outline-offset: 1px; }
 .pestana-linea::before { content: ''; position: absolute; left: 7px; top: 6px; bottom: 6px; width: 2px; background: linear-gradient(180deg, #8FDBFF, rgba(143, 219, 255, .25)); transform-origin: top; animation: lineaDibuja .9s ease-out .35s both; }
 @keyframes lineaDibuja { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 .pestana-linea li { position: relative; display: flex; flex-direction: column; gap: .4cqh; animation: puntoAparece .45s ease-out both; animation-delay: calc(.45s + var(--i) * .3s); }

@@ -113,6 +113,7 @@ export function montar(contenedor) {
       </div>
       <div class="pestana-cuerpo">
         <h3 class="pestana-titulo"><span class="barras" aria-hidden="true">//</span> SU HISTORIA</h3>
+        <a class="pestana-foto" target="_blank" rel="noopener noreferrer"></a>
         <ol class="pestana-linea"></ol>
         <div class="pestana-dato"></div>
         <button type="button" class="btn-mision pestana-ver">
@@ -229,6 +230,16 @@ export function montar(contenedor) {
     $('.pestana-lugar').textContent = lugarDe(g);
 
     // Historia (contenido/glaciares.js → HISTORIAS, unida por id o por nombre)
+    // Portada: foto real del glaciar (Wikimedia Commons) con su crédito; si no hay, la del Illimani
+    const foto = g.foto;
+    pestana.style.setProperty('--foto', `url('${foto?.src ?? '/img/fondo-illimani.webp'}')`);
+    const credito = $('.pestana-foto');
+    credito.hidden = !foto;
+    if (foto) {
+      credito.textContent = `Foto: ${foto.autor} · ${foto.licencia}`;
+      credito.href = foto.url;
+      credito.title = `Ver la foto en Wikimedia Commons (${foto.licencia})`;
+    }
     const h = historiaDe(g);
 
     // Línea de tiempo: se dibuja punto por punto; cada hito con su fuente en letra pequeña
