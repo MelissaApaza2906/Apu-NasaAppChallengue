@@ -83,7 +83,7 @@
 .menu-panel .linea { height: 1px; flex: none; background: rgba(242, 244, 248, .35); }
 .menu-panel .comparar { display: flex; gap: 1.4cqh; align-items: flex-end; }
 .menu-panel label { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .8cqh; font-size: clamp(10px, 1.7cqh, 15px); }
-.menu-panel select { height: clamp(36px, 5.4cqh, 50px); padding: 0 1.6cqh; border-radius: 999px; border: 1.5px solid rgba(242, 244, 248, .8); background: rgba(8, 18, 48, .85); color: var(--nieve); font: 500 clamp(11px, 1.9cqh, 17px) var(--letra-texto); cursor: pointer; }
+.menu-panel select { height: clamp(36px, 5.4cqh, 50px); padding: 0 .8cqh 0 1.4cqh; border-radius: 999px; border: 1.5px solid rgba(242, 244, 248, .8); background: rgba(8, 18, 48, .85); color: var(--nieve); font: 500 clamp(11px, 1.7cqh, 15px) var(--letra-texto); cursor: pointer; }
 .menu-panel .cambio { flex: none; display: flex; flex-direction: column; align-items: center; gap: .3cqh; padding: .9cqh 1.8cqh; border-radius: 1.2cqh; border: 1.5px solid var(--rojo-apu); background: rgba(209, 32, 33, .16); box-shadow: 0 0 1.6cqh rgba(209, 32, 33, .35); }
 .menu-panel .cambio b { font-size: clamp(14px, 3cqh, 28px); color: #FF6B6B; white-space: nowrap; }
 .menu-panel .cambio span { font-size: clamp(9px, 1.45cqh, 13px); color: #FFB3B3; white-space: nowrap; }
@@ -95,6 +95,8 @@
 .menu-panel .miniaturas figcaption { position: absolute; left: .8cqh; bottom: .8cqh; padding: .2cqh .9cqh; border-radius: .6cqh; background: rgba(242, 244, 248, .92); color: var(--noche); font: 700 clamp(9px, 1.6cqh, 14px) var(--letra-texto); }
 .menu-panel .nota { font-size: clamp(8px, 1.3cqh, 11px); color: #A9B4CC; }
 .menu-panel .miniaturas + .nota { margin-top: -.8cqh; }
+.menu-panel .nota-periodo { display: block; margin-top: -.6cqh; text-align: right; }
+.menu-panel .nota-periodo[hidden] { display: none; }
 .menu-panel .tarjetas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2cqh; }
 .menu-panel .tarjeta { display: flex; align-items: center; gap: 1.2cqh; padding: 1.2cqh 1.4cqh; min-width: 0; background: rgba(12, 28, 68, .85); border: 1px solid rgba(91, 160, 255, .35); border-radius: 1.4cqh; }
 .tarjeta .icono { flex: none; font-size: 3.2cqh; color: var(--dato-nieve); }

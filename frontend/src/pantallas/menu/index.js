@@ -136,6 +136,7 @@ export function montar(contenedor) {
         </label>
         <div class="cambio"><b class="cambio-valor">…</b><span class="cambio-etiqueta">Índice de nieve</span></div>
       </div>
+      <span class="nota nota-periodo" hidden></span>
       <div class="ilustrativas">
       <div class="miniaturas">
         <figure><img src="/img/ilustrativa-antes.webp" alt="Imagen ilustrativa de la montaña con más nieve"><figcaption class="anio-antes"></figcaption></figure>
@@ -460,6 +461,10 @@ export function montar(contenedor) {
     $('.cambio-valor').textContent = `${cambio < 0 ? '↓ −' : '↑ +'}${fmt(Math.abs(cambio), 0)} %`;
     $('.cambio-etiqueta').textContent = V.cambio;
     $('.cambio').classList.toggle('duda', !real); // sin tendencia real: amarillo, no rojo
+    // Si el periodo se recortó (la lluvia llega a 2024), se explica por qué falta el año
+    const falta = PERIODOS[estado.periodo][3];
+    $('.nota-periodo').hidden = falta <= ultimo;
+    $('.nota-periodo').textContent = `${falta} no entra porque aún no tiene todos sus meses`;
     $('.anio-antes').textContent = `${per[0]}–${String(per[1]).slice(2)}`;
     $('.anio-despues').textContent = `${per[2]}–${String(per[3]).slice(2)}`;
     $('.ilustrativas').hidden = lluvia; // las fotos ilustrativas son de nieve
