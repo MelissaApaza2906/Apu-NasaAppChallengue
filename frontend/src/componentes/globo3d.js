@@ -8,6 +8,7 @@
 //   globo.elegirGlaciar('kilimanjaro');  // vuela a ~3 000 km del glaciar; pausa la rotación
 //   globo.elegirPico(0);                 // vuela a ~2 500 km del pico; pausa la rotación
 //   globo.verPlaneta();                  // vuelve al planeta completo y sigue girando
+//   await globo.mostrarCapa('lluvia');   // capa de NASA encima ('nieve' | 'lluvia' | null), fecha opcional
 //   globo.destruir();                    // al salir de la pantalla
 //
 // Capas de NASA: Blue Marble (base) + nieve MODIS del día más reciente con datos (en blanco)
@@ -21,8 +22,15 @@
 import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import './globo3d.css';
-import { CESIUM_TOKEN, EXAGERACION } from '../servicios/config.js';
-import { CAPAS, proveedor, nasaResponde, fechaNieveReciente } from '../servicios/nasa-gibs.js';
+import { CESIUM_TOKEN, EXAGERACION, DIAS_ATRAS_NIEVE } from '../servicios/config.js';
+import { CAPAS, proveedor, nasaResponde, fechaPorDefecto, hayImagen, haceDias, fechaBonita } from '../servicios/nasa-gibs.js';
+
+// Capas de datos que se pueden poner encima del Blue Marble con mostrarCapa(nombre, fecha)
+const CAPAS_DATOS = {
+  nieve: { capa: CAPAS.nieveDia, titulo: 'Nieve · MODIS Terra', fechaDefecto: async () => haceDias(DIAS_ATRAS_NIEVE) },
+  lluvia: { capa: CAPAS.lluviaDia, titulo: 'Lluvia · GPM IMERG', fechaDefecto: () => fechaPorDefecto(CAPAS.lluviaDia) }
+};
+const CREDITO_BASE = 'Imágenes: NASA GIBS / Blue Marble';
 
 const POR_DEFECTO = {
   lat: -15,                 // centrado en Sudamérica
@@ -37,6 +45,7 @@ const POR_DEFECTO = {
   picos: [],                // [{ n: nombre, h: altura en m (6438 o '6 438'), lat, lon }]
   alElegir: null,           // (glaciar) => void
   credito: null,            // elemento donde escribir el crédito de NASA (si no, va debajo del globo)
+  capa: 'nieve',            // capa de datos al empezar: 'nieve', 'lluvia' o null
   marcador: { lat: -16.2, lon: -68.2 }, // nuestro caso si no hay glaciar principal
   alturaPico: 2_500_000,    // metros sobre el pico al elegirlo
   duracionVuelo: 1.6,       // segundos (picos y "ver planeta")
@@ -142,6 +151,7 @@ export function crearGlobo(contenedor, opciones = {}) {
   // API cuando no hay globo 3D (imagen de respaldo): elegir un glaciar igual avisa al menú
   const apiSinGlobo = () => ({
     irA() {}, elegirPico() {}, verPlaneta() {}, estado: () => ({ modo: 'imagen' }),
+    mostrarCapa: async () => ({ ok: false, motivo: 'sin-globo' }),
     elegirGlaciar(id) { const g = glaciares.find((x) => x.id === id); if (g) op.alElegir?.(g); },
     destruir: () => { destruido = true; raiz.remove(); }
   });
@@ -207,7 +217,7 @@ export function crearGlobo(contenedor, opciones = {}) {
   // Crédito propio de NASA: en el elemento que nos den (el menú lo ubica) o debajo del globo
   const credito = op.credito ?? document.createElement('p');
   if (!op.credito) credito.className = 'globo3d-credito';
-  credito.textContent = 'Imágenes: NASA GIBS / Blue Marble';
+  credito.textContent = CREDITO_BASE;
   raiz.append(flotante);
   if (!op.credito) raiz.append(credito);
 
@@ -278,22 +288,66 @@ export function crearGlobo(contenedor, opciones = {}) {
   luces.nightAlpha = 0.95;
   luces.brightness = 1.4;
 
-  // Nieve y hielo de MODIS (NDSI) del día más reciente con datos, encima del Blue Marble.
-  // La paleta de NASA es rosada/naranja: sin saturación y con más brillo se ve blanca.
-  let capaNieve = null;
-  let fechaNieve = null;
-  fechaNieveReciente().then((fecha) => {
-    if (!viewer || !fecha) return;
-    fechaNieve = fecha;
-    capaNieve = viewer.imageryLayers.addImageryProvider(proveedor(CAPAS.nieveDia, fecha));
-    capaNieve.alpha = 0.9;
-    capaNieve.brightness = 1.3;
-    capaNieve.saturation = 0;
-    capaNieve.gamma = 1.8;
-    viewer.imageryLayers.raiseToTop(luces);
-    credito.textContent = 'Imágenes: NASA GIBS / Blue Marble · Nieve: MODIS';
+  // ---------------------------------------------------------------
+  // Capa de datos de NASA encima del Blue Marble (nieve MODIS o lluvia GPM IMERG)
+  // ---------------------------------------------------------------
+  let capaDatos = null;   // ImageryLayer de Cesium
+  let infoCapa = null;    // { nombre, fecha, sinImagen }
+  let pedidoCapa = 0;     // si llega otro pedido mientras esperamos a NASA, el anterior se descarta
+
+  function escribirCredito() {
+    const d = infoCapa && CAPAS_DATOS[infoCapa.nombre];
+    credito.textContent = d
+      ? `${CREDITO_BASE}\n${d.titulo} · ${fechaBonita(infoCapa.fecha)}${infoCapa.sinImagen ? ' · sin imagen de NASA para esta fecha' : ''}`
+      : CREDITO_BASE;
+  }
+
+  function quitarCapaDatos() {
+    if (capaDatos && viewer) viewer.imageryLayers.remove(capaDatos, true);
+    capaDatos = null;
+  }
+
+  // nombre: 'nieve' | 'lluvia' | null. fecha: 'AAAA-MM-DD' (por defecto, la más reciente con datos).
+  // Devuelve { ok, nombre, fecha, sinImagen } o { ok: false, motivo: 'sin-respuesta' } si NASA no
+  // responde (en ese caso el globo queda como estaba).
+  async function mostrarCapa(nombre, fecha) {
+    const yo = ++pedidoCapa;
+    if (!viewer) return { ok: false, motivo: 'sin-globo' };
+    if (!nombre) {
+      quitarCapaDatos();
+      infoCapa = null;
+      escribirCredito();
+      escena.requestRender();
+      return { ok: true, nombre: null };
+    }
+    const d = CAPAS_DATOS[nombre];
+    if (!d) return { ok: false, motivo: 'capa-desconocida' };
+    const f = fecha ?? await d.fechaDefecto();
+    if (yo !== pedidoCapa || !viewer) return { ok: false, motivo: 'reemplazado' };
+    if (!f) return { ok: false, motivo: 'sin-respuesta' };
+    const hay = await hayImagen(d.capa, f);
+    if (yo !== pedidoCapa || !viewer) return { ok: false, motivo: 'reemplazado' };
+    if (hay === 'error') return { ok: false, motivo: 'sin-respuesta' };
+
+    quitarCapaDatos();
+    infoCapa = { nombre, fecha: f, sinImagen: hay === 'no' };
+    if (hay === 'si') {
+      capaDatos = viewer.imageryLayers.addImageryProvider(proveedor(d.capa, f));
+      capaDatos.alpha = 0.85;
+      if (nombre === 'nieve') {
+        // La paleta de NASA para la nieve es rosada/naranja: sin color y con más brillo se ve blanca
+        capaDatos.brightness = 1.3;
+        capaDatos.saturation = 0;
+        capaDatos.gamma = 1.8;
+      }
+      viewer.imageryLayers.raiseToTop(luces);
+    }
+    escribirCredito();
     escena.requestRender();
-  });
+    return { ok: true, nombre, fecha: f, sinImagen: hay === 'no' };
+  }
+
+  if (op.capa) mostrarCapa(op.capa);
 
   // Distancia de cámara para que el planeta mida op.tamano del lado menor del contenedor.
   // Cesium usa el campo de visión (fov) sobre el lado mayor del canvas.
@@ -623,14 +677,15 @@ export function crearGlobo(contenedor, opciones = {}) {
   actualizarModo();
 
   // ---------------------------------------------------------------
-  // Rendimiento en celular: si va a menos de 30 FPS, se quita la capa de nieve (quedan los halos)
+  // Rendimiento en celular: si al empezar va a menos de 30 FPS, se quita la capa de datos
+  // (quedan los halos). Solo una vez: si después la persona elige una capa, se respeta.
   // ---------------------------------------------------------------
   let fpsMedidos = null;
   if (window.innerWidth < 900 && !sinMovimiento.matches) {
     let inicio = null;
     let cuadros = 0;
     const quitar = escena.postRender.addEventListener(() => {
-      if (!capaNieve || !globo.tilesLoaded) return;         // medimos con la nieve ya cargada
+      if (!capaDatos || !globo.tilesLoaded) return;         // medimos con la capa ya cargada
       if (inicio === null) { inicio = performance.now(); return; }
       cuadros++;
       const ms = performance.now() - inicio;
@@ -638,10 +693,10 @@ export function crearGlobo(contenedor, opciones = {}) {
       quitar();
       fpsMedidos = Math.round((cuadros * 1000) / ms);
       if (fpsMedidos < 30) {
-        viewer.imageryLayers.remove(capaNieve, true);
-        capaNieve = null;
-        credito.textContent = 'Imágenes: NASA GIBS / Blue Marble';
-        console.info(`APU: ${fpsMedidos} FPS en celular; se quita la capa de nieve y quedan los halos.`);
+        quitarCapaDatos();
+        infoCapa = null;
+        escribirCredito();
+        console.info(`APU: ${fpsMedidos} FPS en celular; se quita la capa de datos y quedan los halos.`);
       }
     });
     limpiezas.push(quitar);
@@ -738,10 +793,10 @@ export function crearGlobo(contenedor, opciones = {}) {
       objetivo: objetivo?.n ?? null, objetivoVisible: !capa.classList.contains('objetivo-oculto'),
       marcadorVisible: !marcador.classList.contains('oculto'),
       halosVisibles: listaHalos.filter((x) => x.b.show).map((x) => x.g.id),
-      nieve: capaNieve ? fechaNieve : null, fpsCelular: fpsMedidos,
+      capa: infoCapa ? { ...infoCapa, visible: Boolean(capaDatos) } : null, fpsCelular: fpsMedidos,
       volando, girando: debeGirar()
     };
   }
 
-  return { irA, elegirGlaciar, elegirPico, verPlaneta, destruir, estado };
+  return { irA, elegirGlaciar, elegirPico, verPlaneta, mostrarCapa, destruir, estado };
 }

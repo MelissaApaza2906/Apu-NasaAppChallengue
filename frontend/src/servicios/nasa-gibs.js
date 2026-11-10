@@ -17,7 +17,11 @@ export const CAPAS = {
   // Foto real del satélite Terra, un día concreto
   fotoDia: { layer: 'MODIS_Terra_CorrectedReflectance_TrueColor', formato: 'image/jpeg', matriz: 'GoogleMapsCompatible_Level9', nivelMax: 9 },
   // Cobertura de nieve (MODIS, índice NDSI) de un día concreto
-  nieveDia: { layer: 'MODIS_Terra_NDSI_Snow_Cover', formato: 'image/png', matriz: 'GoogleMapsCompatible_Level8', nivelMax: 8 }
+  nieveDia: { layer: 'MODIS_Terra_NDSI_Snow_Cover', formato: 'image/png', matriz: 'GoogleMapsCompatible_Level8', nivelMax: 8 },
+  // Lluvia diaria de GPM IMERG. Nombre y matriz verificados en el GetCapabilities de GIBS
+  // (epsg3857/best): IMERG_Precipitation_Rate · GoogleMapsCompatible_Level6 · image/png · P1D.
+  // (La otra capa IMERG de GIBS es cada 30 minutos; no hay una mensual.)
+  lluviaDia: { layer: 'IMERG_Precipitation_Rate', formato: 'image/png', matriz: 'GoogleMapsCompatible_Level6', nivelMax: 6 }
 };
 
 // Crea el proveedor de imágenes de una capa para una fecha (AAAA-MM-DD)
@@ -50,24 +54,33 @@ export function fechaBonita(iso) {
   return `${d} de ${meses[m - 1]} de ${a}`;
 }
 
-// Día COMPLETO más reciente en que la capa diaria de nieve ya tiene datos.
-// GIBS anuncia "hoy" aunque todavía no haya imágenes (la tesela sale vacía, ~150 bytes), y mientras
-// NASA publica el día, algunas teselas fallan (error 500). Por eso empezamos por ayer y vamos hacia
-// atrás hasta encontrar una tesela con datos.
-export async function fechaNieveReciente(diasMax = 8) {
-  const capa = CAPAS.nieveDia;
-  for (let n = 1; n <= diasMax; n++) {
-    const fecha = haceDias(n);
-    const url = `${GIBS}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${capa.layer}&STYLE=default` +
-      `&TILEMATRIXSET=${capa.matriz}&TILEMATRIX=1&TILEROW=0&TILECOL=0&FORMAT=image%2Fpng&TIME=${fecha}`;
-    try {
-      const r = await fetch(url);
-      if (r.ok && (await r.blob()).size > 1000) return fecha;
-    } catch {
-      return null; // sin red: no insistimos
-    }
+// Fecha por defecto que anuncia GIBS para una capa (su GetCapabilities filtrado: ~27 KB, no los 5 MB
+// del catálogo completo). Devuelve 'AAAA-MM-DD' o null si NASA no responde.
+export async function fechaPorDefecto(capa) {
+  try {
+    const r = await fetch(`${GIBS}?SERVICE=WMTS&REQUEST=GetCapabilities&LAYER=${capa.layer}`);
+    if (!r.ok) return null;
+    const xml = new DOMParser().parseFromString(await r.text(), 'application/xml');
+    const def = [...xml.getElementsByTagName('Default')].map((n) => n.textContent.trim()).find((t) => /^\d{4}-\d{2}-\d{2}/.test(t));
+    return def ? def.slice(0, 10) : null;
+  } catch {
+    return null;
   }
-  return null;
+}
+
+// ¿Hay imagen de esa capa en esa fecha? Pide una tesela pequeña del cuadrante sudoeste
+// (Sudamérica y la Antártida). 'si' · 'no' (tesela vacía o fecha fuera de rango) · 'error' (NASA no responde).
+export async function hayImagen(capa, fecha) {
+  const url = `${GIBS}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${capa.layer}&STYLE=default` +
+    `&TILEMATRIXSET=${capa.matriz}&TILEMATRIX=1&TILEROW=1&TILECOL=0&FORMAT=${encodeURIComponent(capa.formato)}&TIME=${fecha}`;
+  try {
+    const r = await fetch(url);
+    if (r.status === 400 || r.status === 404) return 'no';
+    if (!r.ok) return 'error';
+    return (await r.blob()).size > 300 ? 'si' : 'no'; // una tesela sin datos pesa ~150 bytes
+  } catch {
+    return 'error';
+  }
 }
 
 // Comprueba si NASA responde, pidiendo una sola imagen pequeña

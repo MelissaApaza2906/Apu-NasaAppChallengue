@@ -237,7 +237,7 @@
   letter-spacing: 0.02em;
   color: var(--nieve-sombra);
   opacity: 0.75;
-  white-space: nowrap;
+  white-space: pre;
   pointer-events: none;
 }
 

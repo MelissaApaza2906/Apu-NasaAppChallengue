@@ -7,6 +7,7 @@ import './menu.css';
 import { ir } from '../../router.js';
 import { cargarRegion } from '../../servicios/datos.js';
 import { GLACIARES } from '../../contenido/glaciares.js';
+import { FRASES } from '../../contenido/frases-jukumari.js';
 
 const PICOS = [
   { n: 'Illimani', h: '6 438', lat: -16.64, lon: -67.79, t: 'el Illimani, el guardián de La Paz' },
@@ -19,6 +20,27 @@ const PICOS = [
 const PERIODOS = [[2001, 2005, 2021, 2025], [2006, 2010, 2016, 2020]];
 const INTRO_CR = 'Explora la nieve de la Cordillera Real y analiza su evolución con datos reales del satélite MODIS de NASA.';
 const SIN_DATOS = 'Aquí vemos la nieve del satélite MODIS de hoy. El análisis de 25 años de este glaciar todavía no está en APU.';
+const AVISO_CAPA = 'No se pudo cargar la capa de NASA. Los números del panel son los mismos.';
+// Capas del botón "Capas de datos" (variable = qué datos muestra el panel)
+const CAPAS_MENU = [
+  { capa: 'nieve', n: 'Nieve (MODIS)', variable: 'nieve' },
+  { capa: 'lluvia', n: 'Lluvia (GPM IMERG)', variable: 'lluvia' },
+  { capa: null, n: 'Sin capa', variable: 'nieve' }
+];
+// Textos del panel según la variable (los números salen de cordillera-real.json)
+const VARIABLES = {
+  nieve: {
+    titulo: 'Monitoreo glaciar', intro: INTRO_CR, cambio: 'Índice de nieve',
+    grafico: 'Índice de nieve por año', fuente: 'Línea amarilla: tendencia · Fuente: NASA MODIS (MOD10A1), Cordillera Real',
+    color: '#8FDBFF', area: '#5BA0FF', decimales: 2, escala: [1.2, 3.0]
+  },
+  lluvia: {
+    titulo: 'Lluvia en la cordillera', cambio: 'Lluvia',
+    intro: 'Mira cuánta lluvia cayó cada año en la Cordillera Real, con datos reales del satélite GPM (IMERG) de NASA.',
+    grafico: 'Lluvia por año (mm por año)', fuente: 'Línea amarilla: tendencia · Fuente: NASA GPM IMERG (mensual), Cordillera Real',
+    color: '#4F8DFF', area: '#4F8DFF', decimales: 0, escala: null // --dato-lluvia; escala según los datos
+  }
+};
 const CARRUSELES = [
   { k: 'glaciares', n: 'Glaciares del mundo' },
   { k: 'picos', n: 'Picos de la Cordillera Real' }
@@ -54,8 +76,10 @@ export function montar(contenedor) {
   // modo: qué muestra el carrusel · elegido: lo último elegido ('glaciar' o 'pico')
   const estado = {
     modo: 'glaciares', elegido: 'glaciar', glaciar: principal.id, pico: 0,
-    ventana: { glaciares: 0, picos: 0 }, periodo: 0, cerca: false
+    ventana: { glaciares: 0, picos: 0 }, periodo: 0, cerca: false,
+    capa: 'nieve', variable: 'nieve', fecha: '', textoLugar: principal.texto
   };
+  let region = null; // cordillera-real.json cuando termina de cargar
   const raiz = document.createElement('section');
   raiz.className = 'pantalla-menu menu-cielo';
   raiz.innerHTML = `
@@ -85,17 +109,22 @@ export function montar(contenedor) {
 
     <nav class="menu-riel hud entra-izq" aria-label="Menú">
       ${RIEL.map((m) => `
-        <button type="button" class="redondo${m.actual ? ' actual' : ''}" data-ruta="${m.ruta ?? ''}" aria-label="${m.n}" title="${m.n}"${m.actual ? ' aria-current="page"' : ''}>
+        <button type="button" class="redondo${m.actual ? ' actual' : ''}" data-k="${m.k}" data-ruta="${m.ruta ?? ''}" aria-label="${m.n}" title="${m.n}"${m.actual ? ' aria-current="page"' : ''}${m.k === 'capas' ? ' aria-haspopup="menu" aria-expanded="false" aria-controls="menu-capas"' : ''}>
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICONOS[m.k]}</svg>
         </button>`).join('')}
     </nav>
 
+    <div class="menu-capas hud" id="menu-capas" role="menu" aria-label="Capas de datos de NASA" hidden>
+      ${CAPAS_MENU.map((c) => `<button type="button" role="menuitemradio" data-capa="${c.capa ?? ''}" aria-checked="${c.capa === 'nieve'}">${c.n}</button>`).join('')}
+    </div>
+
     <aside class="menu-panel hud entra-der" aria-label="Monitoreo glaciar">
       <div>
-        <h2><span class="barras" aria-hidden="true">//</span>Monitoreo glaciar</h2>
+        <h2><span class="barras" aria-hidden="true">//</span><span class="titulo-texto">Monitoreo glaciar</span></h2>
         <p class="intro">${INTRO_CR}</p>
       </div>
       <div class="linea" aria-hidden="true"></div>
+      <p class="aviso-capa" role="status" hidden>${AVISO_CAPA}</p>
       <p class="sin-datos" hidden>${SIN_DATOS}</p>
       <div class="con-datos">
       <div class="comparar">
@@ -105,22 +134,31 @@ export function montar(contenedor) {
             <option value="1">2006–10 / 2016–20</option>
           </select>
         </label>
-        <div class="cambio"><b class="cambio-valor">…</b><span>Índice de nieve</span></div>
+        <div class="cambio"><b class="cambio-valor">…</b><span class="cambio-etiqueta">Índice de nieve</span></div>
       </div>
+      <div class="ilustrativas">
       <div class="miniaturas">
         <figure><img src="/img/ilustrativa-antes.webp" alt="Imagen ilustrativa de la montaña con más nieve"><figcaption class="anio-antes"></figcaption></figure>
         <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="#F2F4F8" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>
         <figure><img src="/img/ilustrativa-despues.webp" alt="Imagen ilustrativa de la montaña con menos nieve"><figcaption class="anio-despues"></figcaption></figure>
       </div>
       <span class="nota">Imágenes ilustrativas. En la app: foto real de NASA de cada fecha.</span>
+      </div>
       <div class="tarjetas"></div>
       <figure class="grafico">
-        <figcaption>Índice de nieve por año · <span class="rango"></span></figcaption>
+        <figcaption><span class="titulo-graf">Índice de nieve por año</span> · <span class="rango"></span></figcaption>
         <svg role="img" viewBox="0 0 300 110"></svg>
-        <span class="nota">Línea amarilla: tendencia · Fuente: NASA MODIS (MOD10A1), Cordillera Real</span>
+        <span class="nota fuente-graf">Línea amarilla: tendencia · Fuente: NASA MODIS (MOD10A1), Cordillera Real</span>
       </figure>
       </div>
     </aside>
+
+    <div class="menu-fechas" role="group" aria-label="Fecha de la capa de nieve" hidden>
+      <span class="rotulo">Nieve del</span>
+      <button type="button" data-fecha="" aria-pressed="true">Más reciente</button>
+      <button type="button" data-fecha="2001" aria-pressed="false"></button>
+      <button type="button" data-fecha="2025" aria-pressed="false"></button>
+    </div>
 
     <div class="menu-guia entra-abajo">
       <div class="hud caja">
@@ -153,7 +191,10 @@ export function montar(contenedor) {
   // Navegación
   $('.logo-btn').addEventListener('click', () => ir(''));
   raiz.querySelectorAll('.menu-riel [data-ruta]').forEach((b) => {
-    b.addEventListener('click', () => { if (b.dataset.ruta) ir(b.dataset.ruta); });
+    b.addEventListener('click', () => {
+      if (b.dataset.k === 'capas') abrirCapas($('.menu-capas').hidden);
+      else if (b.dataset.ruta) ir(b.dataset.ruta);
+    });
   });
 
   // Planeta: globo 3D de Cesium o, si no está, el planeta de la maqueta
@@ -211,11 +252,26 @@ export function montar(contenedor) {
     etiqueta.classList.remove('nueva'); void etiqueta.offsetWidth; etiqueta.classList.add('nueva');
   }
 
-  // Panel: con datos (Cordillera Real y sus picos) o el aviso de que aún no hay análisis
-  function pintarPanel(conDatos, intro) {
-    $('.intro').textContent = intro;
-    $('.con-datos').hidden = !conDatos;
-    $('.sin-datos').hidden = conDatos;
+  // ¿Lo elegido tiene el análisis de 25 años? (la Cordillera Real y sus picos)
+  const glaciarActual = () => GLACIARES.find((x) => x.id === estado.glaciar) ?? principal;
+  const lugarConDatos = () => estado.elegido === 'pico' || Boolean(glaciarActual().datos);
+
+  // Panel: datos de la variable elegida (nieve o lluvia) o el aviso de que aún no hay análisis
+  function pintarPanel() {
+    const con = lugarConDatos();
+    const V = VARIABLES[estado.variable];
+    const g = glaciarActual();
+    $('.titulo-texto').textContent = con ? V.titulo : 'Monitoreo glaciar';
+    $('.intro').textContent = con ? V.intro : `Explora ${g.nombre} (${g.pais}) con las capas de los satélites de NASA.`;
+    $('.con-datos').hidden = !con;
+    $('.sin-datos').hidden = con;
+    if (con && region) pintarVariable();
+  }
+
+  // El Jukumari: con la lluvia explica la lluvia; si no, habla del lugar elegido
+  function pintarDialogo() {
+    $('.dialogo').textContent = estado.variable === 'lluvia' && lugarConDatos() ? FRASES.lluvia : estado.textoLugar;
+    if (!burbuja.hidden) burbuja.textContent = $('.dialogo').textContent;
   }
 
   function mostrarGlaciar(g, alejarVentana) {
@@ -228,9 +284,10 @@ export function montar(contenedor) {
       const v = estado.ventana.glaciares;
       if (![0, 1, 2].some((k) => (v + k) % GLACIARES.length === i)) estado.ventana.glaciares = i;
     }
-    $('.dialogo').textContent = g.texto;
+    estado.textoLugar = g.texto;
+    pintarDialogo();
     pintarEtiqueta(g.nombre, g.pais);
-    pintarPanel(Boolean(g.datos), g.datos ? INTRO_CR : `Explora la nieve de ${g.nombre} (${g.pais}) con la capa del satélite MODIS de NASA.`);
+    pintarPanel();
     pintarTodo();
   }
 
@@ -239,9 +296,10 @@ export function montar(contenedor) {
     estado.elegido = 'pico';
     estado.pico = i;
     estado.cerca = true;
-    $('.dialogo').textContent = `Explora ${p.t}. Con datos reales de NASA comprobamos que la nieve de la Cordillera Real bajó desde 2001.`;
+    estado.textoLugar = `Explora ${p.t}. Con datos reales de NASA comprobamos que la nieve de la Cordillera Real bajó desde 2001.`;
+    pintarDialogo();
     pintarEtiqueta(p.n, `${p.h} m s. n. m.`);
-    pintarPanel(true, INTRO_CR);
+    pintarPanel();
     pintarTodo();
   }
 
@@ -299,64 +357,155 @@ export function montar(contenedor) {
   bajas.addEventListener('change', ajustarCara);
   cara.addEventListener('click', () => { if (bajas.matches) (burbuja.hidden ? abrirBurbuja() : cerrarBurbuja()); });
   cara.addEventListener('keydown', (e) => { if (bajas.matches && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); abrirBurbuja(); } });
-  const tocarFuera = (e) => { if (!burbuja.hidden && !e.target.closest('.menu-guia')) cerrarBurbuja(); };
+  // Menú "Capas de datos": al lado del riel, a la altura de su botón
+  const botonCapas = $('.menu-riel [data-k="capas"]');
+  const menuCapas = $('.menu-capas');
+  function abrirCapas(abrir) {
+    menuCapas.hidden = !abrir;
+    botonCapas.setAttribute('aria-expanded', String(abrir));
+    if (!abrir) return;
+    const base = raiz.getBoundingClientRect();
+    const rb = botonCapas.getBoundingClientRect();
+    const rr = $('.menu-riel').getBoundingClientRect();
+    menuCapas.style.left = `${rr.right - base.left + 10}px`;
+    menuCapas.style.top = `${Math.max(8, Math.min(rb.top - base.top + rb.height / 2 - menuCapas.offsetHeight / 2, base.height - menuCapas.offsetHeight - 8))}px`;
+    (menuCapas.querySelector('[aria-checked="true"]') ?? menuCapas.querySelector('button')).focus();
+  }
+  menuCapas.addEventListener('click', (e) => {
+    const b = e.target.closest('[role="menuitemradio"]'); if (!b) return;
+    elegirCapa(b.dataset.capa || null);
+    abrirCapas(false);
+    botonCapas.focus();
+  });
+  menuCapas.addEventListener('keydown', (e) => {
+    const items = [...menuCapas.querySelectorAll('button')];
+    const i = items.indexOf(document.activeElement);
+    if (e.key === 'Escape') { abrirCapas(false); botonCapas.focus(); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); items[(i + items.length - 1) % items.length].focus(); }
+  });
+
+  // Pide la capa al globo; si NASA no responde, el globo queda como estaba y el panel lo dice
+  function pedirCapa(capa, fecha) {
+    $('.aviso-capa').hidden = true;
+    if (!globo?.mostrarCapa) { $('.aviso-capa').hidden = !capa; return; } // planeta de la maqueta: no hay capas
+    globo.mostrarCapa(capa, fecha).then((r) => {
+      if (vivo && !r.ok && r.motivo === 'sin-respuesta') $('.aviso-capa').hidden = false;
+    });
+  }
+
+  function elegirCapa(capa) {
+    estado.capa = capa;
+    estado.variable = CAPAS_MENU.find((c) => c.capa === capa).variable;
+    estado.fecha = '';
+    menuCapas.querySelectorAll('[data-capa]').forEach((b) => b.setAttribute('aria-checked', String((b.dataset.capa || null) === capa)));
+    pedirCapa(capa);
+    pintarPanel();
+    pintarDialogo();
+    pintarFechas();
+  }
+
+  // Fecha de la capa de nieve: la más reciente, o el mismo día (diaComparar) de 2001 y de 2025
+  const [mesC, diaC] = principal.diaComparar.split('-').map(Number);
+  const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  raiz.querySelectorAll('.menu-fechas [data-fecha]').forEach((b) => {
+    if (b.dataset.fecha) b.textContent = `${diaC} ${MESES[mesC - 1]} ${b.dataset.fecha}`;
+    b.addEventListener('click', () => {
+      estado.fecha = b.dataset.fecha ? `${b.dataset.fecha}-${principal.diaComparar}` : '';
+      pintarFechas();
+      pedirCapa('nieve', estado.fecha || undefined);
+    });
+  });
+  function pintarFechas() {
+    const visible = estado.capa === 'nieve';
+    $('.menu-fechas').hidden = !visible;
+    raiz.classList.toggle('con-fechas', visible);
+    raiz.querySelectorAll('.menu-fechas [data-fecha]').forEach((b) => {
+      const f = b.dataset.fecha ? `${b.dataset.fecha}-${principal.diaComparar}` : '';
+      b.setAttribute('aria-pressed', String(f === estado.fecha));
+    });
+  }
+
+  const tocarFuera = (e) => {
+    if (!burbuja.hidden && !e.target.closest('.menu-guia')) cerrarBurbuja();
+    if (!menuCapas.hidden && !e.target.closest('.menu-capas') && !e.target.closest('[data-k="capas"]')) abrirCapas(false);
+  };
   document.addEventListener('pointerdown', tocarFuera);
   quitarAlSalir = () => { document.removeEventListener('pointerdown', tocarFuera); bajas.removeEventListener('change', ajustarCara); clearTimeout(cierre); };
 
-  // Al empezar: nuestro caso, la Cordillera Real, con el planeta completo
-  $('.dialogo').textContent = principal.texto;
+  // Al empezar: nuestro caso, la Cordillera Real, con el planeta completo y la capa de nieve
+  pintarDialogo();
   pintarEtiqueta(principal.nombre, principal.pais);
   pintarTodo();
+  pintarFechas();
 
-  // Panel con datos reales
-  cargarRegion('cordillera-real').then((region) => {
-    if (!vivo) return;
-    const v = region.variables.nieve;
-    const anios = v.anios, nieve = v.anual, n = nieve.length;
-    const promedio = (a, b) => { const s = anios.map((x, i) => (x >= a && x <= b ? nieve[i] : null)).filter((x) => x !== null); return s.reduce((t, x) => t + x, 0) / s.length; };
-    const pintarPeriodo = () => {
-      const per = PERIODOS[estado.periodo];
-      const cambio = (promedio(per[2], per[3]) - promedio(per[0], per[1])) / promedio(per[0], per[1]) * 100;
-      $('.cambio-valor').textContent = `${cambio < 0 ? '↓ −' : '↑ +'}${fmt(Math.abs(cambio), 0)} %`;
-      $('.anio-antes').textContent = `${per[0]}–${String(per[1]).slice(2)}`;
-      $('.anio-despues').textContent = `${per[2]}–${String(per[3]).slice(2)}`;
-    };
-    $('#menu-periodo').addEventListener('change', (e) => { estado.periodo = Number(e.target.value); pintarPeriodo(); });
-    pintarPeriodo();
+  // Panel con datos reales (cordillera-real.json)
+  $('#menu-periodo').addEventListener('change', (e) => { estado.periodo = Number(e.target.value); if (region) pintarVariable(); });
 
-    const iMin = nieve.indexOf(Math.min(...nieve));
+  function pintarVariable() {
+    const V = VARIABLES[estado.variable];
+    const v = region.variables[estado.variable];
+    const anios = v.anios, valores = v.anual, n = valores.length;
+    const ultimo = anios[n - 1];
+    const lluvia = estado.variable === 'lluvia';
     const real = v.veredicto === 'real';
+
+    // Cambio entre periodos (el segundo periodo llega hasta el último año con datos)
+    const promedio = (a, b) => { const s = anios.map((x, i) => (x >= a && x <= b ? valores[i] : null)).filter((x) => x !== null); return s.reduce((t, x) => t + x, 0) / s.length; };
+    const periodo = (p) => [p[0], p[1], p[2], Math.min(p[3], ultimo)];
+    const etiquetaPer = (p) => `${p[0]}–${String(p[1]).slice(2)} / ${p[2]}–${String(p[3]).slice(2)}`;
+    [...$('#menu-periodo').options].forEach((o, i) => { o.textContent = etiquetaPer(periodo(PERIODOS[i])); });
+    const per = periodo(PERIODOS[estado.periodo]);
+    const cambio = (promedio(per[2], per[3]) - promedio(per[0], per[1])) / promedio(per[0], per[1]) * 100;
+    $('.cambio-valor').textContent = `${cambio < 0 ? '↓ −' : '↑ +'}${fmt(Math.abs(cambio), 0)} %`;
+    $('.cambio-etiqueta').textContent = V.cambio;
+    $('.cambio').classList.toggle('duda', !real); // sin tendencia real: amarillo, no rojo
+    $('.anio-antes').textContent = `${per[0]}–${String(per[1]).slice(2)}`;
+    $('.anio-despues').textContent = `${per[2]}–${String(per[3]).slice(2)}`;
+    $('.ilustrativas').hidden = lluvia; // las fotos ilustrativas son de nieve
+
+    // Tarjetas
+    const iMin = valores.indexOf(Math.min(...valores));
     $('.tarjetas').innerHTML = [
-      ['❄', `Índice de nieve ${anios[n - 1]}`, `${fmt(nieve[n - 1], 2)} / 100`, ''],
-      ['▲', 'Año con menos nieve', String(anios[iMin]), ''],
-      ['↘', 'Cambio por década', fmt(v.tendencia_por_decada, 2), ''],
-      ['✓', 'Tendencia', `${real ? 'Real' : 'Todavía no se sabe'} · p = ${fmt(v.p, 2)}`, ' alerta']
+      lluvia ? ['☂', `Lluvia ${ultimo}`, `${fmt(valores[n - 1], 0)} mm por año`, ''] : ['❄', `Índice de nieve ${ultimo}`, `${fmt(valores[n - 1], 2)} / 100`, ''],
+      ['▲', lluvia ? 'Año con menos lluvia' : 'Año con menos nieve', String(anios[iMin]), ''],
+      ['↘', 'Cambio por década', lluvia ? `${fmt(v.tendencia_por_decada, 1)} mm por año` : fmt(v.tendencia_por_decada, 2), ''],
+      [real ? '✓' : '?', 'Tendencia', `${real ? 'Real' : 'Todavía no se sabe'} · p = ${fmt(v.p, 2)}`, real ? ' alerta' : ' duda']
     ].map(([ic, et, val, cl]) => `<div class="tarjeta${cl}"><span class="icono" aria-hidden="true">${ic}</span><span class="texto"><span>${et}</span><b>${val}</b></span></div>`).join('');
 
-    // Gráfico: 25 valores anuales + línea de tendencia (pendiente real por década)
-    const min = 1.2, max = 3.0;
+    // Gráfico: valores anuales + línea de tendencia (pendiente real por década)
+    const [min, max] = V.escala ?? [Math.min(...valores) * 0.95, Math.max(...valores) * 1.05];
     const X = (i) => 12 + i * (284 / (n - 1));
     const Y = (x) => 96 - (x - min) / (max - min) * 84;
-    const linea = nieve.map((x, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(x).toFixed(1)}`).join(' ');
+    const linea = valores.map((x, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(x).toFixed(1)}`).join(' ');
     const pend = v.tendencia_por_decada / 10;
-    const med = [...nieve].sort((a, b) => a - b)[Math.floor(n / 2)];
+    const med = [...valores].sort((a, b) => a - b)[Math.floor(n / 2)];
     const mitad = (n - 1) / 2;
-    $('.rango').textContent = `${anios[0]}–${anios[n - 1]}`;
+    $('.titulo-graf').textContent = V.grafico;
+    $('.fuente-graf').textContent = V.fuente;
+    $('.rango').textContent = `${anios[0]}–${ultimo}`;
     const svg = $('.grafico svg');
-    svg.setAttribute('aria-label', `Índice de nieve de la Cordillera Real de ${anios[0]} a ${anios[n - 1]}: empieza en ${fmt(nieve[0], 2)} y termina en ${fmt(nieve[n - 1], 2)}, con tendencia a la baja.`);
+    const que = lluvia ? 'Lluvia por año' : 'Índice de nieve';
+    svg.setAttribute('aria-label', `${que} de la Cordillera Real de ${anios[0]} a ${ultimo}: empieza en ${fmt(valores[0], V.decimales)} y termina en ${fmt(valores[n - 1], V.decimales)}, ${real ? 'con tendencia a la baja' : 'sin una tendencia segura todavía'}.`);
     svg.innerHTML = `
-      <defs><linearGradient id="menuArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5BA0FF" stop-opacity=".55"/><stop offset="1" stop-color="#5BA0FF" stop-opacity="0"/></linearGradient></defs>
+      <defs><linearGradient id="menuArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${V.area}" stop-opacity=".55"/><stop offset="1" stop-color="${V.area}" stop-opacity="0"/></linearGradient></defs>
       <line x1="12" y1="96" x2="296" y2="96" stroke="rgba(242,244,248,.4)"/>
       <line x1="12" y1="10" x2="12" y2="96" stroke="rgba(242,244,248,.4)"/>
       <path d="${linea} L296 96 L12 96 Z" fill="url(#menuArea)"/>
-      <path class="linea-graf" d="${linea}" fill="none" stroke="#8FDBFF" stroke-width="1.8" stroke-linejoin="round"/>
+      <path class="linea-graf" d="${linea}" fill="none" stroke="${V.color}" stroke-width="1.8" stroke-linejoin="round"/>
       <path d="M12 ${Y(med - pend * mitad).toFixed(1)} L296 ${Y(med + pend * mitad).toFixed(1)}" fill="none" stroke="#F9C80E" stroke-width="2.2" stroke-dasharray="5 4" stroke-linecap="round"/>
-      <circle cx="12" cy="${Y(nieve[0]).toFixed(1)}" r="3.4" fill="#8FDBFF"/>
-      <circle cx="296" cy="${Y(nieve[n - 1]).toFixed(1)}" r="4.6" fill="#0B192E" stroke="#D12021" stroke-width="2.4"/>
-      <text x="16" y="${(Y(nieve[0]) - 5).toFixed(1)}" fill="#F2F4F8" font-size="10" font-weight="700" font-family="Inter, sans-serif">${fmt(nieve[0], 2)}</text>
-      <text x="292" y="${(Y(nieve[n - 1]) - 9).toFixed(1)}" fill="#F2F4F8" font-size="10" font-weight="700" text-anchor="end" font-family="Inter, sans-serif">${fmt(nieve[n - 1], 2)}</text>
+      <circle cx="12" cy="${Y(valores[0]).toFixed(1)}" r="3.4" fill="${V.color}"/>
+      <circle cx="296" cy="${Y(valores[n - 1]).toFixed(1)}" r="4.6" fill="#0B192E" stroke="#D12021" stroke-width="2.4"/>
+      <text x="16" y="${(Y(valores[0]) - 5).toFixed(1)}" fill="#F2F4F8" font-size="10" font-weight="700" font-family="Inter, sans-serif">${fmt(valores[0], V.decimales)}</text>
+      <text x="292" y="${(Y(valores[n - 1]) - 9).toFixed(1)}" fill="#F2F4F8" font-size="10" font-weight="700" text-anchor="end" font-family="Inter, sans-serif">${fmt(valores[n - 1], V.decimales)}</text>
       <text x="12" y="108" fill="#A9B4CC" font-size="9" font-family="Inter, sans-serif">${anios[0]}</text>
-      <text x="296" y="108" fill="#A9B4CC" font-size="9" text-anchor="end" font-family="Inter, sans-serif">${anios[n - 1]}</text>`;
+      <text x="296" y="108" fill="#A9B4CC" font-size="9" text-anchor="end" font-family="Inter, sans-serif">${ultimo}</text>`;
+  }
+
+  cargarRegion('cordillera-real').then((datos) => {
+    if (!vivo) return;
+    region = datos;
+    pintarPanel();
   }).catch((e) => {
     console.warn('APU: no se pudieron leer los datos de la Cordillera Real.', e);
     $('.tarjetas').innerHTML = '<p class="nota">No se pudieron cargar los datos. Revisa que exista public/datos/cordillera-real.json.</p>';
