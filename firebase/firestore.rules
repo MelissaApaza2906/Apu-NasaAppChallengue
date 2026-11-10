@@ -1,15 +1,17 @@
 rules_version = '2';
 // Cada usuario solo puede leer, escribir y borrar SU propio documento.
-// Además se valida qué datos se guardan (solo apodo y progreso).
+// Además se valida qué datos se guardan (solo apodo, avatar y progreso).
 service cloud.firestore {
   match /databases/{database}/documents {
     match /usuarios/{uid} {
       allow read, delete: if request.auth != null && request.auth.uid == uid;
       allow create, update: if request.auth != null && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['apodo', 'lecciones', 'casos', 'insignias', 'actualizado'])
+        && request.resource.data.keys().hasOnly(['apodo', 'avatar', 'lecciones', 'casos', 'insignias', 'actualizado'])
         && request.resource.data.apodo is string
         && request.resource.data.apodo.size() >= 2
         && request.resource.data.apodo.size() <= 20
+        && (!('avatar' in request.resource.data)
+            || (request.resource.data.avatar is string && request.resource.data.avatar.size() <= 20))
         && request.resource.data.lecciones is list && request.resource.data.lecciones.size() <= 5
         && request.resource.data.casos is list && request.resource.data.casos.size() <= 3
         && request.resource.data.insignias is list && request.resource.data.insignias.size() <= 4;

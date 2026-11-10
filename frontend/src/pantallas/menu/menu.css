@@ -82,6 +82,8 @@
 .menu-riel .redondo.actual { border: 2.5px solid var(--rojo-apu); background: rgba(209, 32, 33, .16); box-shadow: 0 0 1.8cqh rgba(209, 32, 33, .6); }
 .menu-riel .redondo:not(.actual):hover { background: rgba(31, 65, 108, .9); box-shadow: 0 0 1.6cqh rgba(242, 244, 248, .3); }
 .menu-riel .redondo:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
+/* "Mi expediente" con el avatar elegido: su cara en un círculo de 36 px */
+.menu-riel .redondo.con-avatar img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; display: block; }
 
 /* Botón flotante de capas (52 px, 3 rombos) y su menú, que se abre debajo */
 .menu-capas-caja { position: relative; }

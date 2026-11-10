@@ -8,3 +8,22 @@
 .acceso .fila { display: flex; gap: 1cqh; flex-wrap: wrap; }
 .acceso .error { margin: 0; min-height: 1.2em; color: #FF8A8A; font-size: 14px; }
 .acceso details summary { cursor: pointer; color: var(--nieve-sombra); }
+
+/* Tu avatar de detective: grilla 3 × 2 de caras en círculo; el elegido con borde rojo y brillo */
+.acceso .avatares { margin: 0; padding: 0; border: none; display: flex; flex-direction: column; gap: 1cqh; }
+.acceso .avatares legend { padding: 0; margin-bottom: 1cqh; font: 400 clamp(11px, 1.7cqh, 14px) var(--letra-titulo); letter-spacing: .12em; }
+.grilla-avatares { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.4cqh 1cqh; justify-items: center; }
+.acceso .avatar { min-width: 44px; min-height: 44px; padding: 4px; display: flex; flex-direction: column; align-items: center; gap: .6cqh; border: none; border-radius: 14px; background: transparent; color: var(--nieve); cursor: pointer; font: 500 13px var(--letra-texto); -webkit-tap-highlight-color: transparent; }
+.acceso .avatar img { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; display: block; border: 3px solid rgba(242, 244, 248, .35); background: rgba(8, 18, 48, .8); transition: border-color .15s, box-shadow .2s, transform .15s; }
+.acceso .avatar:hover img { border-color: rgba(242, 244, 248, .85); }
+.acceso .avatar[aria-checked="true"] img { border-color: #D12021; box-shadow: 0 0 0 3px rgba(209, 32, 33, .35), 0 0 18px rgba(209, 32, 33, .75); transform: scale(1.04); }
+.acceso .avatar[aria-checked="true"] span { color: #FF8A8A; font-weight: 700; }
+.acceso .avatar:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
+.acceso .btn-apu:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-height: 500px) {
+  .acceso .avatar img { width: 64px; height: 64px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .acceso .avatar img { transition: none; }
+  .acceso .avatar[aria-checked="true"] img { transform: none; }
+}

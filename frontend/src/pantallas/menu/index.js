@@ -14,6 +14,8 @@ import { ir } from '../../router.js';
 import { cargarRegion } from '../../servicios/datos.js';
 import { GLACIARES, historiaDe } from '../../contenido/glaciares.js';
 import { abrirMontana } from './montanas-puente.js';
+import { leerProgreso } from '../../servicios/progreso.js';
+import { avatarPorId } from '../../contenido/avatares.js';
 
 const AVISO_CAPA = 'No se pudo cargar la capa de NASA. El planeta sigue con la imagen normal.';
 const SIN_GLACIAR = 'Toca un glaciar para conocer su historia. ¡Empieza por el rojo, el de Bolivia!';
@@ -366,6 +368,16 @@ export function montar(contenedor) {
   };
 
   avisarNube();
+
+  // "Mi expediente" del riel: la cara del avatar elegido en el registro (si no hay, el ícono)
+  leerProgreso().then((p) => {
+    const a = avatarPorId(p.avatar);
+    if (!vivo || !a) return;
+    const boton = $('.menu-riel [data-k="perfil"]');
+    boton.classList.add('con-avatar');
+    boton.innerHTML = `<img src="${a.cara}" alt="" width="36" height="36">`;
+    boton.title = `Mi expediente (${a.nombre})`;
+  }).catch(() => {});
 
   // Datos de NASA de la Cordillera Real (los usa la vista de la montaña)
   cargarRegion('cordillera-real').then((datos) => {

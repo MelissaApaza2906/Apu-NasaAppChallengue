@@ -20,10 +20,11 @@ export function escucharSesion() {
   onAuthStateChanged(auth, (u) => { usuario = u; avisarLista(); oyentes.forEach((fn) => fn(u)); });
 }
 
-export async function entrarComoInvitado(apodo) {
-  if (!auth) return usuario;
+// avatar: id de contenido/avatares.js
+export async function entrarComoInvitado(apodo, avatar) {
+  if (!auth) { await guardarPerfil({ apodo, avatar }); return usuario; } // sin Firebase: queda en el navegador
   const { user } = await signInAnonymously(auth);
-  await guardarPerfil({ apodo });
+  await guardarPerfil({ apodo, avatar });
   return user;
 }
 
@@ -34,9 +35,9 @@ export async function entrarConGoogle() {
   return (await signInWithPopup(auth, proveedor)).user;
 }
 
-export async function registrarConCorreo(correo, clave, apodo) {
+export async function registrarConCorreo(correo, clave, apodo, avatar) {
   const { user } = await createUserWithEmailAndPassword(auth, correo, clave);
-  await guardarPerfil({ apodo });
+  await guardarPerfil({ apodo, avatar });
   return user;
 }
 

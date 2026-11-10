@@ -5,7 +5,7 @@ import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firest
 import { auth, db } from './firebase.js';
 
 const CLAVE_LOCAL = 'apu-progreso';
-const VACIO = { apodo: '', lecciones: [], casos: [], insignias: [] };
+const VACIO = { apodo: '', avatar: '', lecciones: [], casos: [], insignias: [] };
 
 function leerLocal() {
   try { return { ...VACIO, ...JSON.parse(localStorage.getItem(CLAVE_LOCAL) || '{}') }; } catch { return { ...VACIO }; }
@@ -40,6 +40,7 @@ async function guardar(cambios) {
   try {
     await setDoc(ref, {
       apodo: String(datos.apodo || 'Detective').slice(0, 20),
+      avatar: String(datos.avatar || '').slice(0, 20), // id de contenido/avatares.js
       lecciones: datos.lecciones.slice(0, 5),
       casos: datos.casos.slice(0, 3),
       insignias: datos.insignias.slice(0, 4),
@@ -51,7 +52,13 @@ async function guardar(cambios) {
   return datos;
 }
 
-export function guardarPerfil({ apodo }) { return guardar({ apodo }); }
+// Apodo y avatar (id de contenido/avatares.js); solo cambia lo que se pasa
+export function guardarPerfil({ apodo, avatar } = {}) {
+  const cambios = {};
+  if (apodo !== undefined) cambios.apodo = apodo;
+  if (avatar !== undefined) cambios.avatar = avatar;
+  return guardar(cambios);
+}
 
 export async function completarLeccion(id) {
   const p = leerLocal();
