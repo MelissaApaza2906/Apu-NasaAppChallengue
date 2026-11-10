@@ -10,6 +10,7 @@
 //   globo.verPlaneta();                  // vuelve al planeta completo y sigue girando
 //   await globo.mostrarCapa('lluvia');   // capa de NASA encima ('nieve' | 'lluvia' | null), fecha opcional
 //   globo.destruir();                    // al salir de la pantalla
+//   globo.viewer                         // el Cesium.Viewer (reutilízalo; null si se ve la imagen)
 //
 // Capas de NASA: Blue Marble (base) + nieve MODIS del día más reciente con datos (en blanco)
 // + luces de las ciudades en la parte de noche.
@@ -151,6 +152,7 @@ export function crearGlobo(contenedor, opciones = {}) {
 
   // API cuando no hay globo 3D (imagen de respaldo): elegir un glaciar igual avisa al menú
   const apiSinGlobo = () => ({
+    viewer: null, // sin globo 3D no hay visor de Cesium
     irA() {}, elegirPico() {}, verPlaneta() {}, estado: () => ({ modo: 'imagen' }),
     mostrarCapa: async () => ({ ok: false, motivo: 'sin-globo' }),
     elegirGlaciar(id) { const g = glaciares.find((x) => x.id === id); if (g) op.alElegir?.(g); },
@@ -843,5 +845,9 @@ export function crearGlobo(contenedor, opciones = {}) {
     };
   }
 
-  return { irA, elegirGlaciar, elegirPico, verPlaneta, mostrarCapa, destruir, estado };
+  return {
+    irA, elegirGlaciar, elegirPico, verPlaneta, mostrarCapa, destruir, estado,
+    // El Cesium.Viewer del globo, para reutilizarlo (no crear otro visor). null si pasó a imagen.
+    get viewer() { return viewer; }
+  };
 }
