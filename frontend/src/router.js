@@ -11,7 +11,8 @@ const RUTAS = {
   'casos':     { carga: () => import('./pantallas/casos/index.js'),     sesion: true },
   'caso':      { carga: () => import('./pantallas/caso/index.js'),      sesion: true },
   'insignias': { carga: () => import('./pantallas/insignias/index.js'), sesion: true },
-  'ajustes':   { carga: () => import('./pantallas/ajustes/index.js'),   sesion: true }
+  'ajustes':   { carga: () => import('./pantallas/ajustes/index.js'),   sesion: true },
+  'prueba-globo': { carga: () => import('./pantallas/prueba-globo/index.js'), sesion: false }
 };
 
 let actual = null;

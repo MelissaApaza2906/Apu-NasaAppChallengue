@@ -1,0 +1,90 @@
+/* Globo 3D: llena su contenedor, fondo transparente */
+.globo3d {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  container-type: size;
+  --globo-tamano: 70cqh;      /* debe coincidir con la opción `tamano` de crearGlobo */
+}
+
+/* Halo + planeta flotan juntos: suben y bajan 1.2cqh cada 5 s */
+.globo3d-flotante {
+  position: absolute;
+  inset: 0;
+  animation: globo-flotar 5s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes globo-flotar {
+  0%, 100% { transform: translateY(0.6cqh); }
+  50%      { transform: translateY(-0.6cqh); }
+}
+
+/* Halo azul suave ENCIMA del canvas: con "screen" solo aclara, nunca tapa.
+   El planeta ocupa el 64,5 % del radio del halo (1 / 1.55): el centro queda
+   transparente y el brillo empieza justo en el borde. */
+.globo3d-halo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--globo-tamano) * 1.55);
+  aspect-ratio: 1;
+  margin: calc(var(--globo-tamano) * -0.775) 0 0 calc(var(--globo-tamano) * -0.775);
+  border-radius: 50%;
+  background: radial-gradient(circle closest-side,
+    transparent 0%,
+    transparent 56%,
+    color-mix(in srgb, var(--dato-nieve) 30%, transparent) 64%,
+    color-mix(in srgb, var(--horizonte) 45%, transparent) 70%,
+    color-mix(in srgb, var(--horizonte) 16%, transparent) 84%,
+    transparent 100%);
+  filter: blur(6px);
+  mix-blend-mode: screen;
+  animation: globo-respirar 6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes globo-respirar {
+  0%, 100% { transform: scale(1);    opacity: 0.85; }
+  50%      { transform: scale(1.03); opacity: 1; }
+}
+
+.globo3d-lienzo,
+.globo3d-lienzo .cesium-viewer,
+.globo3d-lienzo .cesium-widget,
+.globo3d-lienzo canvas {
+  width: 100%;
+  height: 100%;
+  background: var(--noche);
+}
+.globo3d-lienzo { position: absolute; inset: 0; }
+.globo3d-lienzo canvas { cursor: grab; touch-action: none; }
+.globo3d-lienzo canvas:active { cursor: grabbing; }
+
+.globo3d-credito {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  margin: 0;
+  font: 500 10px/1.2 var(--letra-texto);
+  letter-spacing: 0.02em;
+  color: var(--nieve-sombra);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+/* Plan B: imagen del planeta del mismo tamaño y en el mismo lugar */
+.globo3d-imagen {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--globo-tamano);
+  height: var(--globo-tamano);
+  object-fit: contain;
+  transform: translate(-50%, -50%);
+  user-select: none;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .globo3d-flotante,
+  .globo3d-halo { animation: none; }
+}

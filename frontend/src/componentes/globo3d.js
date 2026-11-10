@@ -1,340 +1,309 @@
-// PROTOTIPO del globo 3D (Melissa). Funciona con los elementos de la pantalla de menú:
-// falta convertirlo en una función crearGlobo(contenedor) que use pantallas/menu.
+// Globo 3D de APU (CesiumJS) con imágenes reales de NASA GIBS.
+//
+//   const globo = crearGlobo(contenedor, { lat: -15, lon: -65, altura: 20_000_000 });
+//   globo.irA(-16.5, -68.15, 300_000);   // vuela a un punto (grados, metros)
+//   globo.destruir();                    // al salir de la pantalla
+//
+// El globo llena su contenedor sobre un fondo opaco igual a var(--noche)
+// (un canvas transparente deja una línea oscura en el borde del planeta).
+// Si no hay WebGL o NASA no responde, muestra /img/planeta.webp en su lugar.
 import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
-// APU · globo 3D de los glaciares del mundo, con datos reales de NASA
-import { CESIUM_TOKEN, EXAGERACION, DIAS_ATRAS_FOTO, DIAS_ATRAS_NIEVE } from '../servicios/config.js';
-import { GLACIARES } from '../contenido/glaciares.js';
-import { CAPAS, proveedor, haceDias, fechaBonita, nasaResponde } from '../servicios/nasa-gibs.js';
-import { imagenBrillo } from './brillo.js';
-import { AnimadorNieve } from './animador-nieve.js';
-import { graficoAnual, barraComparaciones } from './grafico.js';
+import './globo3d.css';
+import { CESIUM_TOKEN, EXAGERACION } from '../servicios/config.js';
+import { CAPAS, proveedor, nasaResponde } from '../servicios/nasa-gibs.js';
 
-const $ = (id) => document.getElementById(id);
-const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+const POR_DEFECTO = {
+  lat: -15,                 // centrado en Sudamérica
+  lon: -65,
+  altura: null,             // metros; null = se calcula para que el planeta mida `tamano`
+  tamano: 0.70,             // alto del planeta / alto del contenedor (≈ 70cqh)
+  rotar: true,
+  velocidad: 0.04,          // radianes por segundo (≈ una vuelta cada 2,6 min)
+  alturaMinimaGiro: 5_000_000, // cerca del suelo no gira (después de irA)
+  esperaTrasArrastre: 4000  // ms hasta que vuelve a girar
+};
 
-// =====================================================================
-// 1. El globo realista
-// =====================================================================
-if (CESIUM_TOKEN) Cesium.Ion.defaultAccessToken = CESIUM_TOKEN;
+const RADIO_TIERRA = 6_378_137;
 
-const viewer = new Cesium.Viewer('globo', {
-  baseLayer: new Cesium.ImageryLayer(proveedor(CAPAS.marmolAzul)),
-  terrain: CESIUM_TOKEN ? Cesium.Terrain.fromWorldTerrain() : undefined,
-  animation: false, timeline: false, baseLayerPicker: false, geocoder: false,
-  homeButton: false, sceneModePicker: false, navigationHelpButton: false,
-  fullscreenButton: false, infoBox: false, selectionIndicator: false
-});
+// Luz "pegada" a la cámara: viene de arriba a la izquierda y por delante,
+// así lo que se mira queda iluminado y el borde derecho en penumbra.
+const LUZ = { derecha: 0.62, abajo: 0.22, adelante: 0.75 };
 
-const escena = viewer.scene;
-const globo = escena.globe;
-globo.enableLighting = true;          // día y noche según la hora real
-globo.showGroundAtmosphere = true;
-escena.skyAtmosphere.show = true;
-escena.fog.enabled = true;
-escena.verticalExaggeration = EXAGERACION;
-globo.maximumScreenSpaceError = 1.5;  // más detalle en las montañas
-
-// Luces de las ciudades: solo se ven en el lado de noche
-const luces = viewer.imageryLayers.addImageryProvider(proveedor(CAPAS.lucesNoche));
-luces.dayAlpha = 0.0;
-luces.nightAlpha = 0.9;
-luces.brightness = 1.4;
-
-const VISTA_INICIO = Cesium.Cartesian3.fromDegrees(-65, -15, 20000000);
-viewer.camera.setView({ destination: VISTA_INICIO });
-
-const animador = new AnimadorNieve(viewer, { opacidad: 0.92, capaEncima: luces });
-let capaFoto = null;
-
-// =====================================================================
-// 2. Fechas
-// =====================================================================
-const ULTIMA_NIEVE = haceDias(DIAS_ATRAS_NIEVE);     // NASA publica con unos días de retraso
-const ANIO_MAX = Number(ULTIMA_NIEVE.slice(0, 4));
-const limitar = (f) => (f > ULTIMA_NIEVE ? ULTIMA_NIEVE : f);
-
-function sumarDias(iso, n) {
-  const d = new Date(iso + 'T00:00:00Z');
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-
-// Fecha que se muestra al mover la barra de años:
-// sobre un glaciar, su día de comparación; en el globo entero, el mismo día de hoy.
-function fechaDelAnio(anio) {
-  const dia = glaciarSel ? glaciarSel.diaComparar : ULTIMA_NIEVE.slice(5);
-  return limitar(`${anio}-${dia}`);
-}
-
-function mostrarFecha(texto, capa, cargando = false) {
-  $('fechaGrande').hidden = false;
-  $('fechaGrande').classList.toggle('cargando', cargando);
-  $('fechaTexto').textContent = texto;
-  $('fechaCapa').textContent = capa;
-}
-
-// =====================================================================
-// 3. Modos: Tierra · Foto de hoy · Nieve
-// =====================================================================
-let modo = 'realista';
-let glaciarSel = null;
-let animacion = 0;            // cada animación tiene un número; si cambia, la anterior se detiene
-
-function detenerAnimacion() {
-  animacion++;
-  ponerIconoPlay(false);
-}
-
-async function cambiarModo(nuevo) {
-  detenerAnimacion();
-  modo = nuevo;
-  document.querySelectorAll('.chips .chip').forEach((b) => b.classList.toggle('activo', b.dataset.capa === modo));
-  $('tiempo').classList.toggle('apagado', modo !== 'nieve');
-  $('comparar').hidden = !(modo === 'nieve' && glaciarSel);
-
-  if (capaFoto) { viewer.imageryLayers.remove(capaFoto, true); capaFoto = null; }
-  if (modo !== 'nieve') animador.ocultar();
-
-  if (modo === 'realista') {
-    $('fechaGrande').hidden = true;
-  }
-  if (modo === 'hoy') {
-    const f = haceDias(DIAS_ATRAS_FOTO);
-    capaFoto = viewer.imageryLayers.addImageryProvider(proveedor(CAPAS.fotoDia, f));
-    viewer.imageryLayers.raiseToTop(luces);
-    mostrarFecha(fechaBonita(f), 'FOTO REAL · SATÉLITE TERRA (NASA)');
-    decir('Esta es la foto real que tomó el satélite Terra de NASA. Las manchas blancas pueden ser nieve o nubes: con la capa "Nieve" las distinguimos.');
-  }
-  if (modo === 'nieve') {
-    await verNieve(fechaDelAnio(Number($('anio').value)));
-    decir(glaciarSel
-      ? 'Mueve los años o toca "Comparar años": verás el mismo día de cada año, de 2001 a hoy.'
-      : 'Esta es la nieve que midió NASA. Dale play para ver cómo se mueve durante todo el año.');
-  }
-}
-
-async function verNieve(fecha) {
-  mostrarFecha(fechaBonita(fecha), 'NIEVE · MODIS (NASA)', true);
-  await animador.mostrar(fecha);
-  mostrarFecha(fechaBonita(fecha), 'NIEVE · MODIS (NASA)', false);
-}
-
-document.querySelectorAll('.chips .chip').forEach((b) => b.addEventListener('click', () => cambiarModo(b.dataset.capa)));
-
-// =====================================================================
-// 4. Animaciones de la nieve
-// =====================================================================
-// a) Play: la nieve semana a semana durante el año elegido (como el video de NASA)
-async function animarAnio() {
-  const yo = ++animacion;
-  ponerIconoPlay(true);
-  const anio = Number($('anio').value);
-  let f = `${anio}-01-01`;
-  const fin = limitar(`${anio}-12-31`);
-  while (f <= fin && yo === animacion) {
-    await verNieve(f);
-    await esperar(250);
-    f = sumarDias(f, 7);
-  }
-  if (yo === animacion) ponerIconoPlay(false);
-}
-
-// b) Comparar años: el mismo día de cada año, de 2001 a hoy
-async function compararAnios() {
-  const yo = ++animacion;
-  ponerIconoPlay(true);
-  decir('Mira el mismo día de cada año. ¿La nieve se mantiene o se achica? Después lo comprobamos con los números.');
-  for (let anio = 2001; anio <= ANIO_MAX && yo === animacion; anio++) {
-    $('anio').value = anio;
-    $('anioTexto').textContent = anio;
-    await verNieve(fechaDelAnio(anio));
-    await esperar(700);
-  }
-  if (yo === animacion) {
-    ponerIconoPlay(false);
-    if (glaciarSel) decir('Eso es lo que se ve. En el panel tienes lo que dicen los números de 25 años de NASA.');
-  }
-}
-
-$('play').addEventListener('click', () => {
-  if ($('play').dataset.andando === 'si') { detenerAnimacion(); return; }
-  if (modo !== 'nieve') cambiarModo('nieve').then(animarAnio);
-  else animarAnio();
-});
-$('comparar').addEventListener('click', compararAnios);
-
-function ponerIconoPlay(andando) {
-  const b = $('play');
-  b.dataset.andando = andando ? 'si' : 'no';
-  b.setAttribute('aria-label', andando ? 'Pausar la animación' : 'Animar la nieve de todo el año');
-  b.innerHTML = andando
-    ? '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>'
-    : '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
-}
-
-// Barra de años
-const anioInput = $('anio');
-anioInput.max = String(ANIO_MAX);
-anioInput.value = String(ANIO_MAX);
-$('anioTexto').textContent = ANIO_MAX;
-anioInput.addEventListener('input', () => { $('anioTexto').textContent = anioInput.value; });
-anioInput.addEventListener('change', () => {
-  detenerAnimacion();
-  if (modo === 'nieve') verNieve(fechaDelAnio(Number(anioInput.value)));
-});
-
-// =====================================================================
-// 5. Los glaciares que brillan
-// =====================================================================
-const brilloCian = imagenBrillo('63,180,255');
-const brilloNaranja = imagenBrillo('255,138,42');
-const t0 = performance.now();
-
-GLACIARES.forEach((g, i) => viewer.entities.add({
-  id: g.id,
-  position: Cesium.Cartesian3.fromDegrees(g.lon, g.lat, 7000),
-  billboard: {
-    image: g.principal ? brilloNaranja : brilloCian,
-    scale: new Cesium.CallbackProperty(() => {
-      const t = (performance.now() - t0) / 1000;
-      return (g.principal ? 0.75 : 0.5) * (1 + 0.18 * Math.sin(t * 2.2 + i));
-    }, false),
-    scaleByDistance: new Cesium.NearFarScalar(2e5, 1.6, 2e7, 0.7),
-    disableDepthTestDistance: 3e5
-  },
-  label: {
-    text: g.nombre.toUpperCase(),
-    font: '700 15px Orbitron, sans-serif',
-    fillColor: Cesium.Color.WHITE,
-    outlineColor: Cesium.Color.fromCssColorString('#060B26'),
-    outlineWidth: 4,
-    style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-    pixelOffset: new Cesium.Cartesian2(0, -34),
-    showBackground: true,
-    backgroundColor: Cesium.Color.fromCssColorString('rgba(14,26,72,0.85)'),
-    backgroundPadding: new Cesium.Cartesian2(10, 6),
-    distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, g.principal ? 2.5e7 : 1.2e7),
-    disableDepthTestDistance: 3e5
-  }
-}));
-
-const manejador = new Cesium.ScreenSpaceEventHandler(escena.canvas);
-manejador.setInputAction((clic) => {
-  const tocado = escena.pick(clic.position);
-  if (!Cesium.defined(tocado) || !tocado.id) return;
-  const g = GLACIARES.find((x) => x.id === tocado.id.id);
-  if (g) volarA(g);
-}, Cesium.ScreenSpaceEventType.LEFT_CLICK);
-
-manejador.setInputAction((mov) => {
-  const t = escena.pick(mov.endPosition);
-  escena.canvas.style.cursor = Cesium.defined(t) && t.id ? 'pointer' : 'grab';
-}, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
-
-// =====================================================================
-// 6. Volar a un glaciar y abrir su panel
-// =====================================================================
-function volarA(g) {
-  glaciarSel = g;
-  girando = false;
-  ponerIconoGiro();
-  const c = g.caja;
-  const centro = Cesium.Cartesian3.fromDegrees((c.oeste + c.este) / 2, (c.sur + c.norte) / 2, 0);
-  const ancho = Math.max(c.este - c.oeste, c.norte - c.sur);
-  viewer.camera.flyToBoundingSphere(new Cesium.BoundingSphere(centro, ancho * 40000), {
-    offset: new Cesium.HeadingPitchRange(Cesium.Math.toRadians(20), Cesium.Math.toRadians(-28), ancho * 150000),
-    duration: 3.2
-  });
-  abrirPanel(g);
-  decir(g.texto);
-  $('comparar').hidden = modo !== 'nieve';
-  if (modo === 'nieve') { detenerAnimacion(); verNieve(fechaDelAnio(Number(anioInput.value))); }
-}
-
-$('irCordillera').addEventListener('click', () => volarA(GLACIARES[0]));
-
-$('cerrarPanel').addEventListener('click', () => {
-  $('panel').hidden = true;
-  glaciarSel = null;
-  $('comparar').hidden = true;
-  viewer.camera.flyTo({ destination: VISTA_INICIO, duration: 2.5 });
-  decir('Toca otra luz para visitar otro glaciar.');
-});
-
-async function abrirPanel(g) {
-  $('panel').hidden = false;
-  $('pNombre').textContent = g.nombre;
-  $('pPais').textContent = g.pais;
-  const caja = $('pResultados');
-
-  if (!g.datos) {
-    caja.innerHTML = '<div class="resultado"><span class="linea">Todavía no procesamos los datos de esta región. Las imágenes de NASA sí se ven en vivo en el globo.</span></div>';
-    return;
-  }
-  caja.innerHTML = '<div class="resultado"><span class="linea">Cargando resultados…</span></div>';
+function hayWebGL() {
   try {
-    const d = await (await fetch('/' + g.datos)).json();
-    const partes = [];
-    if (d.variables.nieve) partes.push(tarjeta('Nieve', d.variables.nieve, '#E6F4FF'));
-    if (d.variables.lluvia) partes.push(tarjeta('Lluvia', d.variables.lluvia, '#7FD0FF'));
-    caja.innerHTML = partes.join('');
+    const c = document.createElement('canvas');
+    return Boolean(c.getContext('webgl2') || c.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
+
+export function crearGlobo(contenedor, opciones = {}) {
+  const op = { ...POR_DEFECTO, ...opciones };
+
+  const raiz = document.createElement('div');
+  raiz.className = 'globo3d';
+  contenedor.append(raiz);
+
+  let viewer = null;
+  let destruido = false;
+  const limpiezas = [];   // funciones que deshacen listeners
+
+  // ---------------------------------------------------------------
+  // Plan B: imagen fija del planeta en la misma posición
+  // ---------------------------------------------------------------
+  function mostrarImagen(motivo) {
+    if (destruido || raiz.classList.contains('sin-3d')) return;
+    if (motivo) console.info('APU: globo 3D reemplazado por imagen —', motivo);
+    apagarViewer();
+    raiz.replaceChildren();
+    raiz.classList.add('sin-3d');
+    const img = document.createElement('img');
+    img.className = 'globo3d-imagen';
+    img.src = '/img/planeta.webp';
+    img.alt = 'El planeta Tierra visto desde el espacio';
+    const flotante = document.createElement('div');
+    flotante.className = 'globo3d-flotante';
+    flotante.append(img, crearHalo());
+    raiz.append(flotante);
+  }
+
+  function crearHalo() {
+    const halo = document.createElement('div');
+    halo.className = 'globo3d-halo';
+    halo.setAttribute('aria-hidden', 'true');
+    return halo;
+  }
+
+  function apagarViewer() {
+    limpiezas.splice(0).forEach((fn) => fn());
+    if (viewer && !viewer.isDestroyed()) viewer.destroy();
+    viewer = null;
+  }
+
+  if (!hayWebGL()) {
+    mostrarImagen('este navegador no tiene WebGL');
+    return { irA() {}, destruir: () => { destruido = true; raiz.remove(); } };
+  }
+
+  // ---------------------------------------------------------------
+  // El globo
+  // ---------------------------------------------------------------
+  if (CESIUM_TOKEN) Cesium.Ion.defaultAccessToken = CESIUM_TOKEN;
+
+  // El halo va ENCIMA del canvas (mix-blend-mode: screen); ambos flotan juntos y el crédito queda quieto
+  const flotante = document.createElement('div');
+  flotante.className = 'globo3d-flotante';
+  const lienzo = document.createElement('div');
+  lienzo.className = 'globo3d-lienzo';
+  flotante.append(lienzo, crearHalo());
+  const creditosOcultos = document.createElement('div'); // Cesium escribe aquí; no se muestra
+  const credito = document.createElement('p');
+  credito.className = 'globo3d-credito';
+  credito.textContent = 'Imágenes: NASA GIBS / Blue Marble';
+  raiz.append(flotante, credito);
+
+  // Imagen base algo más viva, como en el diseño
+  const capaBase = new Cesium.ImageryLayer(proveedor(CAPAS.marmolAzul), {
+    brightness: 1.1,
+    contrast: 1.15,
+    saturation: 1.2
+  });
+
+  try {
+    viewer = new Cesium.Viewer(lienzo, {
+      baseLayer: capaBase,
+      terrain: CESIUM_TOKEN ? Cesium.Terrain.fromWorldTerrain() : undefined,
+      animation: false, timeline: false, geocoder: false, baseLayerPicker: false,
+      homeButton: false, sceneModePicker: false, navigationHelpButton: false,
+      fullscreenButton: false, infoBox: false, selectionIndicator: false,
+      vrButton: false,
+      skyBox: false,                 // sin estrellas, sol ni luna de Cesium
+      skyAtmosphere: new Cesium.SkyAtmosphere(),
+      creditContainer: creditosOcultos,
+      contextOptions: { webgl: { alpha: false } },
+      requestRenderMode: true,
+      maximumRenderTimeChange: Infinity,
+      showRenderLoopErrors: false
+    });
   } catch (e) {
-    caja.innerHTML = '<div class="resultado"><span class="linea">No se pudo leer el archivo de datos de esta región.</span></div>';
-    console.error('APU: error leyendo', g.datos, e);
+    console.error(e);
+    mostrarImagen('Cesium no pudo iniciar WebGL');
+    return { irA() {}, destruir: () => { destruido = true; raiz.remove(); } };
   }
-}
 
-// Tarjeta de resultados de una variable, con los números reales del JSON
-function tarjeta(nombre, v, color) {
-  const real = v.veredicto === 'real';
-  const minimo = Math.min(...v.anual);
-  const anioMin = v.anios[v.anual.indexOf(minimo)];
-  const p = v.p < 0.001 ? '< 0.001' : v.p.toFixed(v.p < 0.01 ? 3 : 2);
-  const signo = v.tendencia_por_decada > 0 ? '+' : '';
-  const total = v.bajo + v.subio + (v.empate || 0);
-  return `<section class="resultado">
-    <header><h3>${nombre}</h3><span class="veredicto ${real ? 'real' : 'nose'}">${real ? 'TENDENCIA REAL' : 'TODAVÍA NO SE SABE'}</span></header>
-    ${graficoAnual(v.anios, v.anual, { color, destacar: anioMin })}
-    ${barraComparaciones(v.bajo, v.subio)}
-    <span class="linea">De <b>${total}</b> comparaciones entre años, bajó <b>${v.bajo}</b> y subió <b>${v.subio}</b>. Valor p = <b>${p}</b>${real ? ' (menor que 0.05).' : ' (mayor que 0.05).'}</span>
-    <span class="linea">Tendencia: <b>${signo}${v.tendencia_por_decada} ${v.unidad_tendencia}</b> por década. Año más bajo: <b>${anioMin}</b>.</span>
-    <span class="linea">Fuente: ${v.fuente} · ${v.anios[0]}–${v.anios[v.anios.length - 1]}</span>
-  </section>`;
-}
+  const escena = viewer.scene;
+  const globo = escena.globe;
+  const colorNoche = getComputedStyle(raiz).getPropertyValue('--noche').trim() || '#0B192E';
+  escena.backgroundColor = Cesium.Color.fromCssColorString(colorNoche);
+  if (escena.sun) escena.sun.show = false;
+  if (escena.moon) escena.moon.show = false;
+  escena.skyAtmosphere.show = true;
+  globo.showGroundAtmosphere = true;
+  globo.baseColor = Cesium.Color.fromCssColorString('#0C294D'); // mientras llegan las imágenes
+  escena.verticalExaggeration = CESIUM_TOKEN ? EXAGERACION : 1;
 
-// =====================================================================
-// 7. Giro automático
-// =====================================================================
-let girando = true;
-function ponerIconoGiro() {
-  const b = $('girar');
-  b.setAttribute('aria-label', girando ? 'Pausar el giro' : 'Girar el globo');
-  b.innerHTML = girando
-    ? '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>'
-    : '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v4h-4"/></svg>';
-}
-$('girar').addEventListener('click', () => { girando = !girando; ponerIconoGiro(); });
-manejador.setInputAction(() => { girando = false; ponerIconoGiro(); }, Cesium.ScreenSpaceEventType.LEFT_DOWN);
+  // Día y noche con un sol fijo respecto a la vista
+  globo.enableLighting = true;
+  const luz = new Cesium.DirectionalLight({ direction: new Cesium.Cartesian3(1, 0, 0), intensity: 2.2 });
+  escena.light = luz;
+  const auxLuz = new Cesium.Cartesian3();
+  const orientarLuz = () => {
+    const c = viewer.camera;
+    const d = luz.direction;
+    Cesium.Cartesian3.multiplyByScalar(c.directionWC, LUZ.adelante, d);
+    Cesium.Cartesian3.add(d, Cesium.Cartesian3.multiplyByScalar(c.rightWC, LUZ.derecha, auxLuz), d);
+    Cesium.Cartesian3.add(d, Cesium.Cartesian3.multiplyByScalar(c.upWC, -LUZ.abajo, auxLuz), d);
+    Cesium.Cartesian3.normalize(d, d);
+  };
 
-let ultimo = performance.now();
-escena.preRender.addEventListener(() => {
-  const ahora = performance.now();
-  const dt = (ahora - ultimo) / 1000;
-  ultimo = ahora;
-  if (girando && viewer.camera.positionCartographic.height > 5e6) {
-    viewer.camera.rotate(Cesium.Cartesian3.UNIT_Z, -0.05 * dt);
+  // Luces de las ciudades: solo en la parte oscura
+  const luces = viewer.imageryLayers.addImageryProvider(proveedor(CAPAS.lucesNoche));
+  luces.dayAlpha = 0;
+  luces.nightAlpha = 0.95;
+  luces.brightness = 1.4;
+
+  // Distancia de cámara para que el planeta mida op.tamano del alto del contenedor.
+  // Cesium usa el campo de visión (fov) sobre el lado mayor del canvas.
+  function alturaEncuadre() {
+    const { clientWidth: w, clientHeight: h } = escena.canvas;
+    if (!w || !h) return 20_000_000;
+    const mitad = viewer.camera.frustum.fov / 2;
+    const tanMitadVertical = w >= h ? Math.tan(mitad) * (h / w) : Math.tan(mitad);
+    const angulo = Math.atan(op.tamano * tanMitadVertical); // radio angular del planeta
+    return RADIO_TIERRA / Math.sin(angulo) - RADIO_TIERRA;
   }
-});
 
-// =====================================================================
-// 8. Cóndor y estado de la conexión con NASA
-// =====================================================================
-function decir(texto) { $('dialogo').textContent = texto; }
+  let encuadreAuto = op.altura == null;
+  const encuadrar = (lon, lat) => {
+    viewer.camera.setView({
+      destination: Cesium.Cartesian3.fromRadians(lon, lat, encuadreAuto ? alturaEncuadre() : op.altura)
+    });
+  };
+  encuadrar(Cesium.Math.toRadians(op.lon), Cesium.Math.toRadians(op.lat));
 
-(async () => {
-  const ok = await nasaResponde();
-  $('estadoNasa').textContent = ok ? 'CONECTADO A NASA · EN VIVO' : 'SIN CONEXIÓN CON NASA';
-  $('estadoNasa').classList.toggle('ok', ok);
-  if (!CESIUM_TOKEN) console.info('APU: sin token de Cesium ion las montañas se ven planas. Ver js/config.js');
-})();
+  // Si algo falla al dibujar, pasamos a la imagen
+  limpiezas.push(escena.renderError.addEventListener((_, err) => {
+    console.error(err);
+    setTimeout(() => mostrarImagen('error de render')); // fuera del ciclo de dibujo de Cesium
+  }));
+
+  // ---------------------------------------------------------------
+  // Resolución: la que recomienda el navegador (bordes nítidos sin dibujar de más)
+  // ---------------------------------------------------------------
+  // Medido en 844×390 girando: ~57 FPS (Iris Xe), así que no hace falta bajar la escala en celular.
+  // Si un celular real va a menos de 30 FPS, usar resolutionScale 0.85 cuando innerWidth < 900.
+  viewer.useBrowserRecommendedResolution = true;
+  viewer.resolutionScale = 1;
+
+  // Cada vez que el canvas cambia de tamaño, el planeta vuelve a medir op.tamano
+  // (salvo que el usuario ya haya elegido su distancia con zoom o irA)
+  const observador = new ResizeObserver(() => {
+    if (!viewer || !encuadreAuto) return;
+    viewer.resize(); // que Cesium actualice el frustum antes de calcular
+    const p = viewer.camera.positionCartographic;
+    encuadrar(p.longitude, p.latitude);
+    escena.requestRender();
+  });
+  observador.observe(lienzo);
+  limpiezas.push(() => observador.disconnect());
+
+  // ---------------------------------------------------------------
+  // Rotación lenta hacia el este
+  // ---------------------------------------------------------------
+  const sinMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let arrastrando = false;
+  let temporizadorGiro = 0;
+  let ultimo = performance.now();
+
+  const debeGirar = () => op.rotar && !sinMovimiento.matches && !arrastrando && !temporizadorGiro;
+
+  // Renderizado continuo solo mientras gira; quieto, Cesium dibuja solo cuando algo cambia
+  const actualizarModo = () => {
+    const gira = debeGirar();
+    escena.requestRenderMode = !gira;
+    if (!gira) escena.requestRender();
+    ultimo = performance.now();
+  };
+
+  limpiezas.push(escena.preRender.addEventListener(() => {
+    const ahora = performance.now();
+    const dt = Math.min((ahora - ultimo) / 1000, 0.1); // evita saltos al volver a la pestaña
+    ultimo = ahora;
+    if (debeGirar() && viewer.camera.positionCartographic.height > op.alturaMinimaGiro) {
+      // Ángulo positivo: la cámara va al oeste y la Tierra se ve girar hacia el este
+      viewer.camera.rotate(Cesium.Cartesian3.UNIT_Z, op.velocidad * dt);
+    }
+    orientarLuz();
+  }));
+
+  const alPresionar = () => {
+    arrastrando = true;
+    clearTimeout(temporizadorGiro);
+    temporizadorGiro = 0;
+    actualizarModo();
+  };
+  const alSoltar = () => {
+    if (!arrastrando) return;
+    arrastrando = false;
+    clearTimeout(temporizadorGiro);
+    temporizadorGiro = setTimeout(() => { temporizadorGiro = 0; actualizarModo(); }, op.esperaTrasArrastre);
+    actualizarModo();
+  };
+  const alZoom = () => { encuadreAuto = false; }; // el usuario eligió su distancia
+  const lienzoCanvas = escena.canvas;
+  lienzoCanvas.addEventListener('wheel', alZoom, { passive: true });
+  limpiezas.push(() => lienzoCanvas.removeEventListener('wheel', alZoom));
+  lienzoCanvas.addEventListener('pointerdown', alPresionar);
+  window.addEventListener('pointerup', alSoltar);
+  window.addEventListener('pointercancel', alSoltar);
+  sinMovimiento.addEventListener('change', actualizarModo);
+  limpiezas.push(() => {
+    lienzoCanvas.removeEventListener('pointerdown', alPresionar);
+    window.removeEventListener('pointerup', alSoltar);
+    window.removeEventListener('pointercancel', alSoltar);
+    sinMovimiento.removeEventListener('change', actualizarModo);
+    clearTimeout(temporizadorGiro);
+    temporizadorGiro = 0;
+  });
+
+  actualizarModo();
+
+  // ---------------------------------------------------------------
+  // ¿Responde NASA? Si no, imagen de respaldo
+  // ---------------------------------------------------------------
+  nasaResponde().then((ok) => { if (!ok) mostrarImagen('NASA GIBS no responde'); });
+
+  // ---------------------------------------------------------------
+  // API pública
+  // ---------------------------------------------------------------
+  function irA(lat, lon, alturaM = 1_500_000) {
+    if (!viewer) return;
+    encuadreAuto = false;
+    viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(lon, lat, alturaM),
+      duration: sinMovimiento.matches ? 0 : 2.5
+    });
+    escena.requestRender();
+  }
+
+  function destruir() {
+    if (destruido) return;
+    destruido = true;
+    apagarViewer();
+    raiz.remove();
+  }
+
+  // Para pruebas: ¿terminaron de cargar las imágenes? ¿cuánto mide el planeta en pantalla?
+  function estado() {
+    if (!viewer) return { modo: 'imagen' };
+    const { clientWidth: w, clientHeight: h } = escena.canvas;
+    const d = Cesium.Cartesian3.magnitude(viewer.camera.positionWC);
+    const mitadV = viewer.camera.frustum.fovy / 2;
+    const diametro = (Math.tan(Math.asin(RADIO_TIERRA / d)) / Math.tan(mitadV)) * h;
+    return { modo: '3d', cargado: globo.tilesLoaded, canvas: [w, h], diametroPx: Math.round(diametro), fraccionAlto: +(diametro / h).toFixed(3) };
+  }
+
+  return { irA, destruir, estado };
+}
