@@ -116,6 +116,20 @@
 .menu-guia p { margin: 0; font-size: clamp(9px, 1.7cqh, 15px); line-height: 1.45; color: #E6EBF3; }
 .menu-guia img { position: absolute; left: 0; top: 0; width: clamp(80px, 16cqh, 150px); height: clamp(80px, 16cqh, 150px); border-radius: 50%; border: 3px solid #5BA0FF; object-fit: cover; box-shadow: 0 0 2.4cqh rgba(64, 150, 255, .6); }
 
+/* Panel sin análisis (glaciares sin datos de 25 años): solo el aviso, nunca números inventados */
+.menu-panel .con-datos { display: flex; flex-direction: column; gap: 1.6cqh; }
+.menu-panel .sin-datos { margin: 0; padding: 1.4cqh 1.6cqh; border-radius: 1.4cqh; border: 1px dashed rgba(143, 219, 255, .6); background: rgba(12, 28, 68, .7); font-size: clamp(11px, 1.9cqh, 16px); line-height: 1.5; color: #E6EBF3; }
+
+/* Control sobre el carrusel: glaciares del mundo / picos de la Cordillera Real + "Ver planeta" */
+.menu-modos { position: absolute; left: 37cqw; right: 12cqw; bottom: calc(3.2cqh + clamp(54px, 9.4cqh, 86px) + 1cqh); display: flex; align-items: center; justify-content: center; gap: 1.2cqh; z-index: 2; }
+.menu-modos .selector { display: flex; padding: 3px; border-radius: 999px; border: 1px solid rgba(91, 160, 255, .55); background: rgba(8, 18, 48, .85); }
+.menu-modos button { min-height: 28px; padding: 0 1.6cqh; border: none; border-radius: 999px; background: transparent; color: #D7DEEA; cursor: pointer; font: 500 clamp(10px, 1.6cqh, 14px) var(--letra-texto); white-space: nowrap; }
+.menu-modos .selector button[aria-pressed="true"] { background: rgba(209, 32, 33, .22); color: var(--nieve); box-shadow: inset 0 0 0 1.5px var(--rojo-apu); }
+.menu-modos .ver-planeta { display: flex; align-items: center; gap: .6em; border: 1.5px solid rgba(242, 244, 248, .7); background: rgba(8, 18, 48, .85); color: var(--nieve); }
+.menu-modos .ver-planeta svg { width: 1.3em; height: 1.3em; }
+.menu-modos .ver-planeta:hover { background: rgba(31, 65, 108, .9); }
+.menu-modos button:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
+
 /* Carrusel de picos */
 .menu-picos { position: absolute; left: 37cqw; right: 12cqw; bottom: 3.2cqh; height: clamp(54px, 9.4cqh, 86px); border-radius: 999px; padding: 0 1.6cqh; display: flex; align-items: center; gap: 1.4cqh; }
 .menu-picos .lista { flex: 1; min-width: 0; display: flex; gap: 1.4cqh; }

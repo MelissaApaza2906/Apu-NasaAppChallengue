@@ -6,6 +6,7 @@
 import './menu.css';
 import { ir } from '../../router.js';
 import { cargarRegion } from '../../servicios/datos.js';
+import { GLACIARES } from '../../contenido/glaciares.js';
 
 const PICOS = [
   { n: 'Illimani', h: '6 438', lat: -16.64, lon: -67.79, t: 'el Illimani, el guardián de La Paz' },
@@ -16,6 +17,12 @@ const PICOS = [
   { n: 'Mururata', h: '5 869', lat: -16.53, lon: -67.78, t: 'el Mururata, vecino del Illimani' }
 ];
 const PERIODOS = [[2001, 2005, 2021, 2025], [2006, 2010, 2016, 2020]];
+const INTRO_CR = 'Explora la nieve de la Cordillera Real y analiza su evolución con datos reales del satélite MODIS de NASA.';
+const SIN_DATOS = 'Aquí vemos la nieve del satélite MODIS de hoy. El análisis de 25 años de este glaciar todavía no está en APU.';
+const CARRUSELES = [
+  { k: 'glaciares', n: 'Glaciares del mundo' },
+  { k: 'picos', n: 'Picos de la Cordillera Real' }
+];
 
 // Íconos del riel (mismos trazos que la maqueta)
 const ICONOS = {
@@ -42,7 +49,12 @@ let vivo = false;
 
 export function montar(contenedor) {
   vivo = true;
-  const estado = { pico: 0, ventana: 0, periodo: 0 };
+  const principal = GLACIARES.find((g) => g.principal) ?? GLACIARES[0];
+  // modo: qué muestra el carrusel · elegido: lo último elegido ('glaciar' o 'pico')
+  const estado = {
+    modo: 'glaciares', elegido: 'glaciar', glaciar: principal.id, pico: 0,
+    ventana: { glaciares: 0, picos: 0 }, periodo: 0, cerca: false
+  };
   const raiz = document.createElement('section');
   raiz.className = 'pantalla-menu menu-cielo';
   raiz.innerHTML = `
@@ -80,9 +92,11 @@ export function montar(contenedor) {
     <aside class="menu-panel hud entra-der" aria-label="Monitoreo glaciar">
       <div>
         <h2><span class="barras" aria-hidden="true">//</span>Monitoreo glaciar</h2>
-        <p class="intro">Explora la nieve de la Cordillera Real y analiza su evolución con datos reales del satélite MODIS de NASA.</p>
+        <p class="intro">${INTRO_CR}</p>
       </div>
       <div class="linea" aria-hidden="true"></div>
+      <p class="sin-datos" hidden>${SIN_DATOS}</p>
+      <div class="con-datos">
       <div class="comparar">
         <label for="menu-periodo">Comparar periodo
           <select id="menu-periodo">
@@ -104,6 +118,7 @@ export function montar(contenedor) {
         <svg role="img" viewBox="0 0 300 110"></svg>
         <span class="nota">Línea amarilla: tendencia · Fuente: NASA MODIS (MOD10A1), Cordillera Real</span>
       </figure>
+      </div>
     </aside>
 
     <div class="menu-guia entra-abajo">
@@ -114,7 +129,16 @@ export function montar(contenedor) {
       <img src="/img/jukumari-cara.webp" alt="El Jukumari, tu guía">
     </div>
 
-    <div class="menu-picos hud entra-abajo" role="group" aria-label="Picos de la Cordillera Real">
+    <div class="menu-modos entra-abajo">
+      <div class="selector" role="group" aria-label="Qué mostrar en el carrusel">
+        ${CARRUSELES.map((c) => `<button type="button" data-modo="${c.k}" aria-pressed="${c.k === 'glaciares'}">${c.n}</button>`).join('')}
+      </div>
+      <button type="button" class="ver-planeta" hidden>
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3Z"/></svg>Ver planeta
+      </button>
+    </div>
+
+    <div class="menu-picos hud entra-abajo" role="group" aria-label="Glaciares del mundo">
       <button type="button" class="flecha anterior" aria-label="Picos anteriores"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg></button>
       <div class="lista"></div>
       <button type="button" class="flecha siguiente" aria-label="Más picos"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 6 6 6-6 6"/></svg></button>
@@ -149,33 +173,109 @@ export function montar(contenedor) {
     .then((m) => {
       if (!vivo) return;
       if (typeof m.crearGlobo !== 'function') throw new Error('globo3d.js todavía no exporta crearGlobo');
-      globo = m.crearGlobo(ranura, { picos: PICOS.map(({ n, h, lat, lon }) => ({ n, h, lat, lon })) });
+      globo = m.crearGlobo(ranura, {
+        picos: PICOS.map(({ n, h, lat, lon }) => ({ n, h, lat, lon })),
+        glaciares: GLACIARES,
+        alElegir: (g) => { if (vivo) mostrarGlaciar(g, true); } // también al tocar un halo en el globo
+      });
     })
-    .catch((e) => { console.info('APU: se usa el planeta de la maqueta.', e.message); if (vivo) { planetaMaqueta(); pintarPico(); } });
+    .catch((e) => { console.info('APU: se usa el planeta de la maqueta.', e.message); if (vivo) { planetaMaqueta(); pintarTodo(); } });
 
-  // Picos (carrusel de 3) + etiqueta + diálogo del Jukumari
+  // Carrusel (3 a la vista) de glaciares o picos + etiqueta + diálogo del Jukumari + panel
   const lista = $('.lista');
-  function pintarPico() {
-    const p = PICOS[estado.pico];
-    $('.dialogo').textContent = `Explora ${p.t}. Con datos reales de NASA comprobamos que la nieve de la Cordillera Real bajó desde 2001.`;
-    if (etiqueta) {
-      etiqueta.innerHTML = `${MONTANA}<span><b>${p.n}</b><span>${p.h} m s. n. m.</span></span>`;
-      etiqueta.classList.remove('nueva'); void etiqueta.offsetWidth; etiqueta.classList.add('nueva');
-    }
+  const elementos = () => (estado.modo === 'glaciares' ? GLACIARES : PICOS);
+  const nombreDe = (x) => x.nombre ?? x.n;
+  const esElegido = (i) => (estado.modo === 'glaciares'
+    ? estado.elegido === 'glaciar' && GLACIARES[i].id === estado.glaciar
+    : estado.elegido === 'pico' && i === estado.pico);
+
+  function pintarCarrusel() {
+    const items = elementos();
+    $('.menu-picos').setAttribute('aria-label', CARRUSELES.find((c) => c.k === estado.modo).n);
+    raiz.querySelectorAll('.menu-modos [data-modo]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.modo === estado.modo)));
     lista.innerHTML = [0, 1, 2].map((k) => {
-      const i = (estado.ventana + k) % PICOS.length;
-      return `<button type="button" class="pico${i === estado.pico ? ' elegido' : ''}" data-i="${i}" aria-pressed="${i === estado.pico}">${MONTANA}<span>${PICOS[i].n}</span></button>`;
+      const i = (estado.ventana[estado.modo] + k) % items.length;
+      const sel = esElegido(i);
+      return `<button type="button" class="pico${sel ? ' elegido' : ''}" data-i="${i}" aria-pressed="${sel}">${MONTANA}<span>${nombreDe(items[i])}</span></button>`;
     }).join('');
   }
+
+  function pintarEtiqueta(n, sub) { // solo en el planeta de la maqueta (el globo 3D tiene la suya)
+    if (!etiqueta) return;
+    etiqueta.innerHTML = `${MONTANA}<span><b>${n}</b><span>${sub}</span></span>`;
+    etiqueta.classList.remove('nueva'); void etiqueta.offsetWidth; etiqueta.classList.add('nueva');
+  }
+
+  // Panel: con datos (Cordillera Real y sus picos) o el aviso de que aún no hay análisis
+  function pintarPanel(conDatos, intro) {
+    $('.intro').textContent = intro;
+    $('.con-datos').hidden = !conDatos;
+    $('.sin-datos').hidden = conDatos;
+  }
+
+  function mostrarGlaciar(g, alejarVentana) {
+    estado.elegido = 'glaciar';
+    estado.glaciar = g.id;
+    estado.cerca = true;
+    if (alejarVentana) { // si vino de un toque en el globo, el carrusel pasa a glaciares y lo muestra
+      estado.modo = 'glaciares';
+      const i = GLACIARES.indexOf(g);
+      const v = estado.ventana.glaciares;
+      if (![0, 1, 2].some((k) => (v + k) % GLACIARES.length === i)) estado.ventana.glaciares = i;
+    }
+    $('.dialogo').textContent = g.texto;
+    pintarEtiqueta(g.nombre, g.pais);
+    pintarPanel(Boolean(g.datos), g.datos ? INTRO_CR : `Explora la nieve de ${g.nombre} (${g.pais}) con la capa del satélite MODIS de NASA.`);
+    pintarTodo();
+  }
+
+  function mostrarPico(i) {
+    const p = PICOS[i];
+    estado.elegido = 'pico';
+    estado.pico = i;
+    estado.cerca = true;
+    $('.dialogo').textContent = `Explora ${p.t}. Con datos reales de NASA comprobamos que la nieve de la Cordillera Real bajó desde 2001.`;
+    pintarEtiqueta(p.n, `${p.h} m s. n. m.`);
+    pintarPanel(true, INTRO_CR);
+    pintarTodo();
+  }
+
+  function pintarTodo() {
+    pintarCarrusel();
+    $('.ver-planeta').hidden = !estado.cerca;
+  }
+
   lista.addEventListener('click', (e) => {
     const b = e.target.closest('.pico'); if (!b) return;
-    estado.pico = Number(b.dataset.i);
-    globo?.elegirPico?.(estado.pico);
-    pintarPico();
+    const i = Number(b.dataset.i);
+    if (estado.modo === 'glaciares') {
+      if (globo?.elegirGlaciar) globo.elegirGlaciar(GLACIARES[i].id); // avisa con alElegir → mostrarGlaciar
+      else mostrarGlaciar(GLACIARES[i], false);
+    } else {
+      globo?.elegirPico?.(i);
+      mostrarPico(i);
+    }
   });
-  $('.anterior').addEventListener('click', () => { estado.ventana = (estado.ventana + PICOS.length - 1) % PICOS.length; pintarPico(); });
-  $('.siguiente').addEventListener('click', () => { estado.ventana = (estado.ventana + 1) % PICOS.length; pintarPico(); });
-  pintarPico();
+  const mover = (paso) => {
+    const n = elementos().length;
+    estado.ventana[estado.modo] = (estado.ventana[estado.modo] + n + paso) % n;
+    pintarCarrusel();
+  };
+  $('.anterior').addEventListener('click', () => mover(-1));
+  $('.siguiente').addEventListener('click', () => mover(1));
+  raiz.querySelectorAll('.menu-modos [data-modo]').forEach((b) => {
+    b.addEventListener('click', () => { estado.modo = b.dataset.modo; pintarCarrusel(); });
+  });
+  $('.ver-planeta').addEventListener('click', () => {
+    globo?.verPlaneta?.();
+    estado.cerca = false;
+    pintarTodo();
+  });
+
+  // Al empezar: nuestro caso, la Cordillera Real, con el planeta completo
+  $('.dialogo').textContent = principal.texto;
+  pintarEtiqueta(principal.nombre, principal.pais);
+  pintarTodo();
 
   // Panel con datos reales
   cargarRegion('cordillera-real').then((region) => {

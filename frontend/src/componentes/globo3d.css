@@ -114,12 +114,14 @@
   to   { opacity: .8; }
 }
 
-/* Satélite sobre la órbita, arriba a la derecha del planeta */
+/* Satélite sobre la órbita punteada. JS pone left/top = su centro sobre la elipse
+   (los márgenes negativos lo centran: 12u de ancho × 6u de alto). */
 .globo3d-satelite {
   position: absolute;
-  left: 88%;
-  top: 2%;
+  left: 95%;
+  top: 6%;
   width: calc(var(--u) * 12);
+  margin: calc(var(--u) * -3) 0 0 calc(var(--u) * -6);
   animation: satelite-vaiven 5s ease-in-out infinite;
 }
 .globo3d-satelite svg { display: block; width: 100%; height: auto; }
@@ -128,8 +130,10 @@
   50%      { transform: translateY(calc(var(--u) * -0.4)) rotate(3deg); }
 }
 
-/* Marcador: caja de tamaño 0 en el punto exacto; JS la mueve con translate(x, y) */
-.globo3d-marcador {
+/* Marcador rojo ("nuestro caso": Cordillera Real o el pico elegido) y selección (etiqueta
+   del glaciar o pico elegido). Cajas de tamaño 0 en el punto exacto; JS las mueve con translate. */
+.globo3d-marcador,
+.globo3d-seleccion {
   position: absolute;
   left: 0;
   top: 0;
@@ -138,8 +142,23 @@
   transition: opacity .3s;
   will-change: transform;
 }
-.globo3d-capa.oculto .globo3d-marcador,
-.globo3d-capa.oculto .globo3d-haz { opacity: 0; }
+.globo3d-marcador.oculto,
+.globo3d-capa.objetivo-oculto .globo3d-seleccion,
+.globo3d-capa.objetivo-oculto .globo3d-haz { opacity: 0; }
+
+/* Punto celeste de la selección cuando no coincide con el marcador rojo */
+.globo3d-seleccion .nodo {
+  position: absolute;
+  left: calc(var(--u) * -0.7);
+  top: calc(var(--u) * -0.7);
+  width: calc(var(--u) * 1.4);
+  height: calc(var(--u) * 1.4);
+  border-radius: 50%;
+  border: 2px solid #F2F4F8;
+  background: #8FDBFF;
+  box-shadow: 0 0 calc(var(--u) * 1.2) rgba(143, 219, 255, .9);
+  box-sizing: border-box;
+}
 
 .globo3d-marcador .punto,
 .globo3d-marcador .pulso {
@@ -166,8 +185,8 @@
   to   { transform: scale(3.4); opacity: 0; }
 }
 
-/* Línea fina del marcador a la etiqueta (sube a 45° hacia la derecha) */
-.globo3d-marcador .linea {
+/* Línea fina de la selección a la etiqueta (sube a 45° hacia la derecha) */
+.globo3d-seleccion .linea {
   position: absolute;
   left: 0;
   top: 0;
@@ -179,7 +198,7 @@
 }
 
 /* Etiqueta arriba a la derecha, donde termina la línea */
-.globo3d-marcador .globo3d-etiqueta {
+.globo3d-seleccion .globo3d-etiqueta {
   position: absolute;
   left: calc(var(--u) * 3.5);
   bottom: calc(var(--u) * 3.5);
@@ -193,16 +212,16 @@
   white-space: nowrap;
   transform-origin: 0 100%;
 }
-.globo3d-marcador .globo3d-etiqueta strong {
+.globo3d-seleccion .globo3d-etiqueta strong {
   font: 400 max(10px, calc(var(--u) * 1.5)) / 1.15 var(--letra-titulo);
   letter-spacing: .08em;
   color: #fff;
 }
-.globo3d-marcador .globo3d-etiqueta span {
+.globo3d-seleccion .globo3d-etiqueta span {
   font: 500 max(9px, calc(var(--u) * 1.2)) / 1.2 var(--letra-texto);
   color: #A9B4CC;
 }
-.globo3d-marcador .globo3d-etiqueta.aparece { animation: etiqueta-aparece .35s ease-out both; }
+.globo3d-seleccion .globo3d-etiqueta.aparece { animation: etiqueta-aparece .35s ease-out both; }
 @keyframes etiqueta-aparece {
   from { transform: scale(.8); opacity: 0; }
   to   { transform: scale(1);  opacity: 1; }
@@ -241,6 +260,6 @@
   .globo3d-halo,
   .globo3d-satelite,
   .globo3d-haz polygon,
-  .globo3d-marcador .globo3d-etiqueta.aparece { animation: none; }
+  .globo3d-seleccion .globo3d-etiqueta.aparece { animation: none; }
   .globo3d-marcador .pulso { display: none; }
 }

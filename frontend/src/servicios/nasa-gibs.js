@@ -50,6 +50,26 @@ export function fechaBonita(iso) {
   return `${d} de ${meses[m - 1]} de ${a}`;
 }
 
+// Día COMPLETO más reciente en que la capa diaria de nieve ya tiene datos.
+// GIBS anuncia "hoy" aunque todavía no haya imágenes (la tesela sale vacía, ~150 bytes), y mientras
+// NASA publica el día, algunas teselas fallan (error 500). Por eso empezamos por ayer y vamos hacia
+// atrás hasta encontrar una tesela con datos.
+export async function fechaNieveReciente(diasMax = 8) {
+  const capa = CAPAS.nieveDia;
+  for (let n = 1; n <= diasMax; n++) {
+    const fecha = haceDias(n);
+    const url = `${GIBS}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${capa.layer}&STYLE=default` +
+      `&TILEMATRIXSET=${capa.matriz}&TILEMATRIX=1&TILEROW=0&TILECOL=0&FORMAT=image%2Fpng&TIME=${fecha}`;
+    try {
+      const r = await fetch(url);
+      if (r.ok && (await r.blob()).size > 1000) return fecha;
+    } catch {
+      return null; // sin red: no insistimos
+    }
+  }
+  return null;
+}
+
 // Comprueba si NASA responde, pidiendo una sola imagen pequeña
 export async function nasaResponde() {
   const url = `${GIBS}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=BlueMarble_ShadedRelief_Bathymetry&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible_Level8&TILEMATRIX=0&TILEROW=0&TILECOL=0&FORMAT=image%2Fjpeg`;
