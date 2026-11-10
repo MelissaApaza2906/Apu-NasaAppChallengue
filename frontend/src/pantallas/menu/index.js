@@ -627,7 +627,8 @@ export function montar(contenedor) {
     if (!vivo) return;
     region = datos;
     pintarPanel();
-    if (tipoClima) { llenarMeses(tipoClima); pintarClima(); } // se eligió antes de que llegaran los datos
+    llenarMeses(tipoClima ?? 'nieve'); // el selector nunca queda vacío
+    if (tipoClima) pintarClima();      // se eligió antes de que llegaran los datos
   }).catch((e) => {
     console.warn('APU: no se pudieron leer los datos de la Cordillera Real.', e);
     $('.tarjetas').innerHTML = '<p class="nota">No se pudieron cargar los datos. Revisa que exista public/datos/cordillera-real.json.</p>';
