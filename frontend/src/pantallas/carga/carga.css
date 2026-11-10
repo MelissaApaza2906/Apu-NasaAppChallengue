@@ -1,19 +1,119 @@
-/* Pantalla de carga. Fondo, Jukumari a la izquierda, columna a la derecha. */
-.pantalla-carga { position: absolute; inset: 0; background: var(--noche) url('/img/fondo-illimani.webp') center/cover no-repeat; }
-.carga-juku { position: absolute; height: 76cqh; top: 12cqh; left: max(2cqw, calc(22cqw - 25cqh)); aspect-ratio: 900 / 1371; }
-.carga-juku .cuerpo { width: 100%; height: 100%; filter: drop-shadow(0 0 1.6cqh rgba(143, 219, 255, .55)) drop-shadow(1.4cqh 2.2cqh 2.4cqh rgba(0, 0, 0, .6)); }
-/* La mano que saluda: hoja de 14 cuadros (ver maqueta para la animación completa) */
-.carga-juku .saludo { position: absolute; left: 68%; top: 23.341%; width: 42.778%; height: 35.011%; background: url('/img/jukumari-saludo.webp') 0 0 / 1400% 100% no-repeat; animation: saludo 1s steps(13) infinite alternate; }
-@keyframes saludo { to { background-position-x: 100%; } }
+/* Pantalla 1 · Carga. Copia fiel de la maqueta (ApuCarga). */
+.pantalla-carga { position: absolute; inset: 0; overflow: hidden; background: var(--noche); color: var(--nieve); }
+
+/* Fondo, desenfoque de profundidad, cielo, nieve y velo */
+.carga-fondo { position: absolute; inset: 0; background: var(--noche) url('/img/fondo-illimani.webp') center / cover no-repeat; transform: scale(1.02); }
+.carga-profundidad {
+  position: absolute; inset: 0; pointer-events: none;
+  backdrop-filter: blur(3px) brightness(.82); -webkit-backdrop-filter: blur(3px) brightness(.82);
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 30%, transparent 52%);
+  mask-image: linear-gradient(90deg, #000 0, #000 30%, transparent 52%);
+}
+.carga-cielo, .carga-nieve, .carga-velo { position: absolute; inset: 0; pointer-events: none; }
+.carga-velo { background: radial-gradient(ellipse 55% 60% at 66% 58%, rgba(11, 25, 46, .62), rgba(11, 25, 46, 0) 70%); }
+
+.estrella { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px #fff; animation: cargaTitila 2.6s ease-in-out infinite; }
+@keyframes cargaTitila { 0%, 100% { opacity: .15; transform: scale(.6); } 50% { opacity: 1; transform: scale(1.2); } }
+.fugaz { position: absolute; width: 16cqh; height: 2px; background: linear-gradient(90deg, rgba(255, 255, 255, 0), #fff); border-radius: 2px; transform: rotate(-24deg); opacity: 0; animation: cargaFugaz 9s ease-in infinite; }
+@keyframes cargaFugaz { 0%, 82% { opacity: 0; translate: 0 0; } 84% { opacity: 1; } 92%, 100% { opacity: 0; translate: -34cqh 15cqh; } }
+
+.carga-nieve span { position: absolute; top: -3cqh; border-radius: 50%; background: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, .8); animation-name: cargaCae; animation-timing-function: linear; animation-iteration-count: infinite; will-change: transform; }
+@keyframes cargaCae { to { transform: translate(var(--dx), 108cqh); } }
+
+/* El Jukumari: en 3D (luz de borde + sombra), solo saluda con la mano */
+.carga-juku { position: absolute; z-index: 2; height: 76cqh; top: 12cqh; left: max(2cqw, calc(22cqw - 25cqh)); aspect-ratio: 900 / 1371; }
+.carga-juku .aura { position: absolute; inset: -16% -30% -4% -30%; background: radial-gradient(ellipse 50% 48% at 50% 48%, rgba(143, 219, 255, .26), rgba(31, 65, 108, .45) 46%, rgba(11, 25, 46, 0) 74%); filter: blur(2.4cqh); pointer-events: none; }
+.carga-juku .sombra { position: absolute; left: 12%; right: 12%; bottom: -1.5%; height: 5%; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(0, 0, 0, .55), rgba(0, 0, 0, 0) 70%); }
+.carga-juku .cuerpo-anim { position: absolute; inset: 0; animation: cargaLlega .9s cubic-bezier(.2, .9, .3, 1) both; }
+@keyframes cargaLlega { from { opacity: 0; } to { opacity: 1; } }
+.juku-btn { position: absolute; inset: 0; padding: 0; border: none; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.juku-btn:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 4px; border-radius: 2cqh; }
+.carga-juku .capa { position: absolute; inset: 0; width: 100%; height: 100%; display: block; filter: drop-shadow(-.35cqh -.35cqh 0 rgba(242, 244, 248, .28)) drop-shadow(0 0 1.6cqh rgba(143, 219, 255, .55)) drop-shadow(1.4cqh 2.2cqh 2.4cqh rgba(0, 0, 0, .6)); }
+/* Mano que saluda: hoja de 14 cuadros, saluda 2 veces y descansa */
+.carga-juku .saludo {
+  position: absolute; left: 68%; top: 23.341%; width: 42.778%; height: 35.011%; pointer-events: none;
+  background: url('/img/jukumari-saludo.webp') 0 0 / 1400% 100% no-repeat;
+  filter: drop-shadow(-.35cqh -.35cqh 0 rgba(242, 244, 248, .28)) drop-shadow(0 0 1.6cqh rgba(143, 219, 255, .55));
+  animation: cargaOla 3.6s step-end .9s infinite;
+}
+@keyframes cargaOla {
+  0% { background-position-x: 0%; } 2% { background-position-x: 7.6923%; } 4% { background-position-x: 15.3846%; }
+  6% { background-position-x: 23.0769%; } 8% { background-position-x: 30.7692%; } 10% { background-position-x: 38.4615%; }
+  12% { background-position-x: 46.1538%; } 14% { background-position-x: 53.8462%; } 16% { background-position-x: 61.5385%; }
+  18% { background-position-x: 69.2308%; } 20% { background-position-x: 76.9231%; } 22% { background-position-x: 84.6154%; }
+  24% { background-position-x: 92.3077%; } 26% { background-position-x: 100%; } 28% { background-position-x: 0%; }
+  30% { background-position-x: 7.6923%; } 32% { background-position-x: 15.3846%; } 34% { background-position-x: 23.0769%; }
+  36% { background-position-x: 30.7692%; } 38% { background-position-x: 38.4615%; } 40% { background-position-x: 46.1538%; }
+  42% { background-position-x: 53.8462%; } 44% { background-position-x: 61.5385%; } 46% { background-position-x: 69.2308%; }
+  48% { background-position-x: 76.9231%; } 50% { background-position-x: 84.6154%; } 52% { background-position-x: 92.3077%; }
+  54% { background-position-x: 100%; } 56%, 100% { background-position-x: 0%; }
+}
+.carga-juku .dialogo {
+  position: absolute; left: 62%; top: 6%; z-index: 3; max-width: min(26cqw, 48cqh); padding: 1.2cqh 1.8cqh;
+  border-radius: 2cqh 2cqh 2cqh .4cqh; background: rgba(242, 244, 248, .96); color: var(--noche);
+  font: 600 clamp(11px, 2cqh, 18px) / 1.3 var(--letra-texto); box-shadow: 0 .8cqh 2.4cqh rgba(0, 0, 0, .35);
+  transform-origin: 0 100%; pointer-events: none;
+}
+.carga-juku .dialogo.nuevo { animation: cargaBurbuja .35s cubic-bezier(.2, 1.5, .4, 1) both; }
+@keyframes cargaBurbuja { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+
+/* Columna derecha */
 .carga-columna { position: absolute; left: 44%; right: 3%; top: 3cqh; bottom: 4cqh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.4cqh; text-align: center; }
-.carga-columna .logo { height: 34cqh; }
-.carga-columna .titulo { margin: 0; font: 400 clamp(16px, 4.6cqh, 44px) var(--letra-titulo); letter-spacing: .42em; }
-.carga-columna .barras { color: var(--rojo-apu); font-style: italic; letter-spacing: -.08em; }
+.carga-columna .logo { height: 34cqh; width: auto; display: block; animation: cargaFlota 5s ease-in-out infinite, cargaHalo 3.2s ease-in-out infinite; }
+@keyframes cargaFlota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.2cqh); } }
+@keyframes cargaHalo { 0%, 100% { filter: drop-shadow(0 0 0 rgba(209, 32, 33, 0)); } 50% { filter: drop-shadow(0 0 2.2cqh rgba(209, 32, 33, .55)); } }
+
+.carga-columna .titulo { margin: 0; font: 400 clamp(16px, 4.6cqh, 44px) / 1 var(--letra-titulo); letter-spacing: .42em; display: flex; align-items: center; gap: .5em; white-space: nowrap; }
+.carga-columna .barras { color: var(--rojo-apu); letter-spacing: -.08em; font-style: italic; animation: cargaParpadeo 1.4s ease-in-out infinite; }
+@keyframes cargaParpadeo { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.carga-columna .palabra { animation: cargaResplandor 2.6s ease-in-out infinite; }
+@keyframes cargaResplandor { 0%, 100% { text-shadow: 0 0 0 rgba(242, 244, 248, 0); } 50% { text-shadow: 0 0 2cqh rgba(242, 244, 248, .55); } }
 .carga-columna .sub { margin: 0; font: 400 clamp(9px, 1.7cqh, 16px) var(--letra-titulo); letter-spacing: .32em; color: #D7DEEA; }
-.carga-columna .btn-apu, .carga-columna .barra, .carga-columna .sabias { width: min(46cqw, 92cqh); }
-.barra { display: flex; align-items: center; height: clamp(30px, 5.4cqh, 50px); padding: 3px; border: 2px solid rgba(242, 244, 248, .92); border-radius: 999px; }
-.barra .relleno { width: 0; height: 100%; border-radius: 999px; background: var(--rojo-apu); box-shadow: 0 0 18px rgba(209, 32, 33, .55); }
-.barra .porcentaje { margin-left: auto; padding: 0 .9em; font-family: var(--letra-titulo); }
-.sabias { text-align: left; padding: 1.6cqh 2cqh; border-radius: 1.8cqh; background: rgba(11, 25, 46, .66); border: 1px solid rgba(68, 101, 152, .7); }
-.sabias span { font: 400 clamp(8px, 1.4cqh, 13px) var(--letra-titulo); letter-spacing: .28em; color: #FF6B6B; }
-.sabias p { margin: .5cqh 0 0; font-size: clamp(11px, 2.1cqh, 19px); line-height: 1.45; }
+.carga-columna .puntos::after { content: ''; animation: cargaPuntos 1.5s steps(4) infinite; }
+@keyframes cargaPuntos { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+
+.entra { animation: cargaAparece .8s cubic-bezier(.2, .8, .2, 1) both; }
+.aparece { animation: cargaAparece .45s ease-out both; }
+@keyframes cargaAparece { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Botón EMPEZAR MISIÓN: cápsula, ícono, cuña roja, brillo que barre y latido */
+.btn-mision {
+  position: relative; overflow: hidden; display: flex; align-items: center;
+  width: min(46cqw, 92cqh); height: clamp(44px, 8.6cqh, 76px); padding: 0;
+  border: 2px solid rgba(242, 244, 248, .92); border-radius: 999px; background: rgba(11, 25, 46, .72);
+  color: var(--nieve); font: inherit; cursor: pointer; transition: transform .15s, box-shadow .2s;
+}
+.btn-mision .icono { height: 100%; aspect-ratio: 1.35; flex: none; display: flex; align-items: center; justify-content: center; border-right: 1px solid rgba(242, 244, 248, .38); }
+.btn-mision .icono svg { width: 46%; height: 46%; }
+.btn-mision .texto { flex: 1; min-width: 0; padding: 0 12% 0 4%; font: 400 clamp(10px, min(1.45cqw, 3cqh), 20px) / 1.2 var(--letra-titulo); letter-spacing: .16em; white-space: normal; }
+.btn-mision::before { content: ''; position: absolute; top: 0; bottom: 0; left: -40%; width: 28%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .22), transparent); animation: cargaBarrido 3.4s ease-in-out infinite; pointer-events: none; }
+@keyframes cargaBarrido { 0% { left: -40%; } 55%, 100% { left: 120%; } }
+.btn-mision::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 13%; background: var(--rojo-apu); clip-path: polygon(55% 0, 100% 0, 100% 100%, 0 100%); transition: width .2s; }
+.btn-mision:hover::after { width: 17%; }
+.btn-mision:hover { box-shadow: 0 0 28px rgba(209, 32, 33, .45); }
+.btn-mision:active { transform: scale(.98); }
+.btn-mision:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 4px; }
+.latido { animation: cargaAparece .8s cubic-bezier(.2, .8, .2, 1) both, cargaLatido 2.4s ease-in-out .8s infinite; }
+@keyframes cargaLatido { 0%, 100% { box-shadow: 0 0 0 0 rgba(209, 32, 33, .55); } 50% { box-shadow: 0 0 0 1.4cqh rgba(209, 32, 33, 0); } }
+
+/* Barra CARGANDO (solo aparece después de tocar el botón) */
+.carga-columna .barra { display: flex; align-items: center; width: min(46cqw, 92cqh); height: clamp(30px, 5.4cqh, 50px); padding: 3px; border: 2px solid rgba(242, 244, 248, .92); border-radius: 999px; background: rgba(11, 25, 46, .6); }
+.carga-columna .barra[hidden], .btn-mision[hidden], .dialogo[hidden] { display: none; }
+.barra .pista { flex: 1; height: 100%; border-radius: 999px; overflow: hidden; }
+.barra .relleno {
+  width: 0; height: 100%; border-radius: 999px; box-shadow: 0 0 18px rgba(209, 32, 33, .55); transition: width .12s linear;
+  background-color: var(--rojo-apu);
+  background-image: linear-gradient(135deg, #9E1517 25%, transparent 25%, transparent 50%, #9E1517 50%, #9E1517 75%, transparent 75%);
+  background-size: 22px 22px; animation: cargaRayas .7s linear infinite;
+}
+@keyframes cargaRayas { to { background-position: 22px 0; } }
+.barra .porcentaje { min-width: 4.2em; text-align: right; padding-right: .9em; font: 400 clamp(11px, 2cqh, 20px) var(--letra-titulo); letter-spacing: .08em; }
+
+/* ¿Sabías que…? */
+.sabias { width: min(46cqw, 92cqh); display: flex; align-items: flex-start; gap: 1.6cqh; padding: 1.6cqh 2cqh; border-radius: 1.8cqh; background: rgba(11, 25, 46, .66); border: 1px solid rgba(68, 101, 152, .7); text-align: left; }
+.sabias .signo { flex: none; width: clamp(26px, 5cqh, 46px); height: clamp(26px, 5cqh, 46px); border-radius: 50%; border: 1.5px solid var(--rojo-apu); display: flex; align-items: center; justify-content: center; font: 400 clamp(12px, 2.4cqh, 22px) var(--letra-titulo); }
+.sabias > div { display: flex; flex-direction: column; gap: .5cqh; min-width: 0; }
+.sabias .rotulo { font: 400 clamp(8px, 1.4cqh, 13px) var(--letra-titulo); letter-spacing: .28em; color: #FF6B6B; }
+.sabias .dato { margin: 0; font-size: clamp(11px, 2.1cqh, 19px); line-height: 1.45; color: #E6EBF3; }
+.sabias .dato.nuevo { animation: cargaDato .6s ease-out both; }
+@keyframes cargaDato { from { opacity: 0; transform: translateX(2cqh); } to { opacity: 1; transform: none; } }

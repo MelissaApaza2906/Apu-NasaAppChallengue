@@ -2,6 +2,7 @@
 @import './botones.css';
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; background: var(--noche); color: var(--nieve); font-family: var(--letra-texto); overflow: hidden; }
 #app { position: fixed; inset: 0; container-type: size; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 
