@@ -46,6 +46,7 @@ const fmt = (v, d) => v.toFixed(d).replace('.', ',');
 
 let globo = null;
 let vivo = false;
+let quitarAlSalir = null; // listeners en document que hay que quitar al salir del menú
 
 export function montar(contenedor) {
   vivo = true;
@@ -127,7 +128,10 @@ export function montar(contenedor) {
         <p class="dialogo"></p>
       </div>
       <img src="/img/jukumari-cara.webp" alt="El Jukumari, tu guía">
+      <p class="burbuja" role="status" hidden></p>
     </div>
+
+    <p class="menu-credito"></p>
 
     <div class="menu-modos entra-abajo">
       <div class="selector" role="group" aria-label="Qué mostrar en el carrusel">
@@ -176,6 +180,7 @@ export function montar(contenedor) {
       globo = m.crearGlobo(ranura, {
         picos: PICOS.map(({ n, h, lat, lon }) => ({ n, h, lat, lon })),
         glaciares: GLACIARES,
+        credito: $('.menu-credito'),
         alElegir: (g) => { if (vivo) mostrarGlaciar(g, true); } // también al tocar un halo en el globo
       });
     })
@@ -272,6 +277,32 @@ export function montar(contenedor) {
     pintarTodo();
   });
 
+  // Pantallas bajas (celular horizontal): el Jukumari es solo una carita; al tocarla dice su texto
+  // en un globo de diálogo que se cierra a los 5 s o al tocar fuera.
+  const bajas = window.matchMedia('(max-height: 500px)');
+  const cara = $('.menu-guia img');
+  const burbuja = $('.menu-guia .burbuja');
+  let cierre = 0;
+  const cerrarBurbuja = () => { clearTimeout(cierre); burbuja.hidden = true; };
+  const abrirBurbuja = () => {
+    burbuja.textContent = $('.dialogo').textContent;
+    burbuja.hidden = false;
+    burbuja.classList.remove('nueva'); void burbuja.offsetWidth; burbuja.classList.add('nueva');
+    clearTimeout(cierre);
+    cierre = setTimeout(cerrarBurbuja, 5000);
+  };
+  const ajustarCara = () => {
+    if (bajas.matches) { cara.setAttribute('role', 'button'); cara.tabIndex = 0; cara.setAttribute('aria-label', 'Escuchar al Jukumari, tu guía'); }
+    else { cara.removeAttribute('role'); cara.removeAttribute('tabindex'); cara.removeAttribute('aria-label'); cerrarBurbuja(); }
+  };
+  ajustarCara();
+  bajas.addEventListener('change', ajustarCara);
+  cara.addEventListener('click', () => { if (bajas.matches) (burbuja.hidden ? abrirBurbuja() : cerrarBurbuja()); });
+  cara.addEventListener('keydown', (e) => { if (bajas.matches && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); abrirBurbuja(); } });
+  const tocarFuera = (e) => { if (!burbuja.hidden && !e.target.closest('.menu-guia')) cerrarBurbuja(); };
+  document.addEventListener('pointerdown', tocarFuera);
+  quitarAlSalir = () => { document.removeEventListener('pointerdown', tocarFuera); bajas.removeEventListener('change', ajustarCara); clearTimeout(cierre); };
+
   // Al empezar: nuestro caso, la Cordillera Real, con el planeta completo
   $('.dialogo').textContent = principal.texto;
   pintarEtiqueta(principal.nombre, principal.pais);
@@ -334,6 +365,8 @@ export function montar(contenedor) {
 
 export function desmontar() {
   vivo = false;
+  quitarAlSalir?.();
+  quitarAlSalir = null;
   globo?.destruir?.();
   globo = null;
 }

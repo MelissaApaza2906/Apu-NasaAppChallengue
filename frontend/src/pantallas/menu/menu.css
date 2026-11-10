@@ -130,6 +130,26 @@
 .menu-modos .ver-planeta:hover { background: rgba(31, 65, 108, .9); }
 .menu-modos button:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
 
+/* Crédito de NASA: en el hueco entre el panel derecho y el carrusel */
+/* (máx. 2 líneas: entre el panel —abajo a 17cqh— y el carrusel —arriba a ~12.6cqh— no cabe más) */
+.menu-credito { position: absolute; right: 2.6cqh; bottom: 13.4cqh; max-width: 21cqh; margin: 0; text-align: right; font: 500 clamp(8px, 1.2cqh, 11px) / 1.3 var(--letra-texto); color: #A9B4CC; pointer-events: none; }
+
+/* Globo de diálogo del Jukumari en pantallas bajas (mismo estilo que el de la pantalla de carga) */
+.menu-guia .burbuja { position: absolute; left: calc(100% + 1.2cqh); bottom: 0; z-index: 4; width: max-content; max-width: min(46cqw, 320px); margin: 0; padding: 1.2cqh 1.8cqh; border-radius: 2cqh 2cqh 2cqh .4cqh; background: rgba(242, 244, 248, .96); color: var(--noche); font: 600 clamp(11px, 2.6cqh, 15px) / 1.35 var(--letra-texto); box-shadow: 0 .8cqh 2.4cqh rgba(0, 0, 0, .35); transform-origin: 0 100%; }
+.menu-guia .burbuja.nueva { animation: menuBurbuja .35s cubic-bezier(.2, 1.5, .4, 1) both; }
+@keyframes menuBurbuja { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+
+/* Pantallas bajas (celular horizontal): riel más compacto y el Jukumari solo como carita */
+@media (max-height: 500px) {
+  .menu-riel { top: 14cqh; gap: 1.2cqh; padding: 1cqh; }
+  .menu-guia { width: auto; height: auto; left: 1.2cqw; bottom: 2cqh; z-index: 5; } /* su globo de diálogo va sobre el carrusel */
+  .menu-guia .caja { display: none; }
+  .menu-guia img { position: static; width: 56px; height: 56px; cursor: pointer; }
+  .menu-guia img:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
+  /* Aquí el carrusel llega hasta el panel: el crédito va a su derecha, en el hueco junto al borde */
+  .menu-credito { bottom: 3.2cqh; max-width: calc(12cqw - 2.6cqh - 6px); }
+}
+
 /* Carrusel de picos */
 .menu-picos { position: absolute; left: 37cqw; right: 12cqw; bottom: 3.2cqh; height: clamp(54px, 9.4cqh, 86px); border-radius: 999px; padding: 0 1.6cqh; display: flex; align-items: center; gap: 1.4cqh; }
 .menu-picos .lista { flex: 1; min-width: 0; display: flex; gap: 1.4cqh; }

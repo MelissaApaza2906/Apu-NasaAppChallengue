@@ -36,6 +36,7 @@ const POR_DEFECTO = {
   glaciares: [],            // [{ id, nombre, pais, lat, lon, principal?, texto, datos }]
   picos: [],                // [{ n: nombre, h: altura en m (6438 o '6 438'), lat, lon }]
   alElegir: null,           // (glaciar) => void
+  credito: null,            // elemento donde escribir el crédito de NASA (si no, va debajo del globo)
   marcador: { lat: -16.2, lon: -68.2 }, // nuestro caso si no hay glaciar principal
   alturaPico: 2_500_000,    // metros sobre el pico al elegirlo
   duracionVuelo: 1.6,       // segundos (picos y "ver planeta")
@@ -203,10 +204,12 @@ export function crearGlobo(contenedor, opciones = {}) {
 
   flotante.append(lienzo, anillo, crearHalo(), capa);
   const creditosOcultos = document.createElement('div'); // Cesium escribe aquí; no se muestra
-  const credito = document.createElement('p');
-  credito.className = 'globo3d-credito';
+  // Crédito propio de NASA: en el elemento que nos den (el menú lo ubica) o debajo del globo
+  const credito = op.credito ?? document.createElement('p');
+  if (!op.credito) credito.className = 'globo3d-credito';
   credito.textContent = 'Imágenes: NASA GIBS / Blue Marble';
-  raiz.append(flotante, credito);
+  raiz.append(flotante);
+  if (!op.credito) raiz.append(credito);
 
   // Imagen base algo más viva, como en el diseño
   const capaBase = new Cesium.ImageryLayer(proveedor(CAPAS.marmolAzul), {
@@ -718,6 +721,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     if (destruido) return;
     destruido = true;
     apagarViewer();
+    if (op.credito) op.credito.textContent = '';
     raiz.remove();
   }
 
