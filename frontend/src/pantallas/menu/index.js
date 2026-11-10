@@ -134,7 +134,7 @@ export function montar(contenedor) {
       <div class="sombra" aria-hidden="true"></div>
       <div class="cuerpo-anim">
         <button type="button" class="juku-btn" aria-label="Escuchar al Jukumari, tu guía">
-          <img class="capa" src="/img/jukumari-cuerpo.webp" alt="El Jukumari, tu guía, con su máscara de la Diablada, gafas de nieve y equipo de montaña, saludando con la mano">
+          <img class="capa" src="/img/avatares/jukumari-cuerpo.webp" alt="El Jukumari, tu guía, con su máscara de la Diablada, gafas de nieve y equipo de montaña, saludando con la mano">
           <div class="saludo" aria-hidden="true"></div>
         </button>
       </div>

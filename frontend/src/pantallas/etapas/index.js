@@ -118,7 +118,7 @@ export function montar(contenedor) {
         ${ab
           ? '<button type="button" class="btn-empezar">EMPEZAR</button>'
           : `<div class="bloqueo">${CANDADO}${casos ? 'Termina las 5 lecciones' : `Termina la lección ${sel} para abrirla`}</div>`}
-        <div class="jukumari"><img src="/img/jukumari-cara.webp" alt="El Jukumari, tu guía"><p>${e.j}</p></div>
+        <div class="jukumari"><img src="/img/avatares/jukumari-cara.webp" alt="El Jukumari, tu guía"><p>${e.j}</p></div>
       </div>`;
     panel.classList.remove('nuevo'); void panel.offsetWidth; panel.classList.add('nuevo');
     panel.querySelector('.btn-empezar')?.addEventListener('click', () => ir(casos ? 'casos' : `leccion/${e.id}`));

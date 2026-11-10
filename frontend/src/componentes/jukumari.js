@@ -2,7 +2,7 @@
 export function crearJukumari({ texto = '', tamaño = 'mediano' } = {}) {
   const el = document.createElement('div');
   el.className = `jukumari jukumari-${tamaño}`;
-  el.innerHTML = '<img src="/img/jukumari-cara.webp" alt="El Jukumari, tu guía"><p aria-live="polite"></p>';
+  el.innerHTML = '<img src="/img/avatares/jukumari-cara.webp" alt="El Jukumari, tu guía"><p aria-live="polite"></p>';
   const p = el.querySelector('p');
   let t;
   el.decir = (nuevo) => {
