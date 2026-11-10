@@ -240,6 +240,7 @@ export function montar(contenedor) {
         picos: PICOS.map(({ n, h, lat, lon }) => ({ n, h, lat, lon })),
         glaciares: GLACIARES,
         credito: $('.menu-credito'),
+        tamano: 0.96, // el planeta llena el 96 % de su caja (.menu-planeta, sin contar el halo)
         alElegir: (g) => { if (vivo) mostrarGlaciar(g, true); } // también al tocar un halo en el globo
       });
       if (import.meta.env.DEV) window.__globo = globo; // para las pruebas en el navegador
@@ -359,9 +360,9 @@ export function montar(contenedor) {
     pintarTodo();
   });
 
-  // Pantallas bajas (celular horizontal): el Jukumari es solo una carita; al tocarla dice su texto
-  // en un globo de diálogo que se cierra a los 5 s o al tocar fuera.
-  const bajas = window.matchMedia('(max-height: 500px)');
+  // El Jukumari es solo una carita (en todas las pantallas, para dejar libre el espacio bajo el
+  // planeta); al tocarla dice su texto en un globo de diálogo que se cierra a los 5 s o al tocar fuera.
+  const bajas = window.matchMedia('all');
   const cara = $('.menu-guia img');
   const burbuja = $('.menu-guia .burbuja');
   let cierre = 0;

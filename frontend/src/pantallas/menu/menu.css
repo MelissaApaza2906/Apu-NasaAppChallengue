@@ -1,5 +1,22 @@
 /* Pantalla 2 · Menú "Monitoreo glaciar". Copia fiel de la maqueta (ApuInicio). */
 .pantalla-menu { position: absolute; inset: 0; overflow: hidden; color: var(--nieve); font-family: var(--letra-texto); }
+/* Medidas del espacio libre entre el riel y el panel: el planeta se centra ahí.
+   --tope baja el diámetro donde el planeta tocaría el carrusel o la caja del Jukumari. */
+.pantalla-menu {
+  --boton-riel: clamp(44px, 8cqh, 72px);
+  --ancho-panel: clamp(260px, 28cqw, 450px);
+  --alto-picos: clamp(62px, 10.8cqh, 99px);
+  --riel-der: calc(1.6cqw + var(--boton-riel) + 4cqh);
+  --panel-izq: calc(100cqw - 2.6cqh - var(--ancho-panel) - 2cqh);
+  --libre: calc(var(--panel-izq) - var(--riel-der));
+  --centro: 44cqh;                                       /* centro del planeta (alto) */
+  /* El planeta (96 % de su caja) termina 8 px antes del borde superior del carrusel */
+  --tope: calc((100cqh - var(--carrusel-arriba) - var(--centro) - 8px) * 2 / .96);
+  --diam: min(88cqh, var(--libre), var(--tope));
+  --planeta-izq: calc(var(--riel-der) + (var(--libre) - var(--diam)) / 2 + .5cqh); /* +.5cqh: mismo espacio a cada lado (el riel y el panel tienen bordes distintos) */
+  --planeta-arriba: calc(var(--centro) - var(--diam) / 2);
+  --carrusel-arriba: calc(3.2cqh + var(--alto-picos)); /* del borde superior del carrusel al fondo */
+}
 
 /* Fondo galáctico */
 .menu-cielo {
@@ -34,8 +51,8 @@
 @keyframes menuAbajo { from { opacity: 0; translate: 0 3cqh; } to { opacity: 1; translate: 0 0; } }
 
 /* Órbita y planeta */
-.menu-orbita { position: absolute; left: calc(42cqw - 54cqh); top: 6cqh; width: 108cqh; height: 80cqh; pointer-events: none; overflow: visible; }
-.menu-planeta { position: absolute; left: calc(42cqw - 40cqh); top: 6cqh; width: 80cqh; height: 80cqh; }
+.menu-orbita { position: absolute; left: calc(var(--planeta-izq) - var(--diam) * .175); top: var(--planeta-arriba); width: calc(var(--diam) * 1.35); height: var(--diam); pointer-events: none; overflow: visible; }
+.menu-planeta { position: absolute; left: var(--planeta-izq); top: var(--planeta-arriba); width: var(--diam); height: var(--diam); }
 .menu-planeta.maqueta { animation: menuFlota 7s ease-in-out infinite, menuBrillo 4s ease-in-out infinite; }
 @keyframes menuFlota { 0%, 100% { translate: 0 0; } 50% { translate: 0 -.8cqh; } }
 @keyframes menuBrillo { 0%, 100% { filter: drop-shadow(0 0 2.4cqh rgba(64, 150, 255, .55)); } 50% { filter: drop-shadow(0 0 4.4cqh rgba(64, 150, 255, .85)); } }
@@ -54,8 +71,10 @@
 @keyframes menuEtiqueta { from { opacity: 0; scale: .85; } to { opacity: 1; scale: 1; } }
 .etiqueta svg { width: 4.2cqh; height: auto; flex: none; color: var(--nieve); }
 .etiqueta > span { display: flex; flex-direction: column; line-height: 1.2; }
-.etiqueta b { font-weight: 600; font-size: clamp(11px, 2.2cqh, 20px); }
-.etiqueta span span { font-size: clamp(9px, 1.5cqh, 13px); color: #D7DEEA; }
+.etiqueta b { font-weight: 600; font-size: clamp(13px, 2.5cqh, 23px); }
+.etiqueta span span { font-size: clamp(12px, 1.75cqh, 15px); color: #D7DEEA; }
+.pantalla-menu .globo3d-seleccion .globo3d-etiqueta strong { font-size: max(13px, calc(var(--u) * 1.73)); }
+.pantalla-menu .globo3d-seleccion .globo3d-etiqueta span { font-size: max(12px, calc(var(--u) * 1.38)); }
 
 /* Logo y estado */
 .menu-logo { position: absolute; left: 2.6cqh; top: 2.4cqh; display: flex; align-items: center; gap: 2cqh; }
@@ -63,80 +82,88 @@
 .logo-btn img { height: clamp(40px, 10cqh, 92px); width: auto; display: block; }
 .logo-btn:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
 .menu-logo .separador { width: 1.5px; height: 6cqh; background: rgba(242, 244, 248, .6); }
-.menu-estado { position: absolute; right: 2.6cqh; top: 2.8cqh; display: flex; align-items: center; gap: 1.4cqh; padding: 1.1cqh 2.4cqh; border-radius: 999px; border: 1.5px solid rgba(91, 160, 255, .7); background: rgba(8, 18, 48, .8); font-weight: 600; font-size: clamp(11px, 2.2cqh, 20px); }
+.menu-estado { position: absolute; right: 2.6cqh; top: 2.8cqh; display: flex; align-items: center; gap: 1.4cqh; padding: 1.1cqh 2.4cqh; border-radius: 999px; border: 1.5px solid rgba(91, 160, 255, .7); background: rgba(8, 18, 48, .8); font-weight: 600; font-size: clamp(12px, 2.2cqh, 20px); }
 .menu-estado svg { width: 3cqh; height: 3cqh; }
 .menu-estado .punto { width: 1.2cqh; height: 1.2cqh; border-radius: 50%; background: #3DDC84; box-shadow: 0 0 1cqh #3DDC84; }
 
 /* Riel de 5 botones */
 .menu-riel { position: absolute; left: 1.6cqw; top: 23cqh; padding: 1.4cqh; border-radius: 999px; display: flex; flex-direction: column; gap: 1.6cqh; }
-.menu-riel .redondo { width: clamp(44px, 8cqh, 72px); height: clamp(44px, 8cqh, 72px); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--nieve); cursor: pointer; border: 1.5px solid rgba(242, 244, 248, .75); background: rgba(8, 18, 48, .6); transition: background .15s, box-shadow .15s; }
+.menu-riel .redondo { width: var(--boton-riel); height: var(--boton-riel); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--nieve); cursor: pointer; border: 1.5px solid rgba(242, 244, 248, .75); background: rgba(8, 18, 48, .6); transition: background .15s, box-shadow .15s; }
 .menu-riel .redondo svg { width: 46%; height: 46%; }
 .menu-riel .redondo.actual { border: 2.5px solid var(--rojo-apu); background: rgba(209, 32, 33, .16); box-shadow: 0 0 1.8cqh rgba(209, 32, 33, .6); }
 .menu-riel .redondo:not(.actual):hover { background: rgba(31, 65, 108, .9); box-shadow: 0 0 1.6cqh rgba(242, 244, 248, .3); }
 .menu-riel .redondo:focus-visible, .menu-picos button:focus-visible, .menu-panel select:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
 
 /* Panel derecho */
-.menu-panel { position: absolute; right: 2.6cqh; top: 11.4cqh; bottom: 17cqh; width: clamp(260px, 28cqw, 450px); padding: 2.6cqh; border-radius: 2.2cqh; display: flex; flex-direction: column; gap: 1.6cqh; overflow-y: auto; }
-.menu-panel h2 { margin: 0; display: flex; align-items: center; gap: .5em; font-weight: 700; font-size: clamp(14px, 3.2cqh, 30px); }
+.menu-panel { position: absolute; right: 2.6cqh; top: 11.4cqh; bottom: 17cqh; width: var(--ancho-panel); padding: 2.6cqh; border-radius: 2.2cqh; display: flex; flex-direction: column; gap: 1.6cqh; overflow-y: auto; }
+.menu-panel h2 { margin: 0; display: flex; align-items: center; gap: .5em; font-weight: 700; font-size: clamp(16px, 3.7cqh, 34px); }
 .menu-panel .barras { color: var(--rojo-apu); font-style: italic; font-weight: 600; letter-spacing: -.1em; }
-.menu-panel .intro { margin: .8cqh 0 0; font-size: clamp(10px, 1.85cqh, 16px); line-height: 1.45; color: #D7DEEA; }
+.menu-panel .intro { margin: .8cqh 0 0; font-size: clamp(12px, 2.1cqh, 18px); line-height: 1.45; color: #D7DEEA; }
 .menu-panel .linea { height: 1px; flex: none; background: rgba(242, 244, 248, .35); }
 .menu-panel .comparar { display: flex; gap: 1.4cqh; align-items: flex-end; }
-.menu-panel label { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .8cqh; font-size: clamp(10px, 1.7cqh, 15px); }
-.menu-panel select { height: clamp(36px, 5.4cqh, 50px); padding: 0 .8cqh 0 1.4cqh; border-radius: 999px; border: 1.5px solid rgba(242, 244, 248, .8); background: rgba(8, 18, 48, .85); color: var(--nieve); font: 500 clamp(11px, 1.7cqh, 15px) var(--letra-texto); cursor: pointer; }
+.menu-panel label { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .8cqh; font-size: clamp(12px, 1.95cqh, 17px); }
+.menu-panel select { height: clamp(41px, 6.2cqh, 58px); padding: 0 .8cqh 0 1.4cqh; border-radius: 999px; border: 1.5px solid rgba(242, 244, 248, .8); background: rgba(8, 18, 48, .85); color: var(--nieve); font: 500 clamp(12.5px, 1.95cqh, 17px) var(--letra-texto); cursor: pointer; }
 .menu-panel .cambio { flex: none; display: flex; flex-direction: column; align-items: center; gap: .3cqh; padding: .9cqh 1.8cqh; border-radius: 1.2cqh; border: 1.5px solid var(--rojo-apu); background: rgba(209, 32, 33, .16); box-shadow: 0 0 1.6cqh rgba(209, 32, 33, .35); }
-.menu-panel .cambio b { font-size: clamp(14px, 3cqh, 28px); color: #FF6B6B; white-space: nowrap; }
-.menu-panel .cambio span { font-size: clamp(9px, 1.45cqh, 13px); color: #FFB3B3; white-space: nowrap; }
+.menu-panel .cambio b { font-size: clamp(16px, 3.45cqh, 32px); color: #FF6B6B; white-space: nowrap; }
+.menu-panel .cambio span { font-size: clamp(12px, 1.67cqh, 15px); color: #FFB3B3; white-space: nowrap; }
 .menu-panel .miniaturas { display: flex; align-items: center; gap: 1.2cqh; }
 .menu-panel .miniaturas svg { width: 2.6cqh; flex: none; }
 .menu-panel figure { margin: 0; }
 .menu-panel .miniaturas figure { flex: 1; position: relative; aspect-ratio: 1.45; border-radius: 1.2cqh; overflow: hidden; border: 1.5px solid rgba(91, 160, 255, .6); }
 .menu-panel .miniaturas img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.menu-panel .miniaturas figcaption { position: absolute; left: .8cqh; bottom: .8cqh; padding: .2cqh .9cqh; border-radius: .6cqh; background: rgba(242, 244, 248, .92); color: var(--noche); font: 700 clamp(9px, 1.6cqh, 14px) var(--letra-texto); }
-.menu-panel .nota { font-size: clamp(8px, 1.3cqh, 11px); color: #A9B4CC; }
+.menu-panel .miniaturas figcaption { position: absolute; left: .8cqh; bottom: .8cqh; padding: .2cqh .9cqh; border-radius: .6cqh; background: rgba(242, 244, 248, .92); color: var(--noche); font: 700 clamp(12px, 1.85cqh, 16px) var(--letra-texto); }
+.menu-panel .nota { font-size: clamp(12px, 1.5cqh, 12.65px); color: #A9B4CC; }
 .menu-panel .miniaturas + .nota { margin-top: -.8cqh; }
 /* Nevada / Lluvia según el dato del mes */
 .menu-panel .clima { display: flex; flex-direction: column; gap: .6cqh; }
 .menu-panel .clima-fila { display: flex; gap: .8cqh; align-items: center; }
-.menu-panel .clima button { min-height: 36px; padding: 0 1.4cqh; border-radius: 999px; border: 1px solid rgba(91, 160, 255, .55); background: rgba(8, 18, 48, .85); color: #D7DEEA; cursor: pointer; font: 500 clamp(10px, 1.6cqh, 13px) var(--letra-texto); white-space: nowrap; }
+.menu-panel .clima button { min-height: 41px; padding: 0 1.4cqh; border-radius: 999px; border: 1px solid rgba(91, 160, 255, .55); background: rgba(8, 18, 48, .85); color: #D7DEEA; cursor: pointer; font: 500 clamp(12px, 1.85cqh, 15px) var(--letra-texto); white-space: nowrap; }
 .menu-panel .clima button[aria-pressed="true"] { color: var(--nieve); background: rgba(209, 32, 33, .22); box-shadow: inset 0 0 0 1.5px var(--rojo-apu); border-color: transparent; }
 .menu-panel .clima button:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
-.menu-panel .clima .clima-mes { flex: 1; min-width: 0; height: 36px; padding: 0 .6cqh 0 1.2cqh; font-size: clamp(10px, 1.6cqh, 13px); }
-.menu-panel .ver-barras { align-self: flex-start; margin-top: .8cqh; min-height: 36px; padding: 0 1.4cqh; border-radius: 999px; border: 1px solid rgba(91, 160, 255, .55); background: rgba(8, 18, 48, .85); color: #D7DEEA; cursor: pointer; font: 500 clamp(10px, 1.6cqh, 13px) var(--letra-texto); }
+.menu-panel .clima .clima-mes { flex: 1; min-width: 0; height: 41px; padding: 0 .6cqh 0 1.2cqh; font-size: clamp(12px, 1.85cqh, 15px); }
+.menu-panel .ver-barras { align-self: flex-start; margin-top: .8cqh; min-height: 41px; padding: 0 1.4cqh; border-radius: 999px; border: 1px solid rgba(91, 160, 255, .55); background: rgba(8, 18, 48, .85); color: #D7DEEA; cursor: pointer; font: 500 clamp(12px, 1.85cqh, 15px) var(--letra-texto); }
 .menu-panel .ver-barras[aria-pressed="true"] { color: var(--nieve); background: rgba(209, 32, 33, .22); box-shadow: inset 0 0 0 1.5px var(--rojo-apu); border-color: transparent; }
 .menu-panel .ver-barras:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
-.menu-panel .clima-valor { margin: 0; font: 700 clamp(11px, 1.8cqh, 15px) var(--letra-texto); color: var(--nieve); }
+.menu-panel .clima-valor { margin: 0; font: 700 clamp(12.5px, 2.07cqh, 17px) var(--letra-texto); color: var(--nieve); }
 .menu-panel .nota-periodo { display: block; margin-top: -.6cqh; text-align: right; }
 .menu-panel .nota-periodo[hidden] { display: none; }
 .menu-panel .tarjetas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2cqh; }
 .menu-panel .tarjeta { display: flex; align-items: center; gap: 1.2cqh; padding: 1.2cqh 1.4cqh; min-width: 0; background: rgba(12, 28, 68, .85); border: 1px solid rgba(91, 160, 255, .35); border-radius: 1.4cqh; }
-.tarjeta .icono { flex: none; font-size: 3.2cqh; color: var(--dato-nieve); }
+.tarjeta .icono { flex: none; font-size: max(14px, 3.7cqh); color: var(--dato-nieve); }
 .tarjeta .texto { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
-.tarjeta .texto span { font-size: clamp(9px, 1.5cqh, 13px); color: #D7DEEA; }
-.tarjeta .texto b { font-size: clamp(11px, 2.3cqh, 21px); font-weight: 700; }
+.tarjeta .texto span { font-size: clamp(12px, 1.72cqh, 15px); color: #D7DEEA; }
+.tarjeta .texto b { font-size: clamp(12.5px, 2.65cqh, 24px); font-weight: 700; }
 .tarjeta.alerta .icono, .tarjeta.alerta b { color: #FF6B6B; }
-.tarjeta.alerta b { font-size: clamp(11px, 2.2cqh, 20px); }
+.tarjeta.alerta b { font-size: clamp(12.5px, 2.53cqh, 23px); }
 .menu-panel .grafico { display: flex; flex-direction: column; gap: .6cqh; }
-.menu-panel .grafico figcaption { font-size: clamp(9px, 1.45cqh, 13px); color: #D7DEEA; }
+.menu-panel .grafico figcaption { font-size: clamp(12px, 1.67cqh, 15px); color: #D7DEEA; }
 .menu-panel .grafico svg { width: 100%; height: auto; display: block; overflow: visible; }
+/* Textos del gráfico (unidades del viewBox de 300): el SVG se escala con el panel; así miden 12 px o más */
+.menu-panel .grafico svg text { font-size: 13px; }
 .linea-graf { stroke-dasharray: 600; animation: menuDibuja 1.6s ease-out .5s both; }
 @keyframes menuDibuja { from { stroke-dashoffset: 600; } to { stroke-dashoffset: 0; } }
 
 /* Guía: el Jukumari */
-.menu-guia { position: absolute; left: 1.2cqw; bottom: 2.6cqh; width: min(33cqw, 62cqh); height: clamp(84px, 17cqh, 160px); }
-.menu-guia .caja { position: absolute; left: 7cqh; right: 0; top: 2.4cqh; bottom: 0; border-radius: 2cqh; padding: 1.6cqh 2cqh 1.6cqh 11cqh; display: flex; flex-direction: column; justify-content: center; gap: .6cqh; }
-.menu-guia b { font-size: clamp(11px, 2.3cqh, 21px); color: var(--dato-nieve); }
-.menu-guia p { margin: 0; font-size: clamp(9px, 1.7cqh, 15px); line-height: 1.45; color: #E6EBF3; }
-.menu-guia img { position: absolute; left: 0; top: 0; width: clamp(80px, 16cqh, 150px); height: clamp(80px, 16cqh, 150px); border-radius: 50%; border: 3px solid #5BA0FF; object-fit: cover; box-shadow: 0 0 2.4cqh rgba(64, 150, 255, .6); }
+/* Solo la carita (deja libre el espacio bajo el planeta); al tocarla dice su texto en un globo de diálogo */
+.menu-guia { position: absolute; left: 1.2cqw; bottom: 2.6cqh; z-index: 5; } /* su globo de diálogo va sobre el carrusel */
+.menu-guia .caja { display: none; }
+.menu-guia b { font-size: clamp(12.5px, 2.65cqh, 24px); color: var(--dato-nieve); }
+.menu-guia p { margin: 0; font-size: clamp(12px, 1.95cqh, 17px); line-height: 1.45; color: #E6EBF3; }
+.menu-guia img { display: block; width: clamp(64px, 13.8cqh, 126px); height: clamp(64px, 13.8cqh, 126px); border-radius: 50%; border: 3px solid #5BA0FF; object-fit: cover; box-shadow: 0 0 2.4cqh rgba(64, 150, 255, .6); cursor: pointer; }
+.menu-guia img:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
 
 /* Panel sin análisis (glaciares sin datos de 25 años): solo el aviso, nunca números inventados */
 .menu-panel .con-datos { display: flex; flex-direction: column; gap: 1.6cqh; }
-.menu-panel .sin-datos { margin: 0; padding: 1.4cqh 1.6cqh; border-radius: 1.4cqh; border: 1px dashed rgba(143, 219, 255, .6); background: rgba(12, 28, 68, .7); font-size: clamp(11px, 1.9cqh, 16px); line-height: 1.5; color: #E6EBF3; }
+.menu-panel .sin-datos { margin: 0; padding: 1.4cqh 1.6cqh; border-radius: 1.4cqh; border: 1px dashed rgba(143, 219, 255, .6); background: rgba(12, 28, 68, .7); font-size: clamp(12.5px, 2.2cqh, 18px); line-height: 1.5; color: #E6EBF3; }
 
 /* Control sobre el carrusel: glaciares del mundo / picos de la Cordillera Real + "Ver planeta" */
-.menu-modos { position: absolute; left: 37cqw; right: 12cqw; bottom: calc(3.2cqh + clamp(54px, 9.4cqh, 86px) + 1cqh); display: flex; align-items: center; justify-content: center; gap: 1.2cqh; z-index: 2; }
+/* Abajo a la izquierda, entre la carita del Jukumari y el carrusel (debajo del planeta solo queda el carrusel).
+   Las dos opciones una encima de la otra; "Ver planeta" aparece encima de ellas. */
+.menu-modos { position: absolute; left: calc(1.2cqw + clamp(64px, 13.8cqh, 126px) + 2cqh); right: calc(63cqw + 1.2cqh); bottom: 3.2cqh; min-height: var(--alto-picos); display: flex; flex-direction: column-reverse; align-items: flex-start; justify-content: flex-start; gap: .8cqh; z-index: 2; }
+.menu-modos .selector { flex-direction: column; border-radius: 1.6cqh; }
+.menu-modos .selector button { text-align: left; }
 .menu-modos .selector { display: flex; padding: 3px; border-radius: 999px; border: 1px solid rgba(91, 160, 255, .55); background: rgba(8, 18, 48, .85); }
-.menu-modos button { min-height: 28px; padding: 0 1.6cqh; border: none; border-radius: 999px; background: transparent; color: #D7DEEA; cursor: pointer; font: 500 clamp(10px, 1.6cqh, 14px) var(--letra-texto); white-space: nowrap; }
+.menu-modos button { min-height: 32px; padding: 0 1.6cqh; border: none; border-radius: 999px; background: transparent; color: #D7DEEA; cursor: pointer; font: 500 clamp(12px, 1.85cqh, 16px) var(--letra-texto); white-space: nowrap; }
 .menu-modos .selector button[aria-pressed="true"] { background: rgba(209, 32, 33, .22); color: var(--nieve); box-shadow: inset 0 0 0 1.5px var(--rojo-apu); }
 .menu-modos .ver-planeta { display: flex; align-items: center; gap: .6em; border: 1.5px solid rgba(242, 244, 248, .7); background: rgba(8, 18, 48, .85); color: var(--nieve); }
 .menu-modos .ver-planeta svg { width: 1.3em; height: 1.3em; }
@@ -145,11 +172,11 @@
 
 /* Crédito de NASA (2 líneas: Blue Marble + la capa con su fecha). Va en la columna libre a la derecha
    del carrusel: entre el panel y el carrusel ya está el control de fecha y no cabe el texto largo. */
-.menu-credito { position: absolute; right: 2.6cqh; bottom: 3.2cqh; max-width: calc(12cqw - 2.6cqh - 6px); margin: 0; text-align: right; white-space: pre-line; font: 500 clamp(8px, 1.2cqh, 11px) / 1.3 var(--letra-texto); color: #A9B4CC; pointer-events: none; }
+.menu-credito { position: absolute; right: 2.6cqh; bottom: 3.2cqh; max-width: calc(12cqw - 2.6cqh - 6px); margin: 0; text-align: right; white-space: pre-line; font: 500 clamp(12px, 1.3cqh, 12.65px) / 1.3 var(--letra-texto); color: #A9B4CC; pointer-events: none; }
 
 /* Menú "Capas de datos" al lado del riel (JS lo pone a la altura de su botón) */
 .menu-capas { position: absolute; z-index: 6; display: flex; flex-direction: column; gap: .6cqh; padding: 1cqh; border-radius: 1.8cqh; }
-.menu-capas button { min-height: 44px; padding: 0 2cqh 0 1.4cqh; display: flex; align-items: center; gap: 1cqh; border: none; border-radius: 999px; background: transparent; color: var(--nieve); cursor: pointer; font: 500 clamp(11px, 1.9cqh, 16px) var(--letra-texto); white-space: nowrap; text-align: left; }
+.menu-capas button { min-height: 44px; padding: 0 2cqh 0 1.4cqh; display: flex; align-items: center; gap: 1cqh; border: none; border-radius: 999px; background: transparent; color: var(--nieve); cursor: pointer; font: 500 clamp(12px, 1.9cqh, 16px) var(--letra-texto); white-space: nowrap; text-align: left; }
 .menu-capas button::before { content: ''; width: 1.6cqh; height: 1.6cqh; min-width: 10px; min-height: 10px; border-radius: 50%; border: 2px solid rgba(242, 244, 248, .7); box-sizing: border-box; }
 .menu-capas button[aria-checked="true"] { background: rgba(209, 32, 33, .18); box-shadow: inset 0 0 0 1.5px var(--rojo-apu); }
 .menu-capas button[aria-checked="true"]::before { background: var(--rojo-apu); border-color: var(--nieve); }
@@ -157,59 +184,76 @@
 .menu-capas button:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
 
 /* Aviso si NASA no responde al pedir una capa */
-.menu-panel .aviso-capa { margin: 0; padding: 1.2cqh 1.6cqh; border-radius: 1.4cqh; border: 1px solid rgba(249, 200, 14, .6); background: rgba(249, 200, 14, .1); color: #FCE7A0; font-size: clamp(10px, 1.7cqh, 14px); line-height: 1.45; }
+.menu-panel .aviso-capa { margin: 0; padding: 1.2cqh 1.6cqh; border-radius: 1.4cqh; border: 1px solid rgba(249, 200, 14, .6); background: rgba(249, 200, 14, .1); color: #FCE7A0; font-size: clamp(12px, 1.95cqh, 16px); line-height: 1.45; }
 
 /* Sin tendencia real (la lluvia): amarillo, no rojo */
 .menu-panel .cambio.duda { border-color: var(--dato-tendencia); background: rgba(249, 200, 14, .12); box-shadow: 0 0 1.6cqh rgba(249, 200, 14, .25); }
 .menu-panel .cambio.duda b { color: var(--dato-tendencia); }
 .menu-panel .cambio.duda span { color: #FCE7A0; }
 .tarjeta.duda .icono, .tarjeta.duda b { color: var(--dato-tendencia); }
-.tarjeta.duda b { font-size: clamp(11px, 2.2cqh, 20px); }
+.tarjeta.duda b { font-size: clamp(12.5px, 2.53cqh, 23px); }
 .menu-panel .ilustrativas { display: flex; flex-direction: column; gap: 1.6cqh; }
 
 /* Control de fecha de la capa de nieve, justo debajo del panel (por encima del selector del carrusel).
    Con el control visible, el panel sube para dejarle lugar. */
 /* --pie-fechas: justo encima del selector del carrusel (el panel nunca lo pisa, con o sin fechas) */
-.pantalla-menu { --pie-fechas: max(17cqh, calc(4.2cqh + clamp(54px, 9.4cqh, 86px) + 40px)); }
+/* El borde inferior del panel (o de la máquina del tiempo, si está) queda a la altura del borde superior del carrusel */
+.pantalla-menu { --pie-fechas: var(--carrusel-arriba); }
 .pantalla-menu .menu-panel { bottom: var(--pie-fechas); }
-.pantalla-menu.con-fechas .menu-panel { bottom: calc(var(--pie-fechas) + 40px); }
-.menu-fechas { position: absolute; right: 2.6cqh; bottom: var(--pie-fechas); width: clamp(260px, 28cqw, 450px); display: flex; align-items: center; justify-content: flex-end; gap: .8cqh; z-index: 2; }
-.menu-fechas .rotulo { margin-right: auto; font-size: clamp(9px, 1.5cqh, 13px); color: #D7DEEA; white-space: nowrap; }
-.menu-fechas button { min-height: 32px; padding: 0 1.4cqh; border-radius: 999px; border: 1px solid rgba(91, 160, 255, .55); background: rgba(8, 18, 48, .85); color: #D7DEEA; cursor: pointer; font: 500 clamp(10px, 1.6cqh, 13px) var(--letra-texto); white-space: nowrap; }
+.pantalla-menu.con-fechas .menu-panel { bottom: calc(var(--pie-fechas) + 44px); }
+.menu-fechas { position: absolute; right: 2.6cqh; bottom: var(--pie-fechas); width: var(--ancho-panel); display: flex; align-items: center; justify-content: flex-end; gap: .8cqh; z-index: 2; }
+.menu-fechas .rotulo { margin-right: auto; font-size: clamp(12px, 1.72cqh, 15px); color: #D7DEEA; white-space: nowrap; }
+.menu-fechas button { min-height: 32px; padding: 0 1.4cqh; border-radius: 999px; border: 1px solid rgba(91, 160, 255, .55); background: rgba(8, 18, 48, .85); color: #D7DEEA; cursor: pointer; font: 500 clamp(12px, 1.85cqh, 15px) var(--letra-texto); white-space: nowrap; }
 .menu-fechas button[aria-pressed="true"] { color: var(--nieve); background: rgba(209, 32, 33, .22); box-shadow: inset 0 0 0 1.5px var(--rojo-apu); border-color: transparent; }
 .menu-fechas button:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
 /* Máquina del tiempo: [Más reciente] [▶] ——o—— 15 ago 2016 */
-.menu-fechas .play { min-width: 36px; padding: 0; font-size: clamp(11px, 1.6cqh, 14px); }
+.menu-fechas .play { min-width: 36px; padding: 0; font-size: clamp(12px, 1.85cqh, 16px); }
 .menu-fechas .anio { flex: 1; min-width: 0; height: 32px; margin: 0; accent-color: var(--dato-nieve, #8FDBFF); cursor: pointer; opacity: .65; }
 .menu-fechas .anio.activo { opacity: 1; }
 .menu-fechas .anio:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; border-radius: 4px; }
-.menu-fechas .anio-valor { min-width: 7.5ch; font: 600 clamp(10px, 1.6cqh, 13px) var(--letra-texto); color: var(--nieve); white-space: nowrap; text-align: right; }
+.menu-fechas .anio-valor { min-width: 7.5ch; font: 600 clamp(12px, 1.85cqh, 15px) var(--letra-texto); color: var(--nieve); white-space: nowrap; text-align: right; }
 
-/* Globo de diálogo del Jukumari en pantallas bajas (mismo estilo que el de la pantalla de carga) */
-.menu-guia .burbuja { position: absolute; left: calc(100% + 1.2cqh); bottom: 0; z-index: 4; width: max-content; max-width: min(46cqw, 320px); margin: 0; padding: 1.2cqh 1.8cqh; border-radius: 2cqh 2cqh 2cqh .4cqh; background: rgba(242, 244, 248, .96); color: var(--noche); font: 600 clamp(11px, 2.6cqh, 15px) / 1.35 var(--letra-texto); box-shadow: 0 .8cqh 2.4cqh rgba(0, 0, 0, .35); transform-origin: 0 100%; }
+/* Globo de diálogo del Jukumari (mismo estilo que el de la pantalla de carga) */
+.menu-guia .burbuja { position: absolute; left: calc(100% + 1.2cqh); bottom: 0; z-index: 4; width: max-content; max-width: min(46cqw, 368px); margin: 0; padding: 1.2cqh 1.8cqh; border-radius: 2cqh 2cqh 2cqh .4cqh; background: rgba(242, 244, 248, .96); color: var(--noche); font: 600 clamp(12.5px, 3cqh, 17px) / 1.35 var(--letra-texto); box-shadow: 0 .8cqh 2.4cqh rgba(0, 0, 0, .35); transform-origin: 0 100%; }
 .menu-guia .burbuja.nueva { animation: menuBurbuja .35s cubic-bezier(.2, 1.5, .4, 1) both; }
 @keyframes menuBurbuja { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
 
-/* Pantallas bajas (celular horizontal): riel más compacto y el Jukumari solo como carita */
+/* Pantallas bajas (celular horizontal): riel más compacto */
 @media (max-height: 500px) {
+  .pantalla-menu { --centro: 42cqh; --alto-picos: 54px; } /* más alto para el planeta; el carrusel no crece */
   .menu-riel { top: 14cqh; gap: 1.2cqh; padding: 1cqh; }
-  .menu-guia { width: auto; height: auto; left: 1.2cqw; bottom: 2cqh; z-index: 5; } /* su globo de diálogo va sobre el carrusel */
-  .menu-guia .caja { display: none; }
-  .menu-guia img { position: static; width: 56px; height: 56px; cursor: pointer; }
-  .menu-guia img:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
-  /* La columna junto al carrusel es muy angosta: el crédito va a la derecha de la carita del Jukumari
-     (su globo de diálogo, cuando se abre, queda por encima) */
-  .menu-credito { right: auto; left: calc(1.2cqw + 56px + 1.6cqh); bottom: 2cqh; max-width: calc(37cqw - 1.2cqw - 56px - 4cqh); text-align: left; }
+  .menu-guia { bottom: 2cqh; }
+
+  .menu-panel .grafico svg text { font-size: 15.5px; } /* el panel mide 260 px: 15,5 unidades = 12 px */
+
+  /* La columna junto al carrusel es muy angosta: el crédito va entre el riel y el planeta,
+     encima del selector */
+  .menu-credito { right: auto; left: calc(1.6cqw + var(--boton-riel) + 3cqh); bottom: calc(3.2cqh + 80px); max-width: calc(var(--planeta-izq) - 1.6cqw - var(--boton-riel) - 4cqh); text-align: left; }
+  .menu-panel .cambio b { font-size: 14px; }
 }
 
 /* Carrusel de picos */
-.menu-picos { position: absolute; left: 37cqw; right: 12cqw; bottom: 3.2cqh; height: clamp(54px, 9.4cqh, 86px); border-radius: 999px; padding: 0 1.6cqh; display: flex; align-items: center; gap: 1.4cqh; }
+.menu-picos { position: absolute; left: 37cqw; right: 12cqw; bottom: 3.2cqh; height: var(--alto-picos); border-radius: 999px; padding: 0 1.6cqh; display: flex; align-items: center; gap: 1.4cqh; }
 .menu-picos .lista { flex: 1; min-width: 0; display: flex; gap: 1.4cqh; }
-.menu-picos .flecha { flex: none; width: clamp(36px, 5.4cqh, 50px); height: clamp(36px, 5.4cqh, 50px); border-radius: 50%; border: none; background: transparent; color: var(--nieve); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.menu-picos .flecha { flex: none; width: clamp(41px, 6.2cqh, 58px); height: clamp(41px, 6.2cqh, 58px); border-radius: 50%; border: none; background: transparent; color: var(--nieve); cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .menu-picos .flecha svg { width: 60%; height: 60%; }
 .menu-picos .flecha:hover { background: rgba(31, 65, 108, .9); }
-.menu-picos .pico { flex: 1; min-width: 0; height: clamp(40px, 6.6cqh, 62px); display: flex; align-items: center; justify-content: center; gap: 1.2cqh; padding: 0 1.6cqh; border-radius: 999px; cursor: pointer; font: 500 clamp(10px, 2cqh, 19px) var(--letra-texto); color: var(--nieve); border: 1.5px solid rgba(242, 244, 248, .55); background: rgba(8, 18, 48, .6); transition: background .15s, border-color .15s, box-shadow .2s; }
+.menu-picos .pico { flex: 1; min-width: 0; height: clamp(46px, 7.6cqh, 71px); display: flex; align-items: center; justify-content: center; gap: 1.2cqh; padding: 0 1.6cqh; border-radius: 999px; cursor: pointer; font: 500 clamp(12px, 2.3cqh, 22px) var(--letra-texto); color: var(--nieve); border: 1.5px solid rgba(242, 244, 248, .55); background: rgba(8, 18, 48, .6); transition: background .15s, border-color .15s, box-shadow .2s; }
 .menu-picos .pico:hover { border-color: var(--nieve); }
 .menu-picos .pico.elegido { border: 2px solid var(--rojo-apu); background: rgba(209, 32, 33, .14); box-shadow: 0 0 1.8cqh rgba(209, 32, 33, .55); }
-.menu-picos .pico svg { width: 3.6cqh; height: auto; flex: none; }
+.menu-picos .pico svg { width: max(16px, 4.1cqh); height: auto; flex: none; }
 .menu-picos .pico span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Panel angosto (hasta 1480 px de ancho, también el celular): con los textos más grandes nada se corta */
+@media (max-width: 1480px) {
+  .menu-panel select { padding: 0 2px 0 8px; font-size: clamp(12px, 1.6cqh, 14px); }
+  .menu-panel .cambio { padding: .6cqh 1cqh; }
+  .menu-panel .cambio b { font-size: clamp(14px, 2.6cqh, 22px); }
+  .menu-panel .clima-fila { flex-wrap: wrap; }
+  .menu-panel .clima .clima-mes { flex-basis: 100%; }
+  .menu-picos .pico svg { display: none; }
+  .menu-picos .pico { padding: 0 1cqh; }
+}
+@media (max-height: 500px) {
+  .menu-panel select { font-size: 12px; }
+}
