@@ -40,6 +40,7 @@ const POR_DEFECTO = {
   rotar: true,
   velocidad: 0.04,          // radianes por segundo (≈ una vuelta cada 2,6 min)
   alturaMinimaGiro: 5_000_000, // cerca del suelo no gira
+  alturaMinimaZoom: 1_500_000, // metros: tope del zoom con la rueda o los dedos
   esperaTrasArrastre: 4000, // ms hasta que vuelve a girar
   glaciares: [],            // [{ id, nombre, pais, lat, lon, principal?, texto, datos }]
   picos: [],                // [{ n: nombre, h: altura en m (6438 o '6 438'), lat, lon }]
@@ -368,6 +369,18 @@ export function crearGlobo(contenedor, opciones = {}) {
   };
   encuadrar(Cesium.Math.toRadians(op.lon), Cesium.Math.toRadians(op.lat));
 
+  // Gestos: solo girar el planeta y acercar/alejar, siempre mirando a su centro.
+  // Sin inclinar (botón del medio, Ctrl o dos dedos) ni mover la cámara de lado: el planeta,
+  // el anillo y la órbita del satélite quedan siempre centrados. El zoom tiene topes:
+  // de cerca, hasta ~1 500 km del suelo; de lejos, el tamaño del diseño.
+  const control = escena.screenSpaceCameraController;
+  control.enableTilt = false;
+  control.enableLook = false;
+  control.enableTranslate = false;
+  control.minimumZoomDistance = op.alturaMinimaZoom;
+  const topeAlejar = () => { control.maximumZoomDistance = Math.max(alturaEncuadre(), op.alturaMinimaZoom * 2); };
+  topeAlejar();
+
   // Si algo falla al dibujar, pasamos a la imagen
   limpiezas.push(escena.renderError.addEventListener((_, err) => {
     console.error(err);
@@ -381,8 +394,10 @@ export function crearGlobo(contenedor, opciones = {}) {
   // Cada vez que el canvas cambia de tamaño, el planeta vuelve a medir op.tamano
   // (salvo que el usuario ya haya elegido su distancia con zoom o eligiendo un lugar)
   const observador = new ResizeObserver(() => {
-    if (!viewer || !encuadreAuto) return;
+    if (!viewer) return;
     viewer.resize(); // que Cesium actualice el frustum antes de calcular
+    topeAlejar();
+    if (!encuadreAuto) return;
     const p = viewer.camera.positionCartographic;
     encuadrar(p.longitude, p.latitude);
     escena.requestRender();
@@ -478,8 +493,10 @@ export function crearGlobo(contenedor, opciones = {}) {
   let diametroAnillo = 0;
   const actualizarAnillo = () => {
     const e = estado();
-    const cerca = raiz.classList.contains('cerca');
     const lado = Math.min(...e.canvas);
+    // Si el planeta ya no cabe en su caja (al elegir un lugar o con el zoom), se ve por la lupa redonda
+    const cerca = enfocado || e.diametroPx > lado * op.tamano * 1.03;
+    raiz.classList.toggle('cerca', cerca);
     const visible = cerca || (viewer.camera.positionCartographic.height > op.alturaMinimaGiro
       && e.diametroPx <= lado * 1.02);
     anillo.hidden = !visible;
@@ -505,7 +522,9 @@ export function crearGlobo(contenedor, opciones = {}) {
     const y = a * sinG + b * cosG;
     return { x: 0.5 + (x / 100) * o.ancho, y: 0.5 + (y / 100) * o.alto };
   }
-  // Ángulo de la órbita que queda arriba a la derecha de un punto (fracciones de la caja)
+  // Ángulo de la órbita que queda arriba a la derecha de un punto (fracciones de la caja).
+  // Solo el tramo que cae sobre la caja del globo: los extremos de la órbita la pasan y ahí el
+  // satélite quedaría debajo de los paneles del menú.
   function anguloArribaDerecha(px, py) {
     const deseo = { x: px + 0.35, y: py - 0.35 };
     let mejor = 0;
@@ -513,6 +532,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     for (let k = 0; k < 360; k++) {
       const t = (k / 360) * 2 * Math.PI;
       const p = puntoOrbita(t);
+      if (p.x < 0.08 || p.x > 0.92) continue;
       const d = (p.x - deseo.x) ** 2 + (p.y - deseo.y) ** 2;
       if (d < dMin) { dMin = d; mejor = t; }
     }
@@ -581,10 +601,17 @@ export function crearGlobo(contenedor, opciones = {}) {
   const objetivoGlaciar = (g) => ({ tipo: 'glaciar', ref: g, n: g.nombre, sub: g.pais, lat: g.lat, lon: g.lon, h: 0 });
   const objetivoPico = (p) => ({ tipo: 'pico', ref: p, n: p.n, sub: `${conMiles(p.h)} m s. n. m.`, lat: p.lat, lon: p.lon, h: p.h });
 
-  // Posición en pantalla de un punto si se ve (no está detrás del planeta)
+  // Posición en pantalla de un punto si se ve: no está detrás del planeta y cae dentro de lo
+  // que se ve del canvas (la lupa redonda de cerca, o la caja), con un margen de 4 px
   function aPantalla(pos, resultado) {
     ocultador.cameraPosition = viewer.camera.positionWC;
-    return ocultador.isPointVisible(pos) && Cesium.defined(escena.cartesianToCanvasCoordinates(pos, resultado));
+    if (!ocultador.isPointVisible(pos) || !Cesium.defined(escena.cartesianToCanvasCoordinates(pos, resultado))) return false;
+    const w = lienzo.clientWidth;
+    const h = lienzo.clientHeight;
+    if (raiz.classList.contains('cerca')) {
+      return Math.hypot(resultado.x - w / 2, resultado.y - h / 2) <= (Math.min(w, h) * op.tamano) / 2 - 4;
+    }
+    return resultado.x >= 4 && resultado.x <= w - 4 && resultado.y >= 4 && resultado.y <= h - 4;
   }
 
   let sateliteColocado = false;
@@ -601,6 +628,8 @@ export function crearGlobo(contenedor, opciones = {}) {
     const mx = enPantallaObj.x;
     const my = enPantallaObj.y;
     seleccion.style.transform = `translate(${mx.toFixed(1)}px, ${my.toFixed(1)}px)`;
+    // La etiqueta no se sale de la caja del globo por la derecha: si no cabe, va a la izquierda
+    seleccion.classList.toggle('izquierda', mx + etiqueta.offsetWidth + lienzo.clientWidth * 0.06 > lienzo.clientWidth);
 
     // Primera vez que se ve: el satélite se coloca arriba a la derecha de lo elegido
     if (!sateliteColocado) {
@@ -633,20 +662,33 @@ export function crearGlobo(contenedor, opciones = {}) {
   // ---------------------------------------------------------------
   // Toques: arrastrar pausa el giro; tocar un halo elige ese glaciar
   // ---------------------------------------------------------------
+  // Cuando el planeta queda quieto tras un gesto, el satélite vuelve arriba a la derecha de lo elegido
+  let temporizadorSatelite = 0;
+  const reubicarSatelite = () => {
+    clearTimeout(temporizadorSatelite);
+    temporizadorSatelite = setTimeout(() => {
+      if (!viewer || arrastrando || volando || !posObjetivo || !aPantalla(posObjetivo, enPantallaObj)) return;
+      moverSatelite(anguloArribaDerecha(enPantallaObj.x / lienzo.clientWidth, enPantallaObj.y / lienzo.clientHeight));
+    }, 700); // tras la inercia del arrastre
+  };
   const alPresionar = () => {
     arrastrando = true;
+    raiz.classList.add('arrastrando'); // el planeta deja de flotar mientras se arrastra
     clearTimeout(temporizadorGiro);
+    clearTimeout(temporizadorSatelite);
     temporizadorGiro = 0;
     actualizarModo();
   };
   const alSoltar = () => {
     if (!arrastrando) return;
     arrastrando = false;
+    raiz.classList.remove('arrastrando');
     clearTimeout(temporizadorGiro);
     temporizadorGiro = setTimeout(() => { temporizadorGiro = 0; actualizarModo(); }, op.esperaTrasArrastre);
     actualizarModo();
+    reubicarSatelite();
   };
-  const alZoom = () => { encuadreAuto = false; }; // el usuario eligió su distancia
+  const alZoom = () => { encuadreAuto = false; reubicarSatelite(); }; // el usuario eligió su distancia
   const lienzoCanvas = escena.canvas;
   lienzoCanvas.addEventListener('wheel', alZoom, { passive: true });
   lienzoCanvas.addEventListener('pointerdown', alPresionar);
@@ -671,6 +713,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     window.removeEventListener('pointercancel', alSoltar);
     sinMovimiento.removeEventListener('change', actualizarModo);
     clearTimeout(temporizadorGiro);
+    clearTimeout(temporizadorSatelite);
     temporizadorGiro = 0;
   });
 
@@ -761,7 +804,7 @@ export function crearGlobo(contenedor, opciones = {}) {
   function verPlaneta() {
     if (!viewer) return;
     encuadreAuto = true;
-    raiz.classList.remove('cerca');
+    enfocado = false; // la lupa se quita sola cuando el planeta vuelve a caber (actualizarAnillo)
     const lon = objetivo?.lon ?? op.lon;
     volar(Cesium.Cartesian3.fromDegrees(lon, op.lat, alturaEncuadre()), op.duracionVuelo, () => {
       enfocado = false;
@@ -787,7 +830,9 @@ export function crearGlobo(contenedor, opciones = {}) {
     const d = Cesium.Cartesian3.magnitude(viewer.camera.positionWC);
     const mitadV = viewer.camera.frustum.fovy / 2;
     const diametro = (Math.tan(Math.asin(Math.min(1, RADIO_TIERRA / d))) / Math.tan(mitadV)) * h;
+    const c = escena.cartesianToCanvasCoordinates(Cesium.Cartesian3.ZERO, new Cesium.Cartesian2());
     return {
+      centroPx: c ? [Math.round(c.x), Math.round(c.y)] : null, // centro del planeta en el canvas
       modo: '3d', cargado: globo.tilesLoaded, canvas: [w, h],
       diametroPx: Math.round(diametro), fraccionAlto: +(diametro / h).toFixed(3),
       objetivo: objetivo?.n ?? null, objetivoVisible: !capa.classList.contains('objetivo-oculto'),

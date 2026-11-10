@@ -225,6 +225,7 @@ export function montar(contenedor) {
         credito: $('.menu-credito'),
         alElegir: (g) => { if (vivo) mostrarGlaciar(g, true); } // también al tocar un halo en el globo
       });
+      if (import.meta.env.DEV) window.__globo = globo; // para las pruebas en el navegador
     })
     .catch((e) => { console.info('APU: se usa el planeta de la maqueta.', e.message); if (vivo) { planetaMaqueta(); pintarTodo(); } });
 

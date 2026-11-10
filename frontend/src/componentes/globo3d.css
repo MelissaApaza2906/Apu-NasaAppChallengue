@@ -24,6 +24,8 @@
   animation: globo-flotar 5s ease-in-out infinite;
   will-change: transform;
 }
+/* Mientras se arrastra, el planeta se queda quieto bajo el dedo */
+.globo3d.arrastrando .globo3d-flotante { animation-play-state: paused; }
 @keyframes globo-flotar {
   0%, 100% { transform: translateY(calc(var(--u) * 0.6)); }
   50%      { transform: translateY(calc(var(--u) * -0.6)); }
@@ -212,6 +214,9 @@
   white-space: nowrap;
   transform-origin: 0 100%;
 }
+/* Si lo elegido está cerca del borde derecho, línea y etiqueta van hacia la izquierda */
+.globo3d-seleccion.izquierda .linea { transform: rotate(-135deg); }
+.globo3d-seleccion.izquierda .globo3d-etiqueta { left: auto; right: calc(var(--u) * 3.5); transform-origin: 100% 100%; }
 .globo3d-seleccion .globo3d-etiqueta strong {
   font: 400 max(10px, calc(var(--u) * 1.5)) / 1.15 var(--letra-titulo);
   letter-spacing: .08em;
