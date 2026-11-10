@@ -1,8 +1,13 @@
 // Globo 3D de APU (CesiumJS) con imágenes reales de NASA GIBS.
 //
-//   const globo = crearGlobo(contenedor, { lat: -15, lon: -65, altura: 20_000_000 });
+//   const globo = crearGlobo(contenedor, { tamano: 0.95, picos: [{ n, h, lat, lon }, …] });
+//   globo.elegirPico(0);                 // vuela a ~2 500 km del pico; pausa la rotación
+//   globo.verPlaneta();                  // vuelve al planeta completo y sigue girando
 //   globo.irA(-16.5, -68.15, 300_000);   // vuela a un punto (grados, metros)
 //   globo.destruir();                    // al salir de la pantalla
+//
+// Encima del canvas (HTML/SVG, no entidades de Cesium): marcador del pico con su etiqueta,
+// satélite y haz de luz del satélite al marcador. Se recolocan en cada frame.
 //
 // El globo llena su contenedor con fondo TRANSPARENTE (se ve el cielo de la pantalla).
 // Un anillo de luz encima del canvas tapa la línea oscura que WebGL deja en el borde.
@@ -21,8 +26,23 @@ const POR_DEFECTO = {
   rotar: true,
   velocidad: 0.04,          // radianes por segundo (≈ una vuelta cada 2,6 min)
   alturaMinimaGiro: 5_000_000, // cerca del suelo no gira (después de irA)
-  esperaTrasArrastre: 4000  // ms hasta que vuelve a girar
+  esperaTrasArrastre: 4000, // ms hasta que vuelve a girar
+  picos: [],                // [{ n: nombre, h: altura en m, lat, lon }]; el marcador empieza en el primero
+  marcador: { lat: -16.2, lon: -68.2 }, // si no hay picos: Cordillera Real, sin etiqueta
+  alturaPico: 2_500_000,    // metros sobre el pico al elegirlo
+  duracionVuelo: 1.6        // segundos
 };
+
+// "6438" → "6 438" (espacio fino que no se corta)
+const conMiles = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+const SATELITE_SVG = `
+  <rect x="0" y="9" width="22" height="14" fill="#2F6FD6" stroke="#CFE3FF"/>
+  <path d="M7 9v14M14 9v14M0 16h22" stroke="#CFE3FF" stroke-width=".6"/>
+  <rect x="42" y="9" width="22" height="14" fill="#2F6FD6" stroke="#CFE3FF"/>
+  <path d="M49 9v14M56 9v14M42 16h22" stroke="#CFE3FF" stroke-width=".6"/>
+  <rect x="24" y="8" width="16" height="16" rx="2" fill="#E8EEF8" stroke="#9FB3D9"/>
+  <circle cx="32" cy="26" r="3" fill="#B8C6E0"/>`;
 
 const RADIO_TIERRA = 6_378_137;
 
@@ -84,9 +104,15 @@ export function crearGlobo(contenedor, opciones = {}) {
     viewer = null;
   }
 
+  // API mínima cuando no hay globo 3D (imagen de respaldo)
+  const apiSinGlobo = () => ({
+    irA() {}, elegirPico() {}, verPlaneta() {}, estado: () => ({ modo: 'imagen' }),
+    destruir: () => { destruido = true; raiz.remove(); }
+  });
+
   if (!hayWebGL()) {
     mostrarImagen('este navegador no tiene WebGL');
-    return { irA() {}, destruir: () => { destruido = true; raiz.remove(); } };
+    return apiSinGlobo();
   }
 
   // ---------------------------------------------------------------
@@ -104,7 +130,38 @@ export function crearGlobo(contenedor, opciones = {}) {
   anillo.className = 'globo3d-anillo';
   anillo.setAttribute('aria-hidden', 'true');
   anillo.hidden = true;
-  flotante.append(lienzo, anillo, crearHalo());
+
+  // Capa de la maqueta: haz, satélite y marcador con etiqueta
+  const idDegradado = `globo3d-haz-${Math.random().toString(36).slice(2, 8)}`;
+  const capa = document.createElement('div');
+  capa.className = 'globo3d-capa oculto';
+  capa.innerHTML = `
+    <svg class="globo3d-haz" aria-hidden="true">
+      <defs>
+        <linearGradient id="${idDegradado}" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#9FD4FF" stop-opacity=".75"/>
+          <stop offset="1" stop-color="#9FD4FF" stop-opacity=".05"/>
+        </linearGradient>
+      </defs>
+      <polygon fill="url(#${idDegradado})"/>
+    </svg>
+    <div class="globo3d-satelite" aria-hidden="true">
+      <svg viewBox="0 0 64 32">${SATELITE_SVG}</svg>
+    </div>
+    <div class="globo3d-marcador">
+      <span class="pulso" aria-hidden="true"></span>
+      <span class="pulso" aria-hidden="true"></span>
+      <span class="punto" aria-hidden="true"></span>
+      <span class="linea" aria-hidden="true"></span>
+      <div class="etiqueta"><strong></strong><span></span></div>
+    </div>`;
+  const marcador = capa.querySelector('.globo3d-marcador');
+  const etiqueta = capa.querySelector('.etiqueta');
+  const satelite = capa.querySelector('.globo3d-satelite');
+  const haz = capa.querySelector('.globo3d-haz polygon');
+  const degradado = capa.querySelector('linearGradient');
+
+  flotante.append(lienzo, anillo, crearHalo(), capa);
   const creditosOcultos = document.createElement('div'); // Cesium escribe aquí; no se muestra
   const credito = document.createElement('p');
   credito.className = 'globo3d-credito';
@@ -137,7 +194,7 @@ export function crearGlobo(contenedor, opciones = {}) {
   } catch (e) {
     console.error(e);
     mostrarImagen('Cesium no pudo iniciar WebGL');
-    return { irA() {}, destruir: () => { destruido = true; raiz.remove(); } };
+    return apiSinGlobo();
   }
 
   const escena = viewer.scene;
@@ -225,15 +282,18 @@ export function crearGlobo(contenedor, opciones = {}) {
   const sinMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)');
   let arrastrando = false;
   let temporizadorGiro = 0;
+  let enfocado = false;   // mirando un pico de cerca: no gira
+  let volando = false;    // la cámara está en un flyTo
   let ultimo = performance.now();
 
-  const debeGirar = () => op.rotar && !sinMovimiento.matches && !arrastrando && !temporizadorGiro;
+  const debeGirar = () => op.rotar && !sinMovimiento.matches && !arrastrando && !temporizadorGiro
+    && !enfocado && !volando;
 
-  // Renderizado continuo solo mientras gira; quieto, Cesium dibuja solo cuando algo cambia
+  // Renderizado continuo solo mientras gira o vuela; quieto, Cesium dibuja solo cuando algo cambia
   const actualizarModo = () => {
-    const gira = debeGirar();
-    escena.requestRenderMode = !gira;
-    if (!gira) escena.requestRender();
+    const continuo = debeGirar() || volando;
+    escena.requestRenderMode = !continuo;
+    if (!continuo) escena.requestRender();
     ultimo = performance.now();
   };
 
@@ -251,17 +311,79 @@ export function crearGlobo(contenedor, opciones = {}) {
   // Anillo de luz: mismo diámetro que el planeta, centrado (la cámara mira al centro de la Tierra).
   // Se oculta cuando la cámara se acerca (irA) y el planeta ya no cabe entero.
   let diametroAnillo = 0;
+  // De cerca (elegirPico) el canvas se recorta en círculo del tamaño del planeta
+  // (ver .globo3d.cerca en el CSS) y el anillo marca ese borde.
   const actualizarAnillo = () => {
     const e = estado();
-    const visible = viewer.camera.positionCartographic.height > op.alturaMinimaGiro
-      && e.diametroPx <= Math.min(...e.canvas) * 1.02;
+    const cerca = raiz.classList.contains('cerca');
+    const lado = Math.min(...e.canvas);
+    const visible = cerca || (viewer.camera.positionCartographic.height > op.alturaMinimaGiro
+      && e.diametroPx <= lado * 1.02);
     anillo.hidden = !visible;
-    if (visible && Math.abs(e.diametroPx - diametroAnillo) >= 1) {
-      diametroAnillo = e.diametroPx;
+    const diametro = cerca ? Math.round(lado * op.tamano) : e.diametroPx;
+    if (visible && Math.abs(diametro - diametroAnillo) >= 1) {
+      diametroAnillo = diametro;
       anillo.style.width = anillo.style.height = `${diametroAnillo}px`;
     }
   };
   limpiezas.push(escena.postRender.addEventListener(actualizarAnillo));
+
+  // ---------------------------------------------------------------
+  // Marcador, etiqueta y haz: siguen al pico en cada frame
+  // ---------------------------------------------------------------
+  const picos = op.picos ?? [];
+  let picoActual = -1;
+  let posMarcador = null;
+  const ocultador = new Cesium.EllipsoidalOccluder(Cesium.Ellipsoid.WGS84, Cesium.Cartesian3.ZERO);
+  const enPantalla = new Cesium.Cartesian2();
+
+  function ponerMarcador(i) {
+    const p = picos[i];
+    const lugar = p ?? op.marcador;
+    picoActual = p ? i : -1;
+    posMarcador = Cesium.Cartesian3.fromDegrees(lugar.lon, lugar.lat, p?.h ?? 0);
+    etiqueta.hidden = !p;
+    capa.querySelector('.linea').hidden = !p;
+    if (p) {
+      etiqueta.querySelector('strong').textContent = p.n;
+      etiqueta.querySelector('span').textContent = `${conMiles(p.h)} m s. n. m.`;
+      etiqueta.classList.remove('aparece');
+      void etiqueta.offsetWidth; // reinicia la animación de entrada
+      etiqueta.classList.add('aparece');
+    }
+    escena.requestRender();
+  }
+
+  const actualizarCapa = () => {
+    if (!posMarcador) return;
+    ocultador.cameraPosition = viewer.camera.positionWC;
+    const visible = ocultador.isPointVisible(posMarcador)
+      && Cesium.defined(escena.cartesianToCanvasCoordinates(posMarcador, enPantalla));
+    capa.classList.toggle('oculto', !visible);
+    if (!visible) return;
+
+    const mx = enPantalla.x;
+    const my = enPantalla.y;
+    marcador.style.transform = `translate(${mx.toFixed(1)}px, ${my.toFixed(1)}px)`;
+
+    // Haz: triángulo con la punta en el satélite (su antena) y la base, perpendicular, en el marcador
+    const sx = satelite.offsetLeft + satelite.offsetWidth / 2;
+    const sy = satelite.offsetTop + satelite.offsetHeight * (26 / 32);
+    const dx = mx - sx;
+    const dy = my - sy;
+    const largo = Math.hypot(dx, dy) || 1;
+    const medioAncho = satelite.offsetWidth * 0.28;
+    const nx = (-dy / largo) * medioAncho;
+    const ny = (dx / largo) * medioAncho;
+    haz.setAttribute('points',
+      `${sx.toFixed(1)},${sy.toFixed(1)} ${(mx + nx).toFixed(1)},${(my + ny).toFixed(1)} ${(mx - nx).toFixed(1)},${(my - ny).toFixed(1)}`);
+    degradado.setAttribute('x1', sx.toFixed(1));
+    degradado.setAttribute('y1', sy.toFixed(1));
+    degradado.setAttribute('x2', mx.toFixed(1));
+    degradado.setAttribute('y2', my.toFixed(1));
+  };
+  limpiezas.push(escena.postRender.addEventListener(actualizarCapa));
+  ponerMarcador(picos.length ? 0 : -1);
 
   const alPresionar = () => {
     arrastrando = true;
@@ -303,14 +425,43 @@ export function crearGlobo(contenedor, opciones = {}) {
   // ---------------------------------------------------------------
   // API pública
   // ---------------------------------------------------------------
+  function volar(destino, duracion, alTerminar) {
+    volando = true;
+    actualizarModo();
+    const fin = () => { volando = false; alTerminar?.(); actualizarModo(); };
+    viewer.camera.flyTo({
+      destination: destino,
+      duration: sinMovimiento.matches ? 0 : duracion,
+      complete: fin,
+      cancel: fin
+    });
+  }
+
   function irA(lat, lon, alturaM = 1_500_000) {
     if (!viewer) return;
     encuadreAuto = false;
-    viewer.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(lon, lat, alturaM),
-      duration: sinMovimiento.matches ? 0 : 2.5
-    });
-    escena.requestRender();
+    volar(Cesium.Cartesian3.fromDegrees(lon, lat, alturaM), 2.5);
+  }
+
+  // Vuela a ~2 500 km sobre el pico i; pausa la rotación; marcador y etiqueta pasan a ese pico
+  function elegirPico(i) {
+    const p = picos[i];
+    if (!viewer || !p) return;
+    enfocado = true;
+    encuadreAuto = false;
+    raiz.classList.add('cerca');
+    ponerMarcador(i);
+    volar(Cesium.Cartesian3.fromDegrees(p.lon, p.lat, op.alturaPico), op.duracionVuelo);
+  }
+
+  // Vuelve al planeta completo (llena el contenedor) y reanuda la rotación
+  function verPlaneta() {
+    if (!viewer) return;
+    encuadreAuto = true;
+    raiz.classList.remove('cerca');
+    const lon = picos[picoActual]?.lon ?? op.lon;
+    volar(Cesium.Cartesian3.fromDegrees(lon, op.lat, alturaEncuadre()), op.duracionVuelo,
+      () => { enfocado = false; });
   }
 
   function destruir() {
@@ -327,8 +478,13 @@ export function crearGlobo(contenedor, opciones = {}) {
     const d = Cesium.Cartesian3.magnitude(viewer.camera.positionWC);
     const mitadV = viewer.camera.frustum.fovy / 2;
     const diametro = (Math.tan(Math.asin(Math.min(1, RADIO_TIERRA / d))) / Math.tan(mitadV)) * h;
-    return { modo: '3d', cargado: globo.tilesLoaded, canvas: [w, h], diametroPx: Math.round(diametro), fraccionAlto: +(diametro / h).toFixed(3) };
+    return {
+      modo: '3d', cargado: globo.tilesLoaded, canvas: [w, h],
+      diametroPx: Math.round(diametro), fraccionAlto: +(diametro / h).toFixed(3),
+      pico: picos[picoActual]?.n ?? null, marcadorVisible: !capa.classList.contains('oculto'),
+      volando, girando: debeGirar()
+    };
   }
 
-  return { irA, destruir, estado };
+  return { irA, elegirPico, verPlaneta, destruir, estado };
 }

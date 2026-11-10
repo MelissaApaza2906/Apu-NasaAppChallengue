@@ -1,4 +1,110 @@
-/* Estilos solo de la pantalla menu. Usa las variables de src/estilos/variables.css */
-.pantalla-menu {
-  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqh;
+/* Pantalla menú · Monitoreo glaciar. Usa las variables de src/estilos/variables.css.
+   Posiciones de la maqueta; cqw/cqh son de #app (pantalla completa).
+   El fondo es .cielo-apu (base.css). */
+
+/* Globo: el planeta llena el 95 % de esta caja */
+.pantalla-menu .menu-globo {
+  position: absolute;
+  left: calc(42cqw - 40cqh);
+  top: 6cqh;
+  width: 80cqh;
+  height: 80cqh;
 }
+
+/* Órbita punteada detrás del planeta */
+.pantalla-menu .menu-orbita {
+  position: absolute;
+  left: calc(42cqw - 54cqh);
+  top: 6cqh;
+  width: 108cqh;
+  height: 80cqh;
+  transform: rotate(-24deg);
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* Barra de 5 botones a la izquierda */
+.pantalla-menu .menu-barra {
+  position: absolute;
+  left: 1.6cqw;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 2cqh, 16px);
+  z-index: 2;
+}
+
+/* Panel de datos a la derecha */
+.pantalla-menu .menu-panel {
+  position: absolute;
+  right: 1.6cqw;
+  top: 6cqh;
+  width: clamp(260px, 28cqw, 450px);
+  max-height: 88cqh;
+  padding: clamp(12px, 2.4cqh, 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  z-index: 2;
+}
+.menu-panel header { margin-bottom: 1.2cqh; }
+.menu-panel .titulo-apu { margin: 0; font-size: clamp(12px, 1.4cqw, 18px); font-weight: 400; letter-spacing: .2em; }
+.menu-panel .lugar { margin: .4em 0 0; color: var(--nieve-sombra); font-size: clamp(11px, 1cqw, 14px); }
+.menu-panel .guia { margin: 0 0 1.6cqh; font-size: clamp(12px, 1.05cqw, 15px); line-height: 1.45; }
+
+.menu-panel .resultado {
+  padding: clamp(10px, 1.6cqh, 16px) 0;
+  border-top: 1px solid rgba(91, 160, 255, .25);
+}
+.menu-panel .resultado header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: .6em; }
+.menu-panel .resultado h2 { margin: 0; font: 400 clamp(11px, 1.1cqw, 15px) var(--letra-titulo); letter-spacing: .14em; text-transform: uppercase; }
+.menu-panel .veredicto {
+  padding: .3em .7em;
+  border-radius: 999px;
+  font: 600 clamp(9px, .8cqw, 11px) var(--letra-dato);
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+.menu-panel .veredicto.real { background: rgba(249, 200, 14, .16); color: var(--dato-tendencia); border: 1px solid rgba(249, 200, 14, .5); }
+.menu-panel .veredicto.nose { background: rgba(169, 180, 204, .12); color: var(--nieve-sombra); border: 1px solid rgba(169, 180, 204, .4); }
+.menu-panel .grafico { display: block; width: 100%; height: auto; }
+
+.menu-panel .barra-comp {
+  display: flex;
+  height: 18px;
+  margin: .6em 0;
+  border-radius: 999px;
+  overflow: hidden;
+  font: 500 10px/18px var(--letra-dato);
+}
+.menu-panel .barra-comp span { padding: 0 8px; white-space: nowrap; overflow: hidden; }
+.menu-panel .barra-comp .bajo { background: rgba(143, 219, 255, .35); color: var(--nieve); }
+.menu-panel .barra-comp .subio { flex: 1; background: rgba(169, 180, 204, .18); color: var(--nieve-sombra); text-align: right; }
+
+.menu-panel .linea { margin: .45em 0 0; font-size: clamp(11px, .95cqw, 13px); line-height: 1.45; color: var(--nieve); }
+.menu-panel .linea b { font-family: var(--letra-dato); font-weight: 500; color: var(--dato-nieve); }
+.menu-panel .fuente { color: var(--nieve-sombra); font-size: 10.5px; }
+
+/* TEMPORAL: fila para probar elegirPico / verPlaneta (se quita con el carrusel de picos) */
+.pantalla-menu .menu-prueba-picos {
+  position: absolute;
+  left: calc(1.6cqw + 9cqh);
+  right: calc(clamp(260px, 28cqw, 450px) + 3.2cqw);
+  bottom: 1.6cqh;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  z-index: 3;
+}
+.pantalla-menu .menu-prueba-picos button {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px dashed var(--rojo-apu);
+  border-radius: 999px;
+  background: rgba(8, 18, 48, .85);
+  color: var(--nieve);
+  font: 500 clamp(10px, 1cqw, 12px) var(--letra-texto);
+  cursor: pointer;
+}
+.pantalla-menu .menu-prueba-picos button:focus-visible { outline: 2px solid var(--rojo-apu); outline-offset: 2px; }
