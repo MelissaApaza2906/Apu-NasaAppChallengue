@@ -1,21 +1,42 @@
-// Pantalla: acceso y registro · Responsable: (por definir)
-// Solo pedimos un APODO y un AVATAR (un animal de los Andes). Correo y Google son opcionales.
+// Pantalla: registro del detective (apodo + avatar) · #/acceso/<ruta a la que volver>
+// Aparece solo cuando una ruta necesita perfil (etapas, lecciones, casos, insignias). La sesión ya
+// existe (anónima, se crea sola al iniciar la app): aquí no hay correo ni contraseña.
+// Al terminar, vuelve a la ruta pedida (o al menú).
+import '../carga/carga.css'; // el Jukumari en 3D y la nieve de la pantalla de carga
 import './acceso.css';
 import { ir } from '../../router.js';
-import { entrarComoInvitado, entrarConGoogle, registrarConCorreo, entrarConCorreo } from '../../servicios/auth.js';
+import { crearCopos } from '../carga/index.js';
+import { guardarPerfil, leerProgreso } from '../../servicios/progreso.js';
 import { AVATARES } from '../../contenido/avatares.js';
 
 const APODO_VALIDO = /^[\p{L}\p{N} _-]{2,20}$/u;
+const SALUDO = 'Soy el Jukumari, explorador de la Cordillera. ¿Cómo te llamo, detective?';
 
-export function montar(contenedor) {
+export function montar(contenedor, params = []) {
+  const destino = params.filter(Boolean).join('/') || 'menu';
   const raiz = document.createElement('section');
   raiz.className = 'pantalla-acceso';
   raiz.innerHTML = `
-    <form class="panel-apu acceso" novalidate>
+    <div class="acceso-fondo" aria-hidden="true"></div>
+    <div class="carga-nieve" aria-hidden="true"></div>
+    <div class="acceso-velo" aria-hidden="true"></div>
+
+    <div class="carga-juku acceso-juku">
+      <div class="aura" aria-hidden="true"></div>
+      <div class="sombra" aria-hidden="true"></div>
+      <div class="cuerpo-anim">
+        <img class="capa" src="/img/jukumari-cuerpo.webp" alt="El Jukumari, tu guía, con su máscara de la Diablada, gafas de nieve y equipo de montaña, saludando con la mano">
+        <div class="saludo" aria-hidden="true"></div>
+      </div>
+      <p class="dialogo nuevo">${SALUDO}</p>
+    </div>
+
+    <form class="acceso-tarjeta" novalidate aria-labelledby="acceso-titulo">
       <img src="/img/logo-apu.png" alt="APU" class="logo">
-      <h1 class="titulo-apu">ACCESO</h1>
-      <label>Tu apodo de detective
-        <input name="apodo" maxlength="20" autocomplete="nickname" required placeholder="Ej.: CondorRojo">
+      <h1 id="acceso-titulo"><span class="barras" aria-hidden="true">//</span> TU IDENTIDAD DE DETECTIVE</h1>
+      <p class="sub">Elige tu apodo y tu foto de perfil</p>
+      <label class="campo">TU APODO
+        <input name="apodo" maxlength="20" autocomplete="nickname" required placeholder="Ej.: CondorRojo" aria-describedby="acceso-error">
       </label>
       <fieldset class="avatares">
         <legend>TU AVATAR DE DETECTIVE</legend>
@@ -27,29 +48,21 @@ export function montar(contenedor) {
             </button>`).join('')}
         </div>
       </fieldset>
-      <p class="aviso">Solo guardamos tu apodo, tu avatar y tu progreso. Nada más.</p>
-      <button class="btn-apu" data-accion="invitado" disabled>EMPEZAR MI ENTRENAMIENTO</button>
-      <button class="btn-apu secundario" data-accion="google" type="button">CONTINUAR CON GOOGLE</button>
-      <details>
-        <summary>Usar correo y contraseña</summary>
-        <label>Correo <input name="correo" type="email" autocomplete="email"></label>
-        <label>Contraseña (mín. 8) <input name="clave" type="password" minlength="8" autocomplete="current-password"></label>
-        <div class="fila">
-          <button class="btn-apu secundario" data-accion="entrar" type="button">ENTRAR</button>
-          <button class="btn-apu secundario" data-accion="registrar" type="button">CREAR CUENTA</button>
-        </div>
-      </details>
-      <p class="error" role="alert"></p>
+      <button class="btn-apu" type="submit" disabled>EMPEZAR MI ENTRENAMIENTO</button>
+      <p class="error" id="acceso-error" role="alert"></p>
+      <p class="nota">Sin correo ni contraseña. Solo guardamos tu apodo y tu progreso. Después podrás proteger tus insignias con tu correo, si quieres.</p>
     </form>`;
   contenedor.append(raiz);
+  crearCopos(raiz.querySelector('.carga-nieve'));
 
-  const form = raiz.querySelector('form'), error = raiz.querySelector('.error');
-  const botonEmpezar = raiz.querySelector('[data-accion="invitado"]');
+  const form = raiz.querySelector('form');
+  const error = raiz.querySelector('.error');
+  const boton = raiz.querySelector('.btn-apu');
   const opciones = [...raiz.querySelectorAll('.avatar')];
   let avatar = null; // por defecto, ninguno elegido
   const apodo = () => form.apodo.value.trim();
   const listo = () => APODO_VALIDO.test(apodo()) && Boolean(avatar);
-  const actualizarBoton = () => { botonEmpezar.disabled = !listo(); };
+  const actualizarBoton = () => { boton.disabled = !listo(); };
 
   // Avatares: grupo de opciones (un solo elegido); con el teclado, flechas para moverse
   function elegir(id, enfocar) {
@@ -72,28 +85,34 @@ export function montar(contenedor) {
       elegir(opciones[(i + paso + opciones.length) % opciones.length].dataset.avatar, true);
     });
   });
-  form.apodo.addEventListener('input', actualizarBoton);
+  form.apodo.addEventListener('input', () => {
+    actualizarBoton();
+    if (error.textContent && APODO_VALIDO.test(apodo())) error.textContent = '';
+  });
+  form.apodo.addEventListener('blur', () => {
+    if (apodo() && !APODO_VALIDO.test(apodo())) error.textContent = 'El apodo debe tener entre 2 y 20 letras o números.';
+  });
 
-  const ejecutar = async (accion) => {
+  // Si ya tenía apodo o avatar (por ejemplo, de antes de los avatares), se proponen
+  leerProgreso().then((p) => {
+    if (!form.isConnected) return;
+    if (p.apodo && !form.apodo.value) form.apodo.value = p.apodo;
+    if (AVATARES.some((a) => a.id === p.avatar)) elegir(p.avatar);
+    actualizarBoton();
+  }).catch(() => {});
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!listo()) return;
+    boton.disabled = true;
     error.textContent = '';
     try {
-      if ((accion === 'invitado' || accion === 'registrar') && !APODO_VALIDO.test(apodo())) {
-        error.textContent = 'El apodo debe tener entre 2 y 20 letras o números.'; return;
-      }
-      if ((accion === 'invitado' || accion === 'registrar') && !avatar) {
-        error.textContent = 'Elige tu avatar de detective.'; return;
-      }
-      if (accion === 'invitado') await entrarComoInvitado(apodo(), avatar);
-      if (accion === 'google') await entrarConGoogle();
-      if (accion === 'registrar') await registrarConCorreo(form.correo.value, form.clave.value, apodo(), avatar);
-      if (accion === 'entrar') await entrarConCorreo(form.correo.value, form.clave.value);
-      ir('menu');
-    } catch (e) {
-      // Mensaje general: no decimos si el correo existe o no
-      error.textContent = 'No se pudo entrar. Revisa los datos e inténtalo otra vez.';
-      console.warn(e);
+      await guardarPerfil({ apodo: apodo(), avatar }); // navegador y, si hay conexión, Firestore
+      ir(destino);
+    } catch (err) {
+      console.warn(err);
+      error.textContent = 'No se pudo guardar. Inténtalo otra vez.';
+      actualizarBoton();
     }
-  };
-  form.addEventListener('submit', (e) => { e.preventDefault(); if (listo()) ejecutar('invitado'); });
-  raiz.querySelectorAll('[data-accion]').forEach((b) => b.addEventListener('click', (e) => { e.preventDefault(); ejecutar(b.dataset.accion); }));
+  });
 }

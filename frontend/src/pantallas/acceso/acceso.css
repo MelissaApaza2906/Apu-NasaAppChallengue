@@ -1,29 +1,62 @@
-.pantalla-acceso { position: absolute; inset: 0; display: grid; place-items: center; background: var(--noche) url('/img/fondo-illimani.webp') center/cover no-repeat; overflow-y: auto; }
-.acceso { width: min(460px, 92cqw); padding: 3cqh; display: flex; flex-direction: column; gap: 1.6cqh; }
-.acceso .logo { height: 12cqh; align-self: center; }
-.acceso label { display: flex; flex-direction: column; gap: .6cqh; font-size: 14px; }
-.acceso input { min-height: var(--toque-minimo); padding: 0 14px; border-radius: 999px; border: 1.5px solid rgba(242, 244, 248, .7); background: rgba(8, 18, 48, .8); color: var(--nieve); font: inherit; }
-.acceso input:focus-visible { outline: 3px solid var(--rojo-apu); }
-.acceso .aviso { margin: 0; font-size: 13px; color: var(--nieve-sombra); }
-.acceso .fila { display: flex; gap: 1cqh; flex-wrap: wrap; }
-.acceso .error { margin: 0; min-height: 1.2em; color: #FF8A8A; font-size: 14px; }
-.acceso details summary { cursor: pointer; color: var(--nieve-sombra); }
+/* Registro del detective: el Jukumari a la izquierda, la tarjeta a la derecha */
+.pantalla-acceso { position: absolute; inset: 0; overflow: hidden; background: var(--noche); color: var(--nieve); font-family: var(--letra-texto); }
+
+/* Fondo: el Illimani desenfocado y más oscuro, nieve (de la carga) y un velo oscuro hacia la derecha */
+.acceso-fondo { position: absolute; inset: -12px; background: var(--noche) url('/img/fondo-illimani.webp') center / cover no-repeat; filter: blur(4px) brightness(.6); }
+.acceso-velo { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(6, 14, 34, 0) 20%, rgba(6, 14, 34, .55) 58%, rgba(6, 14, 34, .85) 100%); }
+.pantalla-acceso .carga-nieve { position: absolute; inset: 0; pointer-events: none; }
+
+/* El Jukumari (reutiliza .carga-juku: aura, sombra, luz de borde y mano que saluda) */
+.carga-juku.acceso-juku { height: 70cqh; top: 50%; translate: 0 -46%; left: max(3cqw, calc(30cqw - 46cqh)); z-index: 2; }
+.carga-juku.acceso-juku .capa { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* Su globo de diálogo, junto a la cabeza */
+.carga-juku.acceso-juku .dialogo { left: 86%; top: 4%; width: max-content; max-width: min(24cqw, 44cqh); font-size: clamp(13px, 2.1cqh, 19px); }
+
+/* Tarjeta (.hud) */
+.acceso-tarjeta {
+  position: absolute; z-index: 3; top: 50%; right: max(3cqw, calc(22cqw - 22cqh)); translate: 0 -50%;
+  width: clamp(320px, 34cqw, 480px); max-height: calc(100cqh - 4cqh); overflow-y: auto; overscroll-behavior: contain;
+  padding: clamp(18px, 3.4cqh, 36px) clamp(18px, 2.6cqw, 36px); border-radius: 24px; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: clamp(10px, 1.8cqh, 18px);
+  background: linear-gradient(160deg, rgba(14, 30, 72, .9), rgba(8, 18, 48, .92));
+  border: 1px solid rgba(91, 160, 255, .45);
+  box-shadow: 0 0 3cqh rgba(31, 95, 200, .25), inset 0 0 2cqh rgba(31, 95, 200, .12);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.acceso-tarjeta .logo { height: clamp(44px, 9cqh, 84px); width: auto; align-self: center; }
+.acceso-tarjeta h1 { margin: 0; font: 400 clamp(15px, 2.6cqh, 24px) / 1.3 var(--letra-titulo); letter-spacing: .06em; text-align: center; }
+.acceso-tarjeta h1 .barras { color: var(--rojo-apu); font-style: italic; letter-spacing: -.1em; }
+.acceso-tarjeta .sub { margin: -.6cqh 0 0; text-align: center; font-size: clamp(13px, 1.9cqh, 16px); color: #D7DEEA; }
+.acceso-tarjeta .campo { display: flex; flex-direction: column; gap: .8cqh; font: 400 clamp(11px, 1.6cqh, 13px) var(--letra-titulo); letter-spacing: .12em; }
+.acceso-tarjeta input { min-height: var(--toque-minimo); padding: 0 18px; border-radius: 999px; border: 1.5px solid rgba(242, 244, 248, .7); background: rgba(8, 18, 48, .8); color: var(--nieve); font: 500 16px var(--letra-texto); letter-spacing: normal; }
+.acceso-tarjeta input:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
 
 /* Tu avatar de detective: grilla 3 × 2 de caras en círculo; el elegido con borde rojo y brillo */
-.acceso .avatares { margin: 0; padding: 0; border: none; display: flex; flex-direction: column; gap: 1cqh; }
-.acceso .avatares legend { padding: 0; margin-bottom: 1cqh; font: 400 clamp(11px, 1.7cqh, 14px) var(--letra-titulo); letter-spacing: .12em; }
-.grilla-avatares { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.4cqh 1cqh; justify-items: center; }
-.acceso .avatar { min-width: 44px; min-height: 44px; padding: 4px; display: flex; flex-direction: column; align-items: center; gap: .6cqh; border: none; border-radius: 14px; background: transparent; color: var(--nieve); cursor: pointer; font: 500 13px var(--letra-texto); -webkit-tap-highlight-color: transparent; }
-.acceso .avatar img { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; display: block; border: 3px solid rgba(242, 244, 248, .35); background: rgba(8, 18, 48, .8); transition: border-color .15s, box-shadow .2s, transform .15s; }
-.acceso .avatar:hover img { border-color: rgba(242, 244, 248, .85); }
-.acceso .avatar[aria-checked="true"] img { border-color: #D12021; box-shadow: 0 0 0 3px rgba(209, 32, 33, .35), 0 0 18px rgba(209, 32, 33, .75); transform: scale(1.04); }
-.acceso .avatar[aria-checked="true"] span { color: #FF8A8A; font-weight: 700; }
-.acceso .avatar:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
-.acceso .btn-apu:disabled { opacity: .45; cursor: not-allowed; }
+.acceso-tarjeta .avatares { margin: 0; padding: 0; border: none; min-width: 0; }
+.acceso-tarjeta .avatares legend { padding: 0; margin-bottom: 1.2cqh; font: 400 clamp(11px, 1.6cqh, 13px) var(--letra-titulo); letter-spacing: .12em; }
+.grilla-avatares { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(8px, 1.6cqh, 16px) 4px; justify-items: center; }
+.acceso-tarjeta .avatar { min-width: 44px; min-height: 44px; padding: 4px; display: flex; flex-direction: column; align-items: center; gap: .6cqh; border: none; border-radius: 14px; background: transparent; color: var(--nieve); cursor: pointer; font: 500 13px var(--letra-texto); -webkit-tap-highlight-color: transparent; }
+.acceso-tarjeta .avatar img { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; display: block; border: 3px solid rgba(242, 244, 248, .35); background: rgba(8, 18, 48, .8); transition: border-color .15s, box-shadow .2s, transform .15s; }
+.acceso-tarjeta .avatar:hover img { border-color: rgba(242, 244, 248, .85); }
+.acceso-tarjeta .avatar[aria-checked="true"] img { border-color: #D12021; box-shadow: 0 0 0 3px rgba(209, 32, 33, .35), 0 0 18px rgba(209, 32, 33, .75); transform: scale(1.04); }
+.acceso-tarjeta .avatar[aria-checked="true"] span { color: #FF8A8A; font-weight: 700; }
+.acceso-tarjeta .avatar:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
+
+.acceso-tarjeta .btn-apu { flex: none; font-size: clamp(11px, 1.2cqw, 16px); }
+.acceso-tarjeta .error { margin: -.6cqh 0 0; min-height: 1.2em; color: #FF8A8A; font-size: 14px; }
+.acceso-tarjeta .error:empty { display: none; }
+.acceso-tarjeta .nota { margin: 0; font-size: 12px; line-height: 1.45; color: #A9B4CC; text-align: center; }
+
+/* Celular horizontal: el Jukumari más chico; la tarjeta con scroll interno */
 @media (max-height: 500px) {
-  .acceso .avatar img { width: 64px; height: 64px; }
+  .carga-juku.acceso-juku { height: 62cqh; left: 2cqw; }
+  .carga-juku.acceso-juku .dialogo { max-width: min(30cqw, 60cqh); font-size: 12px; }
+  .acceso-tarjeta { max-height: calc(100cqh - 16px); right: 2cqw; }
+  .acceso-tarjeta .avatar img { width: 64px; height: 64px; }
 }
+
 @media (prefers-reduced-motion: reduce) {
-  .acceso .avatar img { transition: none; }
-  .acceso .avatar[aria-checked="true"] img { transform: none; }
+  .pantalla-acceso .carga-nieve { display: none; }
+  .acceso-tarjeta .avatar img { transition: none; }
+  .acceso-tarjeta .avatar[aria-checked="true"] img { transform: none; }
 }

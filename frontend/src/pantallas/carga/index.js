@@ -1,7 +1,7 @@
 // Pantalla: carga · Responsable: Diana
 // Copia fiel de la maqueta "APU · Diseño visual del juego" → Pantalla 1 (ApuCarga).
 // Flujo: EMPEZAR MISIÓN → aparece la barra CARGANDO (0 → 100 %) → menú.
-// Si no hay sesión, el router manda primero a la pantalla de acceso.
+// La sesión se crea sola (anónima); el registro se pide recién al entrar a etapas, casos o insignias.
 import './carga.css';
 import { ir } from '../../router.js';
 import { SABIAS_QUE } from '../../contenido/sabias-que.js';
@@ -12,8 +12,8 @@ const FRASES_CARGA = [...FRASES.carga, '¡Tus datos de NASA ya casi están!'];
 let intervalos = [];
 let esperas = [];
 
-// Copos de nieve: posición, tamaño y velocidad al azar
-function crearCopos(capa, cantidad = 38) {
+// Copos de nieve: posición, tamaño y velocidad al azar (también los usa el registro, pantallas/acceso)
+export function crearCopos(capa, cantidad = 38) {
   for (let i = 0; i < cantidad; i++) {
     const t = 1.5 + Math.random() * 3.5;
     const dur = 9 + Math.random() * 12;

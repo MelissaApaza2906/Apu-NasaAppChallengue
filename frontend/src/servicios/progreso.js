@@ -52,6 +52,12 @@ async function guardar(cambios) {
   return datos;
 }
 
+// ¿Ya tiene perfil de detective? (apodo de 2 a 20 caracteres y avatar elegido)
+export async function tienePerfil() {
+  const p = await leerProgreso();
+  return /^[\p{L}\p{N} _-]{2,20}$/u.test(String(p.apodo ?? '').trim()) && Boolean(p.avatar);
+}
+
 // Apodo y avatar (id de contenido/avatares.js); solo cambia lo que se pasa
 export function guardarPerfil({ apodo, avatar } = {}) {
   const cambios = {};
