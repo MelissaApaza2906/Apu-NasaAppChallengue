@@ -1,13 +1,13 @@
-/* Globo 3D: llena su contenedor, fondo transparente */
+/* Globo 3D: llena su contenedor, fondo transparente (se ve el cielo de la pantalla) */
 .globo3d {
   position: absolute;
   inset: 0;
-  overflow: hidden;
   container-type: size;
-  --globo-tamano: 70cqh;      /* debe coincidir con la opción `tamano` de crearGlobo */
+  --globo-fraccion: 0.7;                                   /* JS la pone igual a la opción `tamano` */
+  --globo-tamano: calc(var(--globo-fraccion) * 100cqmin);  /* diámetro del planeta */
 }
 
-/* Halo + planeta flotan juntos: suben y bajan 1.2cqh cada 5 s */
+/* Planeta, anillo y halo flotan juntos: suben y bajan 1.2cqh cada 5 s */
 .globo3d-flotante {
   position: absolute;
   inset: 0;
@@ -19,25 +19,51 @@
   50%      { transform: translateY(-0.6cqh); }
 }
 
-/* Halo azul suave ENCIMA del canvas: con "screen" solo aclara, nunca tapa.
-   El planeta ocupa el 64,5 % del radio del halo (1 / 1.55): el centro queda
-   transparente y el brillo empieza justo en el borde. */
+.globo3d-lienzo,
+.globo3d-lienzo .cesium-viewer,
+.globo3d-lienzo .cesium-widget,
+.globo3d-lienzo canvas {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+.globo3d-lienzo { position: absolute; inset: 0; }
+.globo3d-lienzo canvas { cursor: grab; touch-action: none; }
+.globo3d-lienzo canvas:active { cursor: grabbing; }
+
+/* Anillo de luz del tamaño exacto del planeta (JS pone width/height con estado().diametroPx).
+   Tapa la línea oscura que deja el canvas transparente en el borde. */
+.globo3d-anillo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow:
+    inset 0 0 1.2cqh rgba(143, 219, 255, .55),
+    0 0 3cqh rgba(143, 219, 255, .35);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+/* Halo azul suave alrededor del planeta, que "respira". Encima del canvas con "screen":
+   el centro es transparente y el brillo empieza en el borde (planeta = 1/1.4 del halo). */
 .globo3d-halo {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: calc(var(--globo-tamano) * 1.55);
+  width: calc(var(--globo-tamano) * 1.4);
   aspect-ratio: 1;
-  margin: calc(var(--globo-tamano) * -0.775) 0 0 calc(var(--globo-tamano) * -0.775);
+  margin: calc(var(--globo-tamano) * -0.7) 0 0 calc(var(--globo-tamano) * -0.7);
   border-radius: 50%;
   background: radial-gradient(circle closest-side,
     transparent 0%,
-    transparent 56%,
-    color-mix(in srgb, var(--dato-nieve) 30%, transparent) 64%,
-    color-mix(in srgb, var(--horizonte) 45%, transparent) 70%,
-    color-mix(in srgb, var(--horizonte) 16%, transparent) 84%,
+    transparent 64%,
+    color-mix(in srgb, var(--dato-nieve) 28%, transparent) 71%,
+    color-mix(in srgb, var(--horizonte) 40%, transparent) 77%,
+    color-mix(in srgb, var(--horizonte) 14%, transparent) 88%,
     transparent 100%);
-  filter: blur(6px);
+  filter: blur(4px);
   mix-blend-mode: screen;
   animation: globo-respirar 6s ease-in-out infinite;
   pointer-events: none;
@@ -47,27 +73,17 @@
   50%      { transform: scale(1.03); opacity: 1; }
 }
 
-.globo3d-lienzo,
-.globo3d-lienzo .cesium-viewer,
-.globo3d-lienzo .cesium-widget,
-.globo3d-lienzo canvas {
-  width: 100%;
-  height: 100%;
-  background: var(--noche);
-}
-.globo3d-lienzo { position: absolute; inset: 0; }
-.globo3d-lienzo canvas { cursor: grab; touch-action: none; }
-.globo3d-lienzo canvas:active { cursor: grabbing; }
-
+/* Debajo del contenedor, alineado a la derecha: nunca tapa el planeta */
 .globo3d-credito {
   position: absolute;
-  right: 12px;
-  bottom: 8px;
-  margin: 0;
+  right: 0;
+  top: 100%;
+  margin: 4px 0 0;
   font: 500 10px/1.2 var(--letra-texto);
   letter-spacing: 0.02em;
   color: var(--nieve-sombra);
   opacity: 0.75;
+  white-space: nowrap;
   pointer-events: none;
 }
 

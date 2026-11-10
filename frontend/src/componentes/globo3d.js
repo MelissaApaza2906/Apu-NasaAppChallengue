@@ -4,8 +4,8 @@
 //   globo.irA(-16.5, -68.15, 300_000);   // vuela a un punto (grados, metros)
 //   globo.destruir();                    // al salir de la pantalla
 //
-// El globo llena su contenedor sobre un fondo opaco igual a var(--noche)
-// (un canvas transparente deja una línea oscura en el borde del planeta).
+// El globo llena su contenedor con fondo TRANSPARENTE (se ve el cielo de la pantalla).
+// Un anillo de luz encima del canvas tapa la línea oscura que WebGL deja en el borde.
 // Si no hay WebGL o NASA no responde, muestra /img/planeta.webp en su lugar.
 import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
@@ -17,7 +17,7 @@ const POR_DEFECTO = {
   lat: -15,                 // centrado en Sudamérica
   lon: -65,
   altura: null,             // metros; null = se calcula para que el planeta mida `tamano`
-  tamano: 0.70,             // alto del planeta / alto del contenedor (≈ 70cqh)
+  tamano: 0.70,             // diámetro del planeta / lado menor del contenedor
   rotar: true,
   velocidad: 0.04,          // radianes por segundo (≈ una vuelta cada 2,6 min)
   alturaMinimaGiro: 5_000_000, // cerca del suelo no gira (después de irA)
@@ -28,7 +28,8 @@ const RADIO_TIERRA = 6_378_137;
 
 // Luz "pegada" a la cámara: viene de arriba a la izquierda y por delante,
 // así lo que se mira queda iluminado y el borde derecho en penumbra.
-const LUZ = { derecha: 0.62, abajo: 0.22, adelante: 0.75 };
+// (≈52° respecto a la vista: con la cámara cerca se ve menos de medio planeta)
+const LUZ = { derecha: 0.95, abajo: 0.22, adelante: 0.75 };
 
 function hayWebGL() {
   try {
@@ -44,6 +45,7 @@ export function crearGlobo(contenedor, opciones = {}) {
 
   const raiz = document.createElement('div');
   raiz.className = 'globo3d';
+  raiz.style.setProperty('--globo-fraccion', String(op.tamano)); // el CSS (halo, imagen) usa el mismo tamaño
   contenedor.append(raiz);
 
   let viewer = null;
@@ -92,12 +94,17 @@ export function crearGlobo(contenedor, opciones = {}) {
   // ---------------------------------------------------------------
   if (CESIUM_TOKEN) Cesium.Ion.defaultAccessToken = CESIUM_TOKEN;
 
-  // El halo va ENCIMA del canvas (mix-blend-mode: screen); ambos flotan juntos y el crédito queda quieto
+  // Encima del canvas (mix-blend-mode: screen): el anillo del borde y el halo.
+  // Todo flota junto; el crédito queda quieto.
   const flotante = document.createElement('div');
   flotante.className = 'globo3d-flotante';
   const lienzo = document.createElement('div');
   lienzo.className = 'globo3d-lienzo';
-  flotante.append(lienzo, crearHalo());
+  const anillo = document.createElement('div');
+  anillo.className = 'globo3d-anillo';
+  anillo.setAttribute('aria-hidden', 'true');
+  anillo.hidden = true;
+  flotante.append(lienzo, anillo, crearHalo());
   const creditosOcultos = document.createElement('div'); // Cesium escribe aquí; no se muestra
   const credito = document.createElement('p');
   credito.className = 'globo3d-credito';
@@ -122,7 +129,7 @@ export function crearGlobo(contenedor, opciones = {}) {
       skyBox: false,                 // sin estrellas, sol ni luna de Cesium
       skyAtmosphere: new Cesium.SkyAtmosphere(),
       creditContainer: creditosOcultos,
-      contextOptions: { webgl: { alpha: false } },
+      contextOptions: { webgl: { alpha: true } },
       requestRenderMode: true,
       maximumRenderTimeChange: Infinity,
       showRenderLoopErrors: false
@@ -135,8 +142,7 @@ export function crearGlobo(contenedor, opciones = {}) {
 
   const escena = viewer.scene;
   const globo = escena.globe;
-  const colorNoche = getComputedStyle(raiz).getPropertyValue('--noche').trim() || '#0B192E';
-  escena.backgroundColor = Cesium.Color.fromCssColorString(colorNoche);
+  escena.backgroundColor = Cesium.Color.TRANSPARENT;
   if (escena.sun) escena.sun.show = false;
   if (escena.moon) escena.moon.show = false;
   escena.skyAtmosphere.show = true;
@@ -146,6 +152,10 @@ export function crearGlobo(contenedor, opciones = {}) {
 
   // Día y noche con un sol fijo respecto a la vista
   globo.enableLighting = true;
+  // Cesium apaga la luz cuando la cámara está a menos de ~πR (20 000 km); con el planeta
+  // grande en un contenedor chico estamos a ~7 000 km, así que la dejamos siempre encendida.
+  globo.lightingFadeOutDistance = 1;
+  globo.lightingFadeInDistance = 2;
   const luz = new Cesium.DirectionalLight({ direction: new Cesium.Cartesian3(1, 0, 0), intensity: 2.2 });
   escena.light = luz;
   const auxLuz = new Cesium.Cartesian3();
@@ -164,14 +174,14 @@ export function crearGlobo(contenedor, opciones = {}) {
   luces.nightAlpha = 0.95;
   luces.brightness = 1.4;
 
-  // Distancia de cámara para que el planeta mida op.tamano del alto del contenedor.
+  // Distancia de cámara para que el planeta mida op.tamano del lado menor del contenedor.
   // Cesium usa el campo de visión (fov) sobre el lado mayor del canvas.
   function alturaEncuadre() {
     const { clientWidth: w, clientHeight: h } = escena.canvas;
     if (!w || !h) return 20_000_000;
-    const mitad = viewer.camera.frustum.fov / 2;
-    const tanMitadVertical = w >= h ? Math.tan(mitad) * (h / w) : Math.tan(mitad);
-    const angulo = Math.atan(op.tamano * tanMitadVertical); // radio angular del planeta
+    const tanMitad = Math.tan(viewer.camera.frustum.fov / 2);
+    const tanMitadLadoMenor = tanMitad * Math.min(w, h) / Math.max(w, h);
+    const angulo = Math.atan(op.tamano * tanMitadLadoMenor); // radio angular del planeta
     return RADIO_TIERRA / Math.sin(angulo) - RADIO_TIERRA;
   }
 
@@ -192,8 +202,8 @@ export function crearGlobo(contenedor, opciones = {}) {
   // ---------------------------------------------------------------
   // Resolución: la que recomienda el navegador (bordes nítidos sin dibujar de más)
   // ---------------------------------------------------------------
-  // Medido en 844×390 girando: ~57 FPS (Iris Xe), así que no hace falta bajar la escala en celular.
-  // Si un celular real va a menos de 30 FPS, usar resolutionScale 0.85 cuando innerWidth < 900.
+  // Medido en 844×390 girando con la GPU (Iris Xe): ver FPS en el commit. Si un celular real
+  // va a menos de 30 FPS, usar resolutionScale 0.85 cuando innerWidth < 900.
   viewer.useBrowserRecommendedResolution = true;
   viewer.resolutionScale = 1;
 
@@ -237,6 +247,21 @@ export function crearGlobo(contenedor, opciones = {}) {
     }
     orientarLuz();
   }));
+
+  // Anillo de luz: mismo diámetro que el planeta, centrado (la cámara mira al centro de la Tierra).
+  // Se oculta cuando la cámara se acerca (irA) y el planeta ya no cabe entero.
+  let diametroAnillo = 0;
+  const actualizarAnillo = () => {
+    const e = estado();
+    const visible = viewer.camera.positionCartographic.height > op.alturaMinimaGiro
+      && e.diametroPx <= Math.min(...e.canvas) * 1.02;
+    anillo.hidden = !visible;
+    if (visible && Math.abs(e.diametroPx - diametroAnillo) >= 1) {
+      diametroAnillo = e.diametroPx;
+      anillo.style.width = anillo.style.height = `${diametroAnillo}px`;
+    }
+  };
+  limpiezas.push(escena.postRender.addEventListener(actualizarAnillo));
 
   const alPresionar = () => {
     arrastrando = true;
@@ -301,7 +326,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     const { clientWidth: w, clientHeight: h } = escena.canvas;
     const d = Cesium.Cartesian3.magnitude(viewer.camera.positionWC);
     const mitadV = viewer.camera.frustum.fovy / 2;
-    const diametro = (Math.tan(Math.asin(RADIO_TIERRA / d)) / Math.tan(mitadV)) * h;
+    const diametro = (Math.tan(Math.asin(Math.min(1, RADIO_TIERRA / d))) / Math.tan(mitadV)) * h;
     return { modo: '3d', cargado: globo.tilesLoaded, canvas: [w, h], diametroPx: Math.round(diametro), fraccionAlto: +(diametro / h).toFixed(3) };
   }
 
