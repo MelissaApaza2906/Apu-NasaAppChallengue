@@ -165,6 +165,8 @@ export function montar(contenedor) {
         <figcaption><span class="titulo-graf">Índice de nieve por año</span> · <span class="rango"></span></figcaption>
         <svg role="img" viewBox="0 0 300 110"></svg>
         <span class="nota fuente-graf">Línea amarilla: tendencia · Fuente: NASA MODIS (MOD10A1), Cordillera Real</span>
+        <button type="button" class="ver-barras" aria-pressed="false">▥ Ver los años en 3D</button>
+        <span class="nota nota-barras" aria-live="polite" hidden></span>
       </figure>
       </div>
     </aside>
@@ -283,6 +285,7 @@ export function montar(contenedor) {
     $('.con-datos').hidden = !con;
     $('.sin-datos').hidden = con;
     if (!con && tipoClima) { tipoClima = null; pintarClima(); } // el efecto es de la Cordillera Real
+    if (!con) apagarBarras();
     if (con && region) pintarVariable();
   }
 
@@ -293,6 +296,7 @@ export function montar(contenedor) {
   }
 
   function mostrarGlaciar(g, alejarVentana) {
+    apagarBarras();
     estado.elegido = 'glaciar';
     estado.glaciar = g.id;
     estado.cerca = true;
@@ -310,6 +314,7 @@ export function montar(contenedor) {
   }
 
   function mostrarPico(i) {
+    apagarBarras();
     const p = PICOS[i];
     estado.elegido = 'pico';
     estado.pico = i;
@@ -348,6 +353,7 @@ export function montar(contenedor) {
     b.addEventListener('click', () => { estado.modo = b.dataset.modo; pintarCarrusel(); });
   });
   $('.ver-planeta').addEventListener('click', () => {
+    apagarBarras();
     globo?.verPlaneta?.();
     estado.cerca = false;
     pintarTodo();
@@ -419,6 +425,7 @@ export function montar(contenedor) {
     menuCapas.querySelectorAll('[data-capa]').forEach((b) => b.setAttribute('aria-checked', String((b.dataset.capa || null) === capa)));
     pedirCapa(capa);
     pintarPanel();
+    if (conBarras) pintarBarras(); // las barras pasan a la otra variable
     pintarDialogo();
     pintarFechas();
   }
@@ -434,6 +441,7 @@ export function montar(contenedor) {
     pintarFechas();
     $('.anio-valor').textContent = `… ${anio}`; // mientras NASA responde
     if (region && estado.variable === 'nieve' && lugarConDatos()) pintarVariable();
+    if (conBarras && region) globo?.destacarBarra?.(barraDestacada());
     $('.aviso-capa').hidden = true;
     if (!globo?.mostrarNieveDelAnio) { $('.aviso-capa').hidden = false; return; } // planeta de la maqueta
     globo.mostrarNieveDelAnio(anio).then((r) => {
@@ -469,6 +477,7 @@ export function montar(contenedor) {
     estado.anio = null;
     pintarFechas();
     if (region && estado.variable === 'nieve' && lugarConDatos()) pintarVariable();
+    if (conBarras && region) globo?.destacarBarra?.(barraDestacada());
     pedirCapa('nieve');
   });
   function pintarFechas() {
@@ -527,6 +536,41 @@ export function montar(contenedor) {
     });
   });
   selMes.addEventListener('change', pintarClima);
+
+  // Barras 3D: los años del gráfico como columnas sobre la Cordillera Real (cámara inclinada)
+  let conBarras = false;
+  const botonBarras = $('.ver-barras');
+  const notaBarras = $('.nota-barras');
+  const barraDestacada = () => {
+    const anios = region.variables[estado.variable].anios;
+    return estado.anio !== null && anios.includes(estado.anio) ? estado.anio : anios[anios.length - 1];
+  };
+  function pintarBarras() {
+    botonBarras.setAttribute('aria-pressed', String(conBarras));
+    botonBarras.textContent = conBarras ? '✕ Quitar las barras 3D' : '▥ Ver los años en 3D';
+    notaBarras.hidden = true;
+    if (!conBarras) { globo?.quitarBarras?.(); return; }
+    if (!region) { notaBarras.hidden = false; notaBarras.textContent = 'Cargando los datos…'; return; }
+    const v = region.variables[estado.variable];
+    const lluvia = estado.variable === 'lluvia';
+    const r = globo?.mostrarBarras?.({ anios: v.anios, valores: v.anual, destacado: barraDestacada(),
+      decimales: lluvia ? 0 : 2, unidad: lluvia ? ' mm' : '' });
+    notaBarras.hidden = false;
+    notaBarras.textContent = r?.ok
+      ? `${v.anios[0]} (Illampu) → ${v.anios[v.anios.length - 1]} (Illimani). Alto = ${lluvia ? 'lluvia del año' : 'índice de nieve del año'}. Toca una columna.`
+      : 'Las barras necesitan el globo 3D.';
+    if (r?.ok) { estado.cerca = true; pintarTodo(); }
+  }
+  function apagarBarras() {
+    if (!conBarras) return;
+    conBarras = false;
+    pintarBarras();
+  }
+  botonBarras.addEventListener('click', () => {
+    conBarras = !conBarras;
+    pintarBarras();
+    if (!conBarras) { globo?.verPlaneta?.(); estado.cerca = false; pintarTodo(); }
+  });
 
   const tocarFuera = (e) => {
     if (!burbuja.hidden && !e.target.closest('.menu-guia')) cerrarBurbuja();
@@ -629,6 +673,7 @@ export function montar(contenedor) {
     pintarPanel();
     llenarMeses(tipoClima ?? 'nieve'); // el selector nunca queda vacío
     if (tipoClima) pintarClima();      // se eligió antes de que llegaran los datos
+    if (conBarras) pintarBarras();
   }).catch((e) => {
     console.warn('APU: no se pudieron leer los datos de la Cordillera Real.', e);
     $('.tarjetas').innerHTML = '<p class="nota">No se pudieron cargar los datos. Revisa que exista public/datos/cordillera-real.json.</p>';

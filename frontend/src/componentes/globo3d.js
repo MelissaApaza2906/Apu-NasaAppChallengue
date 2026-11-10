@@ -10,6 +10,8 @@
 //   globo.verPlaneta();                  // vuelve al planeta completo y sigue girando
 //   await globo.mostrarCapa('lluvia');   // capa de NASA encima ('nieve' | 'lluvia' | null), fecha opcional
 //   await globo.mostrarNieveDelAnio(2016); // máquina del tiempo: nieve del 15 ago (o hasta el 18); precarga el siguiente
+//   globo.mostrarBarras({ anios, valores, destacado, decimales }); // columnas por año, cámara inclinada
+//   globo.destacarBarra(2016); globo.quitarBarras();
 //   globo.destruir();                    // al salir de la pantalla
 //   globo.viewer                         // el Cesium.Viewer (reutilízalo; null si se ve la imagen)
 //
@@ -25,6 +27,7 @@ import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import './globo3d.css';
 import { CESIUM_TOKEN, EXAGERACION, DIAS_ATRAS_NIEVE } from '../servicios/config.js';
+import { crearBarras, LINEA_BARRAS } from './barras3d.js';
 import { CAPAS, proveedor, nasaResponde, fechaPorDefecto, hayImagen, haceDias, fechaBonita, primeraFechaConImagen } from '../servicios/nasa-gibs.js';
 
 // Capas de datos que se pueden poner encima del Blue Marble con mostrarCapa(nombre, fecha)
@@ -162,6 +165,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     irA() {}, elegirPico() {}, verPlaneta() {}, estado: () => ({ modo: 'imagen' }),
     mostrarCapa: async () => ({ ok: false, motivo: 'sin-globo' }),
     mostrarNieveDelAnio: async () => ({ ok: false, motivo: 'sin-globo' }),
+    mostrarBarras: () => ({ ok: false, motivo: 'sin-globo' }), destacarBarra() {}, quitarBarras() {},
     elegirGlaciar(id) { const g = glaciares.find((x) => x.id === id); if (g) op.alElegir?.(g); },
     destruir: () => { destruido = true; raiz.remove(); }
   });
@@ -901,9 +905,40 @@ export function crearGlobo(contenedor, opciones = {}) {
     });
   }
 
+  // Barras 3D: una columna por año a lo largo de la Cordillera Real. La cámara se inclina
+  // (mira desde el suroeste) para que se vean de costado; verPlaneta la vuelve a poner recta.
+  let barras = null;
+  function mostrarBarras(datos) {
+    if (!viewer) return { ok: false, motivo: 'sin-globo' };
+    barras?.destruir();
+    barras = crearBarras(viewer, datos);
+    enfocado = true;
+    encuadreAuto = false;
+    raiz.classList.add('cerca', 'con-barras');
+    const { desde, hasta } = LINEA_BARRAS;
+    const centro = Cesium.Cartesian3.fromDegrees((desde.lon + hasta.lon) / 2, (desde.lat + hasta.lat) / 2, 15_000);
+    volando = true;
+    actualizarModo();
+    const fin = () => { volando = false; actualizarModo(); };
+    viewer.camera.flyToBoundingSphere(new Cesium.BoundingSphere(centro, 80_000), {
+      offset: new Cesium.HeadingPitchRange(Cesium.Math.toRadians(42), Cesium.Math.toRadians(-22), 220_000),
+      duration: sinMovimiento.matches ? 0 : op.duracionVuelo,
+      complete: fin,
+      cancel: fin
+    });
+    return { ok: true };
+  }
+  const destacarBarra = (anio) => barras?.destacar(anio);
+  function quitarBarras() {
+    barras?.destruir();
+    barras = null;
+    raiz.classList.remove('con-barras');
+  }
+
   function destruir() {
     if (destruido) return;
     destruido = true;
+    quitarBarras();
     apagarViewer();
     if (op.credito) op.credito.textContent = '';
     raiz.remove();
@@ -931,6 +966,7 @@ export function crearGlobo(contenedor, opciones = {}) {
 
   return {
     irA, elegirGlaciar, elegirPico, verPlaneta, mostrarCapa, mostrarNieveDelAnio, destruir, estado,
+    mostrarBarras, destacarBarra, quitarBarras,
     // El Cesium.Viewer del globo, para reutilizarlo (no crear otro visor). null si pasó a imagen.
     get viewer() { return viewer; }
   };

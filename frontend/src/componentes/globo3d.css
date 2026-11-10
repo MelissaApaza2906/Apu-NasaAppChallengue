@@ -268,3 +268,8 @@
   .globo3d-seleccion .globo3d-etiqueta.aparece { animation: none; }
   .globo3d-marcador .pulso { display: none; }
 }
+
+/* Con las barras 3D: el marcador, la etiqueta y el haz no tapan las columnas */
+.globo3d.con-barras .globo3d-marcador,
+.globo3d.con-barras .globo3d-seleccion,
+.globo3d.con-barras .globo3d-haz { visibility: hidden; }
