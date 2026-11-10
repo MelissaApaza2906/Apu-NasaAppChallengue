@@ -5,20 +5,19 @@
 //     picos: [{ n, h, lat, lon }, …],    // picos de la Cordillera Real
 //     alElegir: (glaciar) => { … }       // aviso cuando se elige un glaciar (toque o elegirGlaciar)
 //   });
-//   globo.elegirGlaciar('kilimanjaro');  // vuela a ~3 000 km del glaciar; pausa la rotación
-//   globo.elegirPico(0);                 // vuela a ~2 500 km del pico; pausa la rotación
-//   globo.verPlaneta();                  // vuelve al planeta completo y sigue girando
-//   await globo.mostrarCapa('lluvia');   // capa de NASA encima ('nieve' | 'lluvia' | null), fecha opcional
-//   await globo.mostrarNieveDelAnio(2016); // máquina del tiempo: nieve del 15 ago (o hasta el 18); precarga el siguiente
-//   globo.mostrarBarras({ anios, valores, destacado, decimales }); // columnas por año, cámara inclinada
-//   globo.destacarBarra(2016); globo.quitarBarras();
+//   globo.elegirGlaciar('kilimanjaro');  // gira (1,6 s) hasta dejarlo al frente, el planeta llena su caja; pausa la rotación
+//   globo.elegirPico(0);                 // lo mismo con un pico de la Cordillera Real
+//   globo.verPlaneta();                  // vuelve al tamaño del diseño y sigue girando
+//   await globo.mostrarCapa('hoy');      // 'hoy' (foto de ayer con nubes reales y el sol real) o null
+//   globo.notaGlaciar('cordillera-real', 'La nieve bajó 23 % · Tendencia real'); // texto del chip
 //   globo.destruir();                    // al salir de la pantalla
 //   globo.viewer                         // el Cesium.Viewer (reutilízalo; null si se ve la imagen)
 //
-// Capas de NASA: Blue Marble (base) + nieve MODIS del día más reciente con datos (en blanco)
-// + luces de las ciudades en la parte de noche.
-// Halos de los glaciares: billboards de Cesium que pulsan; se ocultan detrás del planeta.
-// Encima del canvas (HTML/SVG): marcador rojo con anillos (nuestro caso), etiqueta de lo elegido,
+// El planeta es para explorar: siempre se ve entero (el zoom no lo deja pasar del 100 % de su caja).
+// Capas de NASA: Blue Marble (base) + luces de las ciudades (VIIRS) en la parte de noche, con un
+// terminador en diagonal y la atmósfera azul en el borde. Sin nubes (ver CAPAS_DATOS).
+// Glaciares: estrellas (billboards de Cesium) que pulsan; se ocultan detrás del planeta.
+// Encima del canvas (HTML/SVG): marcador rojo de 8 px con anillos finos (nuestro caso), chip de lo elegido,
 // satélite que se mueve por la órbita punteada del menú y haz de luz del satélite a lo elegido.
 //
 // El globo llena su contenedor con fondo TRANSPARENTE (se ve el cielo de la pantalla).
@@ -26,16 +25,16 @@
 import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import './globo3d.css';
-import { CESIUM_TOKEN, EXAGERACION, DIAS_ATRAS_NIEVE } from '../servicios/config.js';
-import { crearBarras, LINEA_BARRAS } from './barras3d.js';
-import { CAPAS, proveedor, nasaResponde, fechaPorDefecto, hayImagen, haceDias, fechaBonita, primeraFechaConImagen } from '../servicios/nasa-gibs.js';
+import { CESIUM_TOKEN, EXAGERACION } from '../servicios/config.js';
+import { CAPAS, proveedor, nasaResponde, hayImagen, haceDias, fechaBonita } from '../servicios/nasa-gibs.js';
 
-// Capas de datos que se pueden poner encima del Blue Marble con mostrarCapa(nombre, fecha)
+// Capas que se pueden poner encima del Blue Marble con mostrarCapa(nombre, fecha).
+// El planeta es para explorar: los datos por año (nieve, lluvia) van en la vista de la montaña.
+// (Nubes encima del planeta: GIBS no tiene una capa de nubes blancas sobre transparente
+// —las de nubes son mapas de colores—, así que el planeta va sin nubes.)
 const CAPAS_DATOS = {
-  nieve: { capa: CAPAS.nieveDia, titulo: 'Nieve · MODIS Terra', fechaDefecto: async () => haceDias(DIAS_ATRAS_NIEVE) },
-  lluvia: { capa: CAPAS.lluviaDia, titulo: 'Lluvia · GPM IMERG', fechaDefecto: () => fechaPorDefecto(CAPAS.lluviaDia) },
-  // La Tierra de hoy: foto en color real de ayer (con nubes), opaca, con el sol en su posición real
-  hoy: { capa: CAPAS.fotoDia, titulo: 'Nubes: MODIS Terra', fechaDefecto: async () => haceDias(1), alpha: 1, sol: true }
+  // La Tierra de hoy: foto en color real de ayer (con sus nubes), opaca, con el sol en su posición real
+  hoy: { capa: CAPAS.fotoDia, titulo: 'Hoy: MODIS Terra (nubes reales)', fechaDefecto: async () => haceDias(1), alpha: 1, sol: true }
 };
 const CREDITO_BASE = 'Imágenes: NASA GIBS / Blue Marble';
 
@@ -46,22 +45,15 @@ const POR_DEFECTO = {
   tamano: 0.95,             // diámetro del planeta / lado menor del contenedor (maqueta: lo llena)
   rotar: true,
   velocidad: 0.04,          // radianes por segundo (≈ una vuelta cada 2,6 min)
-  alturaMinimaGiro: 5_000_000, // cerca del suelo no gira
-  alturaMinimaZoom: 1_500_000, // metros: tope del zoom con la rueda o los dedos
+  tamanoMaximo: 1,          // el zoom nunca deja que el planeta pase del 100 % de su caja
   esperaTrasArrastre: 4000, // ms hasta que vuelve a girar
   glaciares: [],            // [{ id, nombre, pais, lat, lon, principal?, texto, datos }]
   picos: [],                // [{ n: nombre, h: altura en m (6438 o '6 438'), lat, lon }]
   alElegir: null,           // (glaciar) => void
   credito: null,            // elemento donde escribir el crédito de NASA (si no, va debajo del globo)
-  capa: 'nieve',            // capa de datos al empezar: 'nieve', 'lluvia' o null
+  capa: null,               // capa al empezar: 'hoy' o null (imagen normal)
   marcador: { lat: -16.2, lon: -68.2 }, // nuestro caso si no hay glaciar principal
-  alturaPico: 2_500_000,    // metros sobre el pico al elegirlo
-  duracionVuelo: 1.6,       // segundos (picos y "ver planeta")
-  alturaGlaciar: 3_000_000, // metros sobre el glaciar al elegirlo
-  duracionGlaciar: 1.8,     // segundos
-  // Máquina del tiempo (mostrarNieveDelAnio): nieve MODIS del 15 de agosto de cada año;
-  // si ese día no tiene imagen, se prueba hasta el 18
-  tiempo: { desde: 2001, hasta: 2025, mes: '08', dias: [15, 16, 17, 18] },
+  duracionVuelo: 1.6,       // segundos: girar hasta dejar lo elegido al frente (y "ver planeta")
   // Órbita punteada del menú (SVG viewBox 100, elipse rx 48 ry 44 girada −24°), medida
   // en "cajas del globo": su caja es 108cqh × 80cqh y la del globo 80cqh × 80cqh, mismo centro.
   orbita: { rx: 48, ry: 44, giro: -24, ancho: 108 / 80, alto: 1 }
@@ -84,9 +76,10 @@ const SATELITE_SVG = `
 
 const RADIO_TIERRA = 6_378_137;
 
-// Luz "pegada" a la cámara: viene de arriba a la izquierda y por delante,
-// así lo que se mira queda iluminado y el borde derecho en penumbra.
-const LUZ = { derecha: 0.95, abajo: 0.22, adelante: 0.75 };
+// Luz "pegada" a la cámara: viene de arriba a la izquierda, un poco por delante. El terminador
+// (día/noche) cruza el planeta en diagonal por abajo a la derecha, donde se ven las luces de las
+// ciudades (VIIRS); el centro, donde está lo elegido, queda de día.
+const LUZ = { derecha: 0.78, abajo: 0.55, adelante: 0.42 };
 
 function hayWebGL() {
   try {
@@ -97,18 +90,30 @@ function hayWebGL() {
   }
 }
 
-// Imagen del halo: degradado radial blanco → color → transparente
-function imagenHalo(color) {
+// Glaciar como estrella: punto blanco de 6 px con un destello en cruz (32 × 32 px)
+function imagenEstrella() {
   const c = document.createElement('canvas');
-  c.width = c.height = 64;
+  c.width = c.height = 32;
   const g = c.getContext('2d');
-  const d = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  d.addColorStop(0, 'rgba(255,255,255,1)');
-  d.addColorStop(0.22, 'rgba(255,255,255,.95)');
-  d.addColorStop(0.5, color);
-  d.addColorStop(1, 'rgba(0,0,0,0)');
-  g.fillStyle = d;
-  g.fillRect(0, 0, 64, 64);
+  // Destello en cruz: dos líneas finas que se desvanecen hacia las puntas
+  for (const [x1, y1, x2, y2] of [[0, 16, 32, 16], [16, 0, 16, 32]]) {
+    const d = g.createLinearGradient(x1, y1, x2, y2);
+    d.addColorStop(0, 'rgba(200,235,255,0)');
+    d.addColorStop(0.5, 'rgba(235,248,255,.95)');
+    d.addColorStop(1, 'rgba(200,235,255,0)');
+    g.strokeStyle = d;
+    g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+  }
+  // Brillo suave alrededor del punto
+  const b = g.createRadialGradient(16, 16, 0, 16, 16, 8);
+  b.addColorStop(0, 'rgba(180,225,255,.55)');
+  b.addColorStop(1, 'rgba(180,225,255,0)');
+  g.fillStyle = b;
+  g.fillRect(8, 8, 16, 16);
+  // Punto de 6 px
+  g.fillStyle = '#FFFFFF';
+  g.beginPath(); g.arc(16, 16, 3, 0, Math.PI * 2); g.fill();
   return c;
 }
 
@@ -164,8 +169,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     viewer: null, // sin globo 3D no hay visor de Cesium
     irA() {}, elegirPico() {}, verPlaneta() {}, estado: () => ({ modo: 'imagen' }),
     mostrarCapa: async () => ({ ok: false, motivo: 'sin-globo' }),
-    mostrarNieveDelAnio: async () => ({ ok: false, motivo: 'sin-globo' }),
-    mostrarBarras: () => ({ ok: false, motivo: 'sin-globo' }), destacarBarra() {}, quitarBarras() {},
+    notaGlaciar() {},
     elegirGlaciar(id) { const g = glaciares.find((x) => x.id === id); if (g) op.alElegir?.(g); },
     destruir: () => { destruido = true; raiz.remove(); }
   });
@@ -241,6 +245,10 @@ export function crearGlobo(contenedor, opciones = {}) {
     contrast: 1.15,
     saturation: 1.2
   });
+  // En esa capa los lagos grandes sin batimetría (el Titicaca) vienen en negro puro: esos píxeles
+  // se vuelven transparentes y debajo se ve el color de lago del globo (baseColor)
+  capaBase.colorToAlpha = Cesium.Color.BLACK;
+  capaBase.colorToAlphaThreshold = 0.06; // también algunas sombras del relieve y las fosas más hondas: quedan azul marino
 
   try {
     viewer = new Cesium.Viewer(lienzo, {
@@ -273,9 +281,13 @@ export function crearGlobo(contenedor, opciones = {}) {
   escena.backgroundColor = Cesium.Color.TRANSPARENT;
   if (escena.sun) escena.sun.show = false;
   if (escena.moon) escena.moon.show = false;
+  // Atmósfera visible, con el borde azul más brillante; sigue a la luz de la escena
   escena.skyAtmosphere.show = true;
   globo.showGroundAtmosphere = true;
-  globo.baseColor = Cesium.Color.fromCssColorString('#0C294D'); // mientras llegan las imágenes
+  globo.atmosphereLightIntensity = 12;
+  globo.dynamicAtmosphereLighting = true;
+  globo.dynamicAtmosphereLightingFromSun = false;
+  globo.baseColor = Cesium.Color.fromCssColorString('#0F2D52'); // azul de lago y de fosa (y mientras llegan las imágenes)
   escena.verticalExaggeration = CESIUM_TOKEN ? EXAGERACION : 1;
 
   // Día y noche con un sol fijo respecto a la vista
@@ -329,88 +341,27 @@ export function crearGlobo(contenedor, opciones = {}) {
     capaDatos = null;
   }
 
-  // Capa de NASA con el estilo de su variable, debajo de las luces de las ciudades
-  function ponerCapa(nombre, f, alpha = CAPAS_DATOS[nombre].alpha ?? 0.85) {
+  // Capa de NASA debajo de las luces de las ciudades
+  function ponerCapa(nombre, f) {
     const c = viewer.imageryLayers.addImageryProvider(proveedor(CAPAS_DATOS[nombre].capa, f));
-    estilizar(c, nombre, alpha);
+    c.alpha = CAPAS_DATOS[nombre].alpha ?? 0.85;
+    // Los huecos entre las pasadas del satélite vienen en negro: transparentes (se ve el Blue Marble)
+    c.colorToAlpha = Cesium.Color.BLACK;
+    c.colorToAlphaThreshold = 0.06;
     viewer.imageryLayers.raiseToTop(luces);
     return c;
   }
-  function estilizar(c, nombre, alpha) {
-    c.alpha = alpha;
-    if (nombre === 'nieve') {
-      // La paleta de NASA para la nieve es rosada/naranja: sin color y con más brillo se ve blanca
-      c.brightness = 1.3;
-      c.saturation = 0;
-      c.gamma = 1.8;
-    }
-  }
 
-  // Máquina del tiempo: fecha con imagen de cada año (15 de agosto; si falta, hasta el 18).
-  // Se recuerda por año. La capa del año siguiente se precarga invisible (alpha 0).
-  const fechasAnio = new Map(); // anio → Promise<'AAAA-MM-DD' | null | 'error'>
-  let precarga = null;          // { fecha, capa }
-  function fechaDelAnio(anio) {
-    const t = op.tiempo;
-    if (!fechasAnio.has(anio)) {
-      const p = primeraFechaConImagen(CAPAS.nieveDia, t.dias.map((d) => `${anio}-${t.mes}-${String(d).padStart(2, '0')}`));
-      fechasAnio.set(anio, p);
-      p.then((f) => { if (f === 'error') fechasAnio.delete(anio); }); // si NASA no respondió, se reintenta luego
-    }
-    return fechasAnio.get(anio);
-  }
-  function quitarPrecarga() {
-    if (precarga && viewer) viewer.imageryLayers.remove(precarga.capa, true);
-    precarga = null;
-  }
-  async function precargarAnio(anio, yo) {
-    if (anio > op.tiempo.hasta) return;
-    const f = await fechaDelAnio(anio);
-    if (yo !== pedidoCapa || !viewer || !f || f === 'error' || precarga?.fecha === f) return;
-    quitarPrecarga();
-    precarga = { fecha: f, capa: ponerCapa('nieve', f, 0) };
-  }
+  // Nada pixelado: nivel de teselas que pide el planeta a su tamaño en pantalla (su ecuador mide
+  // π × diámetro px; cada nivel duplica las teselas de 256 px). Una capa con menos detalle no se muestra.
+  const nivelNecesario = () => Math.max(0, Math.ceil(Math.log2((Math.PI * estado().diametroPx) / 256)));
 
-  // Nieve MODIS del año pedido (2001–2025). Devuelve { ok, anio, fecha, nota } o
-  // { ok: false, motivo: 'sin-respuesta' | 'sin-imagen' | 'reemplazado' }.
-  async function mostrarNieveDelAnio(anio) {
-    const yo = ++pedidoCapa;
-    if (!viewer) return { ok: false, motivo: 'sin-globo' };
-    const f = await fechaDelAnio(anio);
-    if (yo !== pedidoCapa || !viewer) return { ok: false, motivo: 'reemplazado' };
-    if (f === 'error') return { ok: false, motivo: 'sin-respuesta' };
-    const pedida = `${anio}-${op.tiempo.mes}-${String(op.tiempo.dias[0]).padStart(2, '0')}`;
-    usarSol(false);
-    quitarCapaDatos();
-    if (!f) {
-      quitarPrecarga();
-      infoCapa = { nombre: 'nieve', fecha: pedida, sinImagen: true, nota: `ni hasta el ${op.tiempo.dias.at(-1)}` };
-      escribirCredito();
-      escena.requestRender();
-      return { ok: false, motivo: 'sin-imagen', anio };
-    }
-    if (precarga?.fecha === f) { // ya estaba cargando: se hace visible
-      capaDatos = precarga.capa;
-      precarga = null;
-      estilizar(capaDatos, 'nieve', 0.85);
-    } else {
-      capaDatos = ponerCapa('nieve', f);
-    }
-    const nota = f === pedida ? '' : `el ${op.tiempo.dias[0]} no tenía imagen`;
-    infoCapa = { nombre: 'nieve', fecha: f, sinImagen: false, nota };
-    escribirCredito();
-    escena.requestRender();
-    precargarAnio(anio + 1, yo);
-    return { ok: true, anio, fecha: f, nota };
-  }
-
-  // nombre: 'nieve' | 'lluvia' | null. fecha: 'AAAA-MM-DD' (por defecto, la más reciente con datos).
-  // Devuelve { ok, nombre, fecha, sinImagen } o { ok: false, motivo: 'sin-respuesta' } si NASA no
-  // responde (en ese caso el globo queda como estaba).
+  // nombre: 'hoy' | null. fecha: 'AAAA-MM-DD' (por defecto, ayer).
+  // Devuelve { ok, nombre, fecha, sinImagen } o { ok: false, motivo: 'sin-respuesta' | 'sin-detalle' }.
+  // Si NASA no responde, el globo queda como estaba.
   async function mostrarCapa(nombre, fecha) {
     const yo = ++pedidoCapa;
     if (!viewer) return { ok: false, motivo: 'sin-globo' };
-    quitarPrecarga(); // fuera de la máquina del tiempo no hace falta el año siguiente
     if (!nombre) {
       usarSol(false);
       quitarCapaDatos();
@@ -421,6 +372,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     }
     const d = CAPAS_DATOS[nombre];
     if (!d) return { ok: false, motivo: 'capa-desconocida' };
+    if (d.capa.nivelMax < nivelNecesario()) return { ok: false, motivo: 'sin-detalle' };
     const f = fecha ?? await d.fechaDefecto();
     if (yo !== pedidoCapa || !viewer) return { ok: false, motivo: 'reemplazado' };
     if (!f) return { ok: false, motivo: 'sin-respuesta' };
@@ -439,14 +391,14 @@ export function crearGlobo(contenedor, opciones = {}) {
 
   if (op.capa) mostrarCapa(op.capa);
 
-  // Distancia de cámara para que el planeta mida op.tamano del lado menor del contenedor.
+  // Distancia de cámara para que el planeta mida `tamano` del lado menor del contenedor.
   // Cesium usa el campo de visión (fov) sobre el lado mayor del canvas.
-  function alturaEncuadre() {
+  function alturaEncuadre(tamano = op.tamano) {
     const { clientWidth: w, clientHeight: h } = escena.canvas;
     if (!w || !h) return 20_000_000;
     const tanMitad = Math.tan(viewer.camera.frustum.fov / 2);
     const tanMitadLadoMenor = tanMitad * Math.min(w, h) / Math.max(w, h);
-    const angulo = Math.atan(op.tamano * tanMitadLadoMenor); // radio angular del planeta
+    const angulo = Math.atan(tamano * tanMitadLadoMenor); // radio angular del planeta
     return RADIO_TIERRA / Math.sin(angulo) - RADIO_TIERRA;
   }
 
@@ -460,14 +412,17 @@ export function crearGlobo(contenedor, opciones = {}) {
 
   // Gestos: solo girar el planeta y acercar/alejar, siempre mirando a su centro.
   // Sin inclinar (botón del medio, Ctrl o dos dedos) ni mover la cámara de lado: el planeta,
-  // el anillo y la órbita del satélite quedan siempre centrados. El zoom tiene topes:
-  // de cerca, hasta ~1 500 km del suelo; de lejos, el tamaño del diseño.
+  // el anillo y la órbita del satélite quedan siempre centrados. El zoom tiene topes según el
+  // tamaño del canvas: de cerca, el planeta llena su caja (100 %, nunca más: siempre se ve entero);
+  // de lejos, el tamaño del diseño.
   const control = escena.screenSpaceCameraController;
   control.enableTilt = false;
   control.enableLook = false;
   control.enableTranslate = false;
-  control.minimumZoomDistance = op.alturaMinimaZoom;
-  const topeAlejar = () => { control.maximumZoomDistance = Math.max(alturaEncuadre(), op.alturaMinimaZoom * 2); };
+  const topeAlejar = () => {
+    control.minimumZoomDistance = alturaEncuadre(op.tamanoMaximo);
+    control.maximumZoomDistance = Math.max(alturaEncuadre(), control.minimumZoomDistance + 1);
+  };
   topeAlejar();
 
   // Si algo falla al dibujar, pasamos a la imagen
@@ -500,7 +455,7 @@ export function crearGlobo(contenedor, opciones = {}) {
   const sinMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)');
   let arrastrando = false;
   let temporizadorGiro = 0;
-  let enfocado = false;   // mirando un glaciar o pico de cerca: no gira
+  let enfocado = false;   // con un glaciar o pico al frente: no gira
   let volando = false;    // la cámara está en un flyTo
   let ultimo = performance.now();
 
@@ -517,24 +472,25 @@ export function crearGlobo(contenedor, opciones = {}) {
   };
 
   // ---------------------------------------------------------------
-  // Halos de los glaciares (billboards que pulsan cada 3 s)
+  // Glaciares como estrellas (billboards: punto blanco de 6 px con destello en cruz y pulso suave).
+  // La Cordillera Real no lleva estrella: es el marcador rojo de 8 px con anillos finos (HTML);
+  // su billboard es invisible y solo sirve para tocarla.
   // ---------------------------------------------------------------
   const ocultador = new Cesium.EllipsoidalOccluder(Cesium.Ellipsoid.WGS84, Cesium.Cartesian3.ZERO);
   const halos = new Cesium.BillboardCollection({ scene: escena });
   escena.primitives.add(halos);
-  const imgCeleste = imagenHalo('rgba(143,219,255,.85)'); // --dato-nieve
-  const imgRoja = imagenHalo('rgba(209,32,33,.9)');       // --rojo-apu
+  const imgEstrella = imagenEstrella();
   const listaHalos = glaciares.map((g, i) => {
     const pos = Cesium.Cartesian3.fromDegrees(g.lon, g.lat, 0);
-    const base = g.principal ? 0.85 : 0.6;
     const b = halos.add({
       position: pos,
-      image: g.principal ? imgRoja : imgCeleste,
-      scale: base,
+      image: imgEstrella,
+      scale: 1,
+      color: g.principal ? Cesium.Color.TRANSPARENT : Cesium.Color.WHITE,
       disableDepthTestDistance: Number.POSITIVE_INFINITY, // la oclusión la hacemos nosotros
       id: g
     });
-    return { g, b, pos, base, fase: i * 0.9 };
+    return { g, b, pos, base: 1, fase: i * 0.9, invisible: Boolean(g.principal) };
   });
 
   const actualizarHalos = (ahora) => {
@@ -542,10 +498,10 @@ export function crearGlobo(contenedor, opciones = {}) {
     const quieto = sinMovimiento.matches;
     for (const h of listaHalos) {
       h.b.show = ocultador.isPointVisible(h.pos);
-      if (!h.b.show) continue;
-      const s = quieto ? 0 : Math.sin((ahora / 3000) * 2 * Math.PI + h.fase);
-      h.b.scale = h.base * (1 + 0.16 * s);
-      h.b.color = Cesium.Color.WHITE.withAlpha(quieto ? 0.95 : 0.8 + 0.2 * s);
+      if (!h.b.show || h.invisible) continue;
+      const s = quieto ? 0 : Math.sin((ahora / 3200) * 2 * Math.PI + h.fase);
+      h.b.scale = h.base * (1 + 0.12 * s);
+      h.b.color = Cesium.Color.WHITE.withAlpha(quieto ? 1 : 0.78 + 0.22 * s);
     }
   };
 
@@ -559,7 +515,7 @@ export function crearGlobo(contenedor, opciones = {}) {
       const p = escena.cartesianToCanvasCoordinates(h.pos, auxToque);
       if (!p) continue;
       const d = Math.hypot(p.x - pos.x, p.y - pos.y);
-      const radio = Math.max(RADIO_TOQUE, 16 * h.b.scale);
+      const radio = RADIO_TOQUE;
       if (d <= radio && d < dMin) { dMin = d; mejor = h.g; }
     }
     return mejor;
@@ -569,7 +525,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     const ahora = performance.now();
     const dt = Math.min((ahora - ultimo) / 1000, 0.1); // evita saltos al volver a la pestaña
     ultimo = ahora;
-    if (debeGirar() && viewer.camera.positionCartographic.height > op.alturaMinimaGiro) {
+    if (debeGirar()) {
       // Ángulo positivo: la cámara va al oeste y la Tierra se ve girar hacia el este
       viewer.camera.rotate(Cesium.Cartesian3.UNIT_Z, op.velocidad * dt);
     }
@@ -578,20 +534,13 @@ export function crearGlobo(contenedor, opciones = {}) {
   }));
 
   // Anillo de luz: mismo diámetro que el planeta, centrado (la cámara mira al centro de la Tierra).
-  // De cerca el canvas se recorta en círculo del tamaño del planeta (.globo3d.cerca en el CSS).
+  // El planeta siempre cabe entero en su caja (el zoom no lo deja pasar del 100 %): sin recorte.
   let diametroAnillo = 0;
   const actualizarAnillo = () => {
     const e = estado();
-    const lado = Math.min(...e.canvas);
-    // Si el planeta ya no cabe en su caja (al elegir un lugar o con el zoom), se ve por la lupa redonda
-    const cerca = enfocado || e.diametroPx > lado * op.tamano * 1.03;
-    raiz.classList.toggle('cerca', cerca);
-    const visible = cerca || (viewer.camera.positionCartographic.height > op.alturaMinimaGiro
-      && e.diametroPx <= lado * 1.02);
-    anillo.hidden = !visible;
-    const diametro = cerca ? Math.round(lado * op.tamano) : e.diametroPx;
-    if (visible && Math.abs(diametro - diametroAnillo) >= 1) {
-      diametroAnillo = diametro;
+    anillo.hidden = false;
+    if (Math.abs(e.diametroPx - diametroAnillo) >= 1) {
+      diametroAnillo = e.diametroPx;
       anillo.style.width = anillo.style.height = `${diametroAnillo}px`;
     }
   };
@@ -647,7 +596,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     if (delta > Math.PI) delta -= 2 * Math.PI;
     if (delta < -Math.PI) delta += 2 * Math.PI;
     const inicio = performance.now();
-    const duracion = op.duracionGlaciar * 1000;
+    const duracion = op.duracionVuelo * 1000;
     const paso = (ahora) => {
       const k = Math.min(1, (ahora - inicio) / duracion);
       const e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2; // ease-in-out
@@ -687,19 +636,17 @@ export function crearGlobo(contenedor, opciones = {}) {
     }
     escena.requestRender();
   }
-  const objetivoGlaciar = (g) => ({ tipo: 'glaciar', ref: g, n: g.nombre, sub: g.pais, lat: g.lat, lon: g.lon, h: 0 });
+  const notas = new Map(); // id del glaciar → texto del chip (notaGlaciar)
+  const objetivoGlaciar = (g) => ({ tipo: 'glaciar', ref: g, n: g.nombre, sub: notas.get(g.id) ?? g.pais, lat: g.lat, lon: g.lon, h: 0 });
   const objetivoPico = (p) => ({ tipo: 'pico', ref: p, n: p.n, sub: `${conMiles(p.h)} m s. n. m.`, lat: p.lat, lon: p.lon, h: p.h });
 
-  // Posición en pantalla de un punto si se ve: no está detrás del planeta y cae dentro de lo
-  // que se ve del canvas (la lupa redonda de cerca, o la caja), con un margen de 4 px
+  // Posición en pantalla de un punto si se ve: no está detrás del planeta y cae dentro de la caja,
+  // con un margen de 4 px
   function aPantalla(pos, resultado) {
     ocultador.cameraPosition = viewer.camera.positionWC;
     if (!ocultador.isPointVisible(pos) || !Cesium.defined(escena.cartesianToCanvasCoordinates(pos, resultado))) return false;
     const w = lienzo.clientWidth;
     const h = lienzo.clientHeight;
-    if (raiz.classList.contains('cerca')) {
-      return Math.hypot(resultado.x - w / 2, resultado.y - h / 2) <= (Math.min(w, h) * op.tamano) / 2 - 4;
-    }
     return resultado.x >= 4 && resultado.x <= w - 4 && resultado.y >= 4 && resultado.y <= h - 4;
   }
 
@@ -826,7 +773,6 @@ export function crearGlobo(contenedor, opciones = {}) {
       fpsMedidos = Math.round((cuadros * 1000) / ms);
       if (fpsMedidos < 30) {
         quitarCapaDatos();
-        quitarPrecarga();
         infoCapa = null;
         escribirCredito();
         console.info(`APU: ${fpsMedidos} FPS en celular; se quita la capa de datos y quedan los halos.`);
@@ -855,49 +801,50 @@ export function crearGlobo(contenedor, opciones = {}) {
     });
   }
 
-  // Acercarse a un lugar: la rotación se pausa, el canvas se ve por la "lupa" redonda
-  // y el satélite va arriba a la derecha del centro (donde quedará el lugar)
-  function acercarse(lon, lat, altura, duracion) {
+  // Dejar un lugar al frente: el planeta gira (1,6 s) hasta tenerlo en el centro y crece hasta
+  // llenar su caja (100 %, siempre entero). La rotación se pausa hasta "ver planeta".
+  // El satélite va arriba a la derecha del centro (donde quedará el lugar).
+  function mirarA(lon, lat) {
     enfocado = true;
     encuadreAuto = false;
-    raiz.classList.add('cerca');
     moverSatelite(anguloArribaDerecha(0.5, 0.5));
-    volar(Cesium.Cartesian3.fromDegrees(lon, lat, altura), duracion);
+    volar(Cesium.Cartesian3.fromDegrees(lon, lat, alturaEncuadre(op.tamanoMaximo)), op.duracionVuelo);
   }
 
-  function irA(lat, lon, alturaM = 1_500_000) {
+  // Lleva la vista a un punto, con la altura dentro de los topes del zoom
+  function irA(lat, lon, alturaM = alturaEncuadre()) {
     if (!viewer) return;
     encuadreAuto = false;
-    volar(Cesium.Cartesian3.fromDegrees(lon, lat, alturaM), 2.5);
+    const h = Math.min(control.maximumZoomDistance, Math.max(control.minimumZoomDistance, alturaM));
+    volar(Cesium.Cartesian3.fromDegrees(lon, lat, h), 2.5);
   }
 
-  // Vuela a ~3 000 km sobre el glaciar (id de contenido/glaciares.js) y avisa con alElegir
+  // Deja el glaciar al frente (id de contenido/glaciares.js) y avisa con alElegir
   function elegirGlaciar(id) {
     const g = glaciares.find((x) => x.id === id);
     if (!g) return;
     if (viewer) {
       ponerObjetivo(objetivoGlaciar(g));
-      acercarse(g.lon, g.lat, op.alturaGlaciar, op.duracionGlaciar);
+      mirarA(g.lon, g.lat);
     }
     op.alElegir?.(g);
   }
 
-  // Vuela a ~2 500 km sobre el pico i; el marcador rojo y la etiqueta pasan a ese pico
+  // Deja el pico i al frente; el marcador rojo y la etiqueta pasan a ese pico
   function elegirPico(i) {
     const p = picos[i];
     if (!viewer || !p) return;
     ponerObjetivo(objetivoPico(p));
-    acercarse(p.lon, p.lat, op.alturaPico, op.duracionVuelo);
+    mirarA(p.lon, p.lat);
   }
 
-  // Vuelve al planeta completo (llena el contenedor) y reanuda la rotación
+  // Vuelve al planeta del tamaño del diseño y reanuda la rotación
   function verPlaneta() {
     if (!viewer) return;
     encuadreAuto = true;
-    enfocado = false; // la lupa se quita sola cuando el planeta vuelve a caber (actualizarAnillo)
+    enfocado = false;
     const lon = objetivo?.lon ?? op.lon;
     volar(Cesium.Cartesian3.fromDegrees(lon, op.lat, alturaEncuadre()), op.duracionVuelo, () => {
-      enfocado = false;
       // el satélite vuelve a quedar arriba a la derecha de lo elegido
       if (posObjetivo && aPantalla(posObjetivo, enPantallaObj)) {
         moverSatelite(anguloArribaDerecha(enPantallaObj.x / lienzo.clientWidth, enPantallaObj.y / lienzo.clientHeight));
@@ -905,40 +852,16 @@ export function crearGlobo(contenedor, opciones = {}) {
     });
   }
 
-  // Barras 3D: una columna por año a lo largo de la Cordillera Real. La cámara se inclina
-  // (mira desde el suroeste) para que se vean de costado; verPlaneta la vuelve a poner recta.
-  let barras = null;
-  function mostrarBarras(datos) {
-    if (!viewer) return { ok: false, motivo: 'sin-globo' };
-    barras?.destruir();
-    barras = crearBarras(viewer, datos);
-    enfocado = true;
-    encuadreAuto = false;
-    raiz.classList.add('cerca', 'con-barras');
-    const { desde, hasta } = LINEA_BARRAS;
-    const centro = Cesium.Cartesian3.fromDegrees((desde.lon + hasta.lon) / 2, (desde.lat + hasta.lat) / 2, 15_000);
-    volando = true;
-    actualizarModo();
-    const fin = () => { volando = false; actualizarModo(); };
-    viewer.camera.flyToBoundingSphere(new Cesium.BoundingSphere(centro, 80_000), {
-      offset: new Cesium.HeadingPitchRange(Cesium.Math.toRadians(42), Cesium.Math.toRadians(-22), 220_000),
-      duration: sinMovimiento.matches ? 0 : op.duracionVuelo,
-      complete: fin,
-      cancel: fin
-    });
-    return { ok: true };
+  // Texto del chip de un glaciar (debajo del nombre), por ejemplo
+  // "La nieve bajó 23 % · Tendencia real" para la Cordillera Real (el menú lo calcula del dato real)
+  function notaGlaciar(id, texto) {
+    if (texto) notas.set(id, texto);
+    else notas.delete(id);
+    if (objetivo?.tipo === 'glaciar' && objetivo.ref.id === id) ponerObjetivo(objetivoGlaciar(objetivo.ref));
   }
-  const destacarBarra = (anio) => barras?.destacar(anio);
-  function quitarBarras() {
-    barras?.destruir();
-    barras = null;
-    raiz.classList.remove('con-barras');
-  }
-
   function destruir() {
     if (destruido) return;
     destruido = true;
-    quitarBarras();
     apagarViewer();
     if (op.credito) op.credito.textContent = '';
     raiz.remove();
@@ -965,8 +888,7 @@ export function crearGlobo(contenedor, opciones = {}) {
   }
 
   return {
-    irA, elegirGlaciar, elegirPico, verPlaneta, mostrarCapa, mostrarNieveDelAnio, destruir, estado,
-    mostrarBarras, destacarBarra, quitarBarras,
+    irA, elegirGlaciar, elegirPico, verPlaneta, mostrarCapa, destruir, estado, notaGlaciar,
     // El Cesium.Viewer del globo, para reutilizarlo (no crear otro visor). null si pasó a imagen.
     get viewer() { return viewer; }
   };

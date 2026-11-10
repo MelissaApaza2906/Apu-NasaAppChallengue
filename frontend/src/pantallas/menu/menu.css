@@ -228,7 +228,7 @@
 
   /* La columna junto al carrusel es muy angosta: el crédito va entre el riel y el planeta,
      encima del selector */
-  .menu-credito { right: auto; left: calc(1.6cqw + var(--boton-riel) + 3cqh); bottom: calc(3.2cqh + 80px); max-width: calc(var(--planeta-izq) - 1.6cqw - var(--boton-riel) - 4cqh); text-align: left; }
+  .menu-credito { right: auto; left: calc(1.6cqw + var(--boton-riel) + 3cqh); bottom: calc(3.2cqh + 124px); max-width: calc(var(--planeta-izq) - 1.6cqw - var(--boton-riel) - 4cqh); /* encima de "Ver planeta" y del selector */ text-align: left; }
   .menu-panel .cambio b { font-size: 14px; }
 }
 

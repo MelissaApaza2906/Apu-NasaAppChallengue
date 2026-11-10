@@ -1,0 +1,60 @@
+/* Pestaña "Historia" del panel del menú y vista de la montaña (montanas-puente.js) */
+
+/* ---------- Historia ---------- */
+.menu-panel .pestana { align-self: flex-start; margin: 0; padding: .5cqh 1.6cqh; border-radius: 999px; background: rgba(209, 32, 33, .22); box-shadow: inset 0 0 0 1.5px var(--rojo-apu); font: 600 clamp(12px, 1.7cqh, 15px) var(--letra-texto); letter-spacing: .04em; }
+.menu-panel .lugar-sub { margin: .6cqh 0 0; font-size: clamp(12px, 1.95cqh, 17px); color: #A9B4CC; }
+.menu-panel .historia { margin: 0; font-size: clamp(13px, 2.2cqh, 19px); line-height: 1.5; color: #E6EBF3; }
+.menu-panel .resumen { display: flex; flex-direction: column; gap: .4cqh; padding: 1.2cqh 1.6cqh; border-radius: 1.4cqh; border: 1.5px solid var(--rojo-apu); background: rgba(209, 32, 33, .14); }
+.menu-panel .resumen[hidden] { display: none; }
+.menu-panel .resumen b { font-size: clamp(18px, 3.6cqh, 32px); color: #FF6B6B; }
+.menu-panel .resumen span { font-size: clamp(12px, 1.72cqh, 15px); color: #FFD0D0; line-height: 1.4; }
+.menu-panel .resumen.duda { border-color: var(--dato-tendencia); background: rgba(249, 200, 14, .1); }
+.menu-panel .resumen.duda b { color: var(--dato-tendencia); }
+.menu-panel .resumen.duda span { color: #FCE7A0; }
+.menu-panel .ver-montana { margin-top: auto; align-self: stretch; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 1cqh; padding: 0 2cqh; border-radius: 999px; border: 2px solid var(--rojo-apu); background: rgba(209, 32, 33, .24); color: var(--nieve); cursor: pointer; font: 700 clamp(13px, 2.1cqh, 19px) var(--letra-texto); box-shadow: 0 0 1.8cqh rgba(209, 32, 33, .45); transition: background .15s; }
+.menu-panel .ver-montana svg { width: 1.6em; height: auto; flex: none; }
+.menu-panel .ver-montana:hover { background: rgba(209, 32, 33, .4); }
+.menu-panel .ver-montana:focus-visible { outline: 3px solid var(--nieve); outline-offset: 3px; }
+/* La historia "se abre" cuando el planeta terminó de girar hacia el lugar */
+.menu-panel.abre > * { animation: historiaAbre .45s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes historiaAbre { from { opacity: 0; translate: 0 1.2cqh; } to { opacity: 1; translate: 0 0; } }
+
+/* ---------- Vista de la montaña ---------- */
+/* El planeta, su órbita y la historia se esconden; el recuadro ocupa el espacio del planeta */
+.pantalla-menu.con-montana .menu-orbita,
+.pantalla-menu.con-montana .menu-planeta,
+.pantalla-menu.con-montana .menu-panel:not(.mp-datos) { visibility: hidden; }
+/* Con la vista de Jhoel, el planeta (su visor) se ve dentro del recuadro */
+.pantalla-menu.con-montana:has(.mp-recuadro.con-3d) .menu-planeta { visibility: visible; }
+
+.mp-recuadro {
+  position: absolute; z-index: 1;
+  left: calc(var(--riel-der) + 1cqh); right: calc(100cqw - var(--panel-izq) + 1cqh);
+  top: 11.4cqh; bottom: calc(var(--carrusel-arriba) + 2cqh);
+  border-radius: 2.2cqh; display: flex; align-items: center; justify-content: center;
+  animation: menuAbajo .45s cubic-bezier(.2, .8, .2, 1) both;
+}
+.mp-recuadro.con-3d { background: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; pointer-events: none; }
+.mp-recuadro.con-3d .mp-proceso { display: none; }
+.mp-proceso { width: min(80%, 520px); display: flex; flex-direction: column; align-items: center; gap: 2.4cqh; text-align: center; }
+.mp-proceso p { margin: 0; font: 400 clamp(14px, 2.8cqh, 26px) / 1.3 var(--letra-titulo); letter-spacing: .06em; }
+/* La barra a rayas de la pantalla de carga, llena y en movimiento */
+.mp-barra { width: 100%; height: clamp(24px, 4.4cqh, 40px); padding: 3px; border: 2px solid rgba(242, 244, 248, .92); border-radius: 999px; background: rgba(11, 25, 46, .6); box-sizing: border-box; }
+.mp-barra .relleno {
+  height: 100%; border-radius: 999px; box-shadow: 0 0 18px rgba(209, 32, 33, .55);
+  background-color: var(--rojo-apu);
+  background-image: linear-gradient(135deg, #9E1517 25%, transparent 25%, transparent 50%, #9E1517 50%, #9E1517 75%, transparent 75%);
+  background-size: 22px 22px; animation: mpRayas .7s linear infinite;
+}
+@keyframes mpRayas { to { background-position: 22px 0; } }
+
+/* Pestañas Nieve / Lluvia del panel de datos */
+.mp-pestanas { display: flex; gap: .8cqh; }
+.mp-pestanas button { flex: 1; min-height: 40px; border-radius: 999px; border: 1px solid rgba(91, 160, 255, .55); background: rgba(8, 18, 48, .85); color: #D7DEEA; cursor: pointer; font: 600 clamp(12px, 1.95cqh, 17px) var(--letra-texto); }
+.mp-pestanas button[aria-selected="true"] { color: var(--nieve); background: rgba(209, 32, 33, .22); box-shadow: inset 0 0 0 1.5px var(--rojo-apu); border-color: transparent; }
+.mp-pestanas button:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
+.menu-panel .ver-barras:disabled { opacity: .5; cursor: not-allowed; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-barra .relleno, .mp-recuadro, .menu-panel.abre > * { animation: none; }
+}
