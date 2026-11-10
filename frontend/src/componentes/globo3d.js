@@ -30,7 +30,9 @@ import { CAPAS, proveedor, nasaResponde, fechaPorDefecto, hayImagen, haceDias, f
 // Capas de datos que se pueden poner encima del Blue Marble con mostrarCapa(nombre, fecha)
 const CAPAS_DATOS = {
   nieve: { capa: CAPAS.nieveDia, titulo: 'Nieve · MODIS Terra', fechaDefecto: async () => haceDias(DIAS_ATRAS_NIEVE) },
-  lluvia: { capa: CAPAS.lluviaDia, titulo: 'Lluvia · GPM IMERG', fechaDefecto: () => fechaPorDefecto(CAPAS.lluviaDia) }
+  lluvia: { capa: CAPAS.lluviaDia, titulo: 'Lluvia · GPM IMERG', fechaDefecto: () => fechaPorDefecto(CAPAS.lluviaDia) },
+  // La Tierra de hoy: foto en color real de ayer (con nubes), opaca, con el sol en su posición real
+  hoy: { capa: CAPAS.fotoDia, titulo: 'Nubes: MODIS Terra', fechaDefecto: async () => haceDias(1), alpha: 1, sol: true }
 };
 const CREDITO_BASE = 'Imágenes: NASA GIBS / Blue Marble';
 
@@ -281,7 +283,15 @@ export function crearGlobo(contenedor, opciones = {}) {
   const luz = new Cesium.DirectionalLight({ direction: new Cesium.Cartesian3(1, 0, 0), intensity: 2.2 });
   escena.light = luz;
   const auxLuz = new Cesium.Cartesian3();
+  // Con la capa "hoy", el sol de verdad (posición real a esta hora); si no, la luz del diseño
+  const sol = new Cesium.SunLight({ intensity: 2.2 });
+  function usarSol(si) {
+    if (si) viewer.clock.currentTime = Cesium.JulianDate.now();
+    escena.light = si ? sol : luz;
+    escena.requestRender();
+  }
   const orientarLuz = () => {
+    if (escena.light !== luz) return;
     const c = viewer.camera;
     const d = luz.direction;
     Cesium.Cartesian3.multiplyByScalar(c.directionWC, LUZ.adelante, d);
@@ -316,7 +326,7 @@ export function crearGlobo(contenedor, opciones = {}) {
   }
 
   // Capa de NASA con el estilo de su variable, debajo de las luces de las ciudades
-  function ponerCapa(nombre, f, alpha = 0.85) {
+  function ponerCapa(nombre, f, alpha = CAPAS_DATOS[nombre].alpha ?? 0.85) {
     const c = viewer.imageryLayers.addImageryProvider(proveedor(CAPAS_DATOS[nombre].capa, f));
     estilizar(c, nombre, alpha);
     viewer.imageryLayers.raiseToTop(luces);
@@ -366,6 +376,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     if (yo !== pedidoCapa || !viewer) return { ok: false, motivo: 'reemplazado' };
     if (f === 'error') return { ok: false, motivo: 'sin-respuesta' };
     const pedida = `${anio}-${op.tiempo.mes}-${String(op.tiempo.dias[0]).padStart(2, '0')}`;
+    usarSol(false);
     quitarCapaDatos();
     if (!f) {
       quitarPrecarga();
@@ -397,6 +408,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     if (!viewer) return { ok: false, motivo: 'sin-globo' };
     quitarPrecarga(); // fuera de la máquina del tiempo no hace falta el año siguiente
     if (!nombre) {
+      usarSol(false);
       quitarCapaDatos();
       infoCapa = null;
       escribirCredito();
@@ -415,6 +427,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     quitarCapaDatos();
     infoCapa = { nombre, fecha: f, sinImagen: hay === 'no' };
     if (hay === 'si') capaDatos = ponerCapa(nombre, f);
+    usarSol(Boolean(d.sol));
     escribirCredito();
     escena.requestRender();
     return { ok: true, nombre, fecha: f, sinImagen: hay === 'no' };

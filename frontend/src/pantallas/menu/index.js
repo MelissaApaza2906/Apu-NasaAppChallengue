@@ -27,6 +27,7 @@ const AVISO_CAPA = 'No se pudo cargar la capa de NASA. Los números del panel so
 const CAPAS_MENU = [
   { capa: 'nieve', n: 'Nieve (MODIS)', variable: 'nieve' },
   { capa: 'lluvia', n: 'Lluvia (GPM IMERG)', variable: 'lluvia' },
+  { capa: 'hoy', n: 'Hoy (nubes, MODIS)', variable: 'nieve' },
   { capa: null, n: 'Sin capa', variable: 'nieve' }
 ];
 // Textos del panel según la variable (los números salen de cordillera-real.json)
