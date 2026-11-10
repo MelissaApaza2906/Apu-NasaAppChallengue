@@ -1,37 +1,28 @@
-// Pantalla: menú "Monitoreo glaciar" · Responsable: Melissa
-// Copia fiel de la maqueta "APU · Diseño visual del juego" → Pantalla 2 (ApuInicio).
-// El planeta es para explorar: siempre se ve entero. Al elegir un lugar, el panel muestra su
-// historia y el botón "Ver montaña en 3D", que abre montanas-puente.js (los datos de NASA:
-// pestañas Nieve/Lluvia, máquina del tiempo, Nevada/Lluvia y barras, junto a la montaña de Jhoel).
-// Datos REALES: frontend/public/datos/cordillera-real.json (MODIS MOD10A1, calculado en backend/).
+// Pantalla: menú del planeta · Responsable: Melissa
+// El planeta es para explorar: grande, centrado y siempre entero, con un pin por glaciar.
+// Al tocar un pin, el planeta lo deja al frente y se corre a la izquierda, y se abre la pestaña
+// de historia (portada, línea de tiempo, dato grande y "VER MONTAÑA EN 3D", que abre
+// montanas-puente.js). El Jukumari, de cuerpo entero, habla al tocarlo o al tocar su nubecita.
+// Textos y datos de cada glaciar: contenido/glaciares.js. Datos de NASA de la montaña:
+// frontend/public/datos/cordillera-real.json.
 // Globo: si componentes/globo3d.js exporta crearGlobo(), se usa el globo 3D de Cesium;
-// si no (o si falla), se muestra el planeta de la maqueta con su marcador y satélite.
+// si no (o si falla), se muestra el planeta de la maqueta.
 import './menu.css';
+import '../carga/carga.css'; // el Jukumari en 3D y el botón con cuña roja (.carga-juku, .btn-mision)
 import './montanas-puente.css';
 import { ir } from '../../router.js';
 import { cargarRegion } from '../../servicios/datos.js';
 import { GLACIARES } from '../../contenido/glaciares.js';
-import { FRASES } from '../../contenido/frases-jukumari.js';
 import { abrirMontana } from './montanas-puente.js';
 
-const PICOS = [
-  { n: 'Illimani', h: '6 438', lat: -16.64, lon: -67.79, t: 'el Illimani, el guardián de La Paz' },
-  { n: 'Huayna Potosí', h: '6 088', lat: -16.26, lon: -68.15, t: 'el Huayna Potosí, muy cerca de El Alto' },
-  { n: 'Condoriri', h: '5 648', lat: -16.17, lon: -68.25, t: 'el Condoriri, la "cabeza de cóndor"' },
-  { n: 'Illampu', h: '6 368', lat: -15.83, lon: -68.57, t: 'el Illampu, al norte de la cordillera' },
-  { n: 'Chacaltaya', h: '5 421', lat: -16.35, lon: -68.13, t: 'el Chacaltaya, donde hubo una pista de esquí' },
-  { n: 'Mururata', h: '5 869', lat: -16.53, lon: -67.78, t: 'el Mururata, vecino del Illimani' }
-];
-const SIN_DATOS = 'El análisis de 25 años de este glaciar todavía no está en APU. Explóralo en el planeta con las imágenes de NASA.';
 const AVISO_CAPA = 'No se pudo cargar la capa de NASA. El planeta sigue con la imagen normal.';
+const SIN_GLACIAR = 'Toca un glaciar para conocer su historia. ¡Empieza por el rojo, el de Bolivia!';
+const EN_PREPARACION = 'En preparación';
+const ESPERA_GLOBO = 6000; // ms que se ve el globo de diálogo del Jukumari
 // Capas del botón "Capas de datos" del planeta
 const CAPAS_MENU = [
   { capa: null, n: 'Normal' },
   { capa: 'hoy', n: 'Hoy (nubes reales)' }
-];
-const CARRUSELES = [
-  { k: 'glaciares', n: 'Glaciares del mundo' },
-  { k: 'picos', n: 'Picos de la Cordillera Real' }
 ];
 
 // Íconos del riel (mismos trazos que la maqueta)
@@ -49,25 +40,23 @@ const RIEL = [
   { k: 'perfil', n: 'Mi expediente', ruta: 'insignias' },
   { k: 'ajustes', n: 'Ajustes', ruta: 'ajustes' }
 ];
-const MONTANA = '<svg aria-hidden="true" viewBox="0 0 32 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M1 19 11 5l6 8 4-5 10 11"/><path d="M8 9.5 11 5l3 4"/></svg>';
-const SATELITE = '<svg class="menu-sat" aria-hidden="true" viewBox="0 0 64 32"><rect x="0" y="9" width="22" height="14" fill="#2F6FD6" stroke="#CFE3FF"/><path d="M7 9v14M14 9v14M0 16h22" stroke="#CFE3FF" stroke-width=".6"/><rect x="42" y="9" width="22" height="14" fill="#2F6FD6" stroke="#CFE3FF"/><path d="M49 9v14M56 9v14M42 16h22" stroke="#CFE3FF" stroke-width=".6"/><rect x="24" y="8" width="16" height="16" rx="2" fill="#E8EEF8" stroke="#9FB3D9"/><circle cx="32" cy="26" r="3" fill="#B8C6E0"/></svg>';
+const MONTANA = '<svg aria-hidden="true" viewBox="0 0 32 20" fill="none" stroke="#F2F4F8" stroke-width="1.7" stroke-linejoin="round"><path d="M1 19 11 5l6 8 4-5 10 11"/><path d="M8 9.5 11 5l3 4"/></svg>';
 
-const fmt = (v, d) => v.toFixed(d).replace('.', ',');
+// "BOLIVIA · 16,2° S · 68,2° O"
+const grados = (v, pos, neg) => `${Math.abs(v).toFixed(1).replace('.', ',')}° ${v < 0 ? neg : pos}`;
+const lugarDe = (g) => `${g.pais.toUpperCase()} · ${grados(g.lat, 'N', 'S')} · ${grados(g.lon, 'E', 'O')}`;
+const escapar = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 let globo = null;
 let vivo = false;
-let quitarAlSalir = null; // listeners en document que hay que quitar al salir del menú
+let quitarAlSalir = null; // listeners y temporizadores que hay que quitar al salir del menú
 
 export function montar(contenedor) {
   vivo = true;
-  const principal = GLACIARES.find((g) => g.principal) ?? GLACIARES[0];
-  // modo: qué muestra el carrusel · elegido: lo último elegido ('glaciar' o 'pico')
-  // modo: qué muestra el carrusel · elegido: lo último elegido ('glaciar' o 'pico')
-  const estado = {
-    modo: 'glaciares', elegido: 'glaciar', glaciar: principal.id, pico: 0,
-    ventana: { glaciares: 0, picos: 0 }, cerca: false, capa: null, variable: 'nieve', textoLugar: principal.texto
-  };
-  let region = null; // cordillera-real.json cuando termina de cargar
+  let elegido = null;  // glaciar abierto en la pestaña (null: ninguno)
+  let region = null;   // cordillera-real.json (para la vista de la montaña)
+  const sinMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)');
+
   const raiz = document.createElement('section');
   raiz.className = 'pantalla-menu menu-cielo';
   raiz.innerHTML = `
@@ -103,57 +92,54 @@ export function montar(contenedor) {
     </nav>
 
     <div class="menu-capas hud" id="menu-capas" role="menu" aria-label="Capas de datos de NASA" hidden>
-      ${CAPAS_MENU.map((c) => `<button type="button" role="menuitemradio" data-capa="${c.capa ?? ''}" aria-checked="${c.capa === 'nieve'}">${c.n}</button>`).join('')}
+      ${CAPAS_MENU.map((c) => `<button type="button" role="menuitemradio" data-capa="${c.capa ?? ''}" aria-checked="${c.capa === null}">${c.n}</button>`).join('')}
     </div>
+    <p class="menu-aviso" role="status" hidden>${AVISO_CAPA}</p>
 
-    <aside class="menu-panel hud entra-der" aria-label="Historia del lugar">
-      <p class="pestana">Historia</p>
-      <div>
-        <h2><span class="barras" aria-hidden="true">//</span><span class="titulo-texto">${principal.nombre}</span></h2>
-        <p class="lugar-sub">${principal.pais}</p>
+    <aside class="menu-pestana" aria-label="Historia del glaciar" hidden>
+      <div class="pestana-portada">
+        <span class="pestana-caso">GLACIAR TROPICAL · NUESTRO CASO</span>
+        <h2 class="pestana-nombre"></h2>
+        <p class="pestana-lugar"></p>
+        <button type="button" class="pestana-cerrar" aria-label="Cerrar la historia y volver al planeta">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
       </div>
-      <div class="linea" aria-hidden="true"></div>
-      <p class="aviso-capa" role="status" hidden>${AVISO_CAPA}</p>
-      <p class="historia"></p>
-      <div class="resumen" hidden>
-        <b class="resumen-valor"></b>
-        <span class="resumen-texto"></span>
+      <div class="pestana-cuerpo">
+        <h3 class="pestana-titulo"><span class="barras" aria-hidden="true">//</span> SU HISTORIA</h3>
+        <ol class="pestana-linea"></ol>
+        <div class="pestana-dato"></div>
+        <button type="button" class="btn-mision pestana-ver">
+          <span class="icono" aria-hidden="true">${MONTANA}</span>
+          <span class="texto">VER MONTAÑA EN 3D</span>
+        </button>
       </div>
-      <p class="sin-datos" hidden>${SIN_DATOS}</p>
-      <button type="button" class="ver-montana">
-        <svg aria-hidden="true" viewBox="0 0 32 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M1 19 11 5l6 8 4-5 10 11"/><path d="M8 9.5 11 5l3 4"/></svg>Ver montaña en 3D
-      </button>
     </aside>
 
-    <div class="menu-guia entra-abajo">
-      <div class="hud caja">
-        <b>Tu guía · Jukumari</b>
-        <p class="dialogo"></p>
+    <div class="carga-juku menu-juku">
+      <div class="aura" aria-hidden="true"></div>
+      <div class="sombra" aria-hidden="true"></div>
+      <div class="cuerpo-anim">
+        <button type="button" class="juku-btn" aria-label="Escuchar al Jukumari, tu guía">
+          <img class="capa" src="/img/jukumari-cuerpo.webp" alt="El Jukumari, tu guía, con su máscara de la Diablada, gafas de nieve y equipo de montaña, saludando con la mano">
+          <div class="saludo" aria-hidden="true"></div>
+        </button>
       </div>
-      <img src="/img/jukumari-cara.webp" alt="El Jukumari, tu guía">
-      <p class="burbuja" role="status" hidden></p>
+      <button type="button" class="juku-nube" aria-label="El Jukumari quiere decirte algo"><span></span><span></span><span></span></button>
+      <p class="juku-globo" role="status" hidden></p>
     </div>
 
-    <p class="menu-credito"></p>
+    <button type="button" class="menu-volver" hidden>
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3Z"/></svg>Volver al planeta
+    </button>
 
-    <div class="menu-modos entra-abajo">
-      <div class="selector" role="group" aria-label="Qué mostrar en el carrusel">
-        ${CARRUSELES.map((c) => `<button type="button" data-modo="${c.k}" aria-pressed="${c.k === 'glaciares'}">${c.n}</button>`).join('')}
-      </div>
-      <button type="button" class="ver-planeta" hidden>
-        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3Z"/></svg>Ver planeta
-      </button>
-    </div>
-
-    <div class="menu-picos hud entra-abajo" role="group" aria-label="Glaciares del mundo">
-      <button type="button" class="flecha anterior" aria-label="Picos anteriores"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg></button>
-      <div class="lista"></div>
-      <button type="button" class="flecha siguiente" aria-label="Más picos"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 6 6 6-6 6"/></svg></button>
-    </div>`;
+    <p class="menu-credito"></p>`;
   contenedor.append(raiz);
   const $ = (s) => raiz.querySelector(s);
 
-  // Navegación
+  // ---------------------------------------------------------------
+  // Navegación y menú "Capas de datos"
+  // ---------------------------------------------------------------
   $('.logo-btn').addEventListener('click', () => ir(''));
   raiz.querySelectorAll('.menu-riel [data-ruta]').forEach((b) => {
     b.addEventListener('click', () => {
@@ -161,238 +147,6 @@ export function montar(contenedor) {
       else if (b.dataset.ruta) ir(b.dataset.ruta);
     });
   });
-
-  // Planeta: globo 3D de Cesium o, si no está, el planeta de la maqueta
-  const ranura = $('.menu-planeta');
-  let etiqueta = null;
-  const planetaMaqueta = () => {
-    ranura.classList.add('maqueta');
-    ranura.innerHTML = `
-      <img class="tierra" src="/img/planeta.webp" alt="La Tierra vista desde el espacio, centrada en Sudamérica, con Perú, Bolivia y Chile">
-      <svg class="capa" aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <defs><linearGradient id="menuHaz" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9FD4FF" stop-opacity=".75"/><stop offset="1" stop-color="#9FD4FF" stop-opacity=".05"/></linearGradient></defs>
-        <polygon class="haz" points="93,9 47,44 61,56" fill="url(#menuHaz)"/>
-        <line x1="54.6" y1="49" x2="61.5" y2="45" stroke="#F2F4F8" stroke-width=".25"/>
-      </svg>
-      ${SATELITE}
-      <span class="marcador" aria-hidden="true"><span class="anillo"></span><span class="anillo" style="animation-delay:1.1s"></span><span class="punto"></span></span>
-      <div class="etiqueta" role="status"></div>`;
-    etiqueta = ranura.querySelector('.etiqueta');
-  };
-  import('../../componentes/globo3d.js')
-    .then((m) => {
-      if (!vivo) return;
-      if (typeof m.crearGlobo !== 'function') throw new Error('globo3d.js todavía no exporta crearGlobo');
-      globo = m.crearGlobo(ranura, {
-        picos: PICOS.map(({ n, h, lat, lon }) => ({ n, h, lat, lon })),
-        glaciares: GLACIARES,
-        capa: null, // el planeta empieza con la imagen normal (Blue Marble + luces de noche)
-        credito: $('.menu-credito'),
-        tamano: 0.96, // el planeta llena el 96 % de su caja (.menu-planeta, sin contar el halo)
-        alElegir: (g) => { if (vivo) mostrarGlaciar(g, true); } // también al tocar un halo en el globo
-      });
-      if (import.meta.env.DEV) window.__globo = globo; // para las pruebas en el navegador
-      ponerChip(); // si los datos llegaron antes que el globo
-    })
-    .catch((e) => { console.info('APU: se usa el planeta de la maqueta.', e.message); if (vivo) { planetaMaqueta(); pintarTodo(); } });
-
-  // Carrusel (3 a la vista) de glaciares o picos + etiqueta + diálogo del Jukumari + panel
-  const lista = $('.lista');
-  const elementos = () => (estado.modo === 'glaciares' ? GLACIARES : PICOS);
-  const nombreDe = (x) => x.nombre ?? x.n;
-  const esElegido = (i) => (estado.modo === 'glaciares'
-    ? estado.elegido === 'glaciar' && GLACIARES[i].id === estado.glaciar
-    : estado.elegido === 'pico' && i === estado.pico);
-
-  function pintarCarrusel() {
-    const items = elementos();
-    $('.menu-picos').setAttribute('aria-label', CARRUSELES.find((c) => c.k === estado.modo).n);
-    raiz.querySelectorAll('.menu-modos [data-modo]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.modo === estado.modo)));
-    lista.innerHTML = [0, 1, 2].map((k) => {
-      const i = (estado.ventana[estado.modo] + k) % items.length;
-      const sel = esElegido(i);
-      return `<button type="button" class="pico${sel ? ' elegido' : ''}" data-i="${i}" aria-pressed="${sel}">${MONTANA}<span>${nombreDe(items[i])}</span></button>`;
-    }).join('');
-  }
-
-  function pintarEtiqueta(n, sub) { // solo en el planeta de la maqueta (el globo 3D tiene la suya)
-    if (!etiqueta) return;
-    etiqueta.innerHTML = `${MONTANA}<span><b>${n}</b><span>${sub}</span></span>`;
-    etiqueta.classList.remove('nueva'); void etiqueta.offsetWidth; etiqueta.classList.add('nueva');
-  }
-
-  // ¿Lo elegido tiene el análisis de 25 años? (la Cordillera Real y sus picos)
-  const glaciarActual = () => GLACIARES.find((x) => x.id === estado.glaciar) ?? principal;
-  const lugarConDatos = () => estado.elegido === 'pico' || Boolean(glaciarActual().datos);
-
-  // Resumen real de la nieve: cambio entre 2001–05 y 2021–25 (o el último año con datos) y tendencia
-  function resumenNieve() {
-    const v = region.variables.nieve;
-    const ultimo = v.anios.at(-1);
-    const prom = (a, b) => { const s = v.anios.map((x, i) => (x >= a && x <= b ? v.anual[i] : null)).filter((x) => x !== null); return s.reduce((t, x) => t + x, 0) / s.length; };
-    const cambio = (prom(2021, Math.min(2025, ultimo)) - prom(2001, 2005)) / prom(2001, 2005) * 100;
-    return { cambio, real: v.veredicto === 'real', desde: '2001–05', hasta: `2021–${String(Math.min(2025, ultimo)).slice(2)}` };
-  }
-
-  // Panel "Historia": el texto del lugar elegido, su resumen (si tiene datos) y "Ver montaña en 3D"
-  function pintarPanel() {
-    const con = lugarConDatos();
-    const g = glaciarActual();
-    const p = PICOS[estado.pico];
-    $('.titulo-texto').textContent = estado.elegido === 'pico' ? p.n : g.nombre;
-    $('.lugar-sub').textContent = estado.elegido === 'pico' ? `${p.h} m s. n. m. · Cordillera Real, Bolivia` : g.pais;
-    $('.historia').textContent = estado.textoLugar;
-    $('.sin-datos').hidden = con;
-    $('.resumen').hidden = !con || !region;
-    if (con && region) {
-      const r = resumenNieve();
-      $('.resumen-valor').textContent = `${r.cambio < 0 ? '↓ −' : '↑ +'}${fmt(Math.abs(r.cambio), 0)} %`;
-      $('.resumen-texto').textContent = `Índice de nieve de la Cordillera Real, ${r.desde} frente a ${r.hasta} · ${r.real ? 'Tendencia real' : 'Tendencia: todavía no se sabe'}`;
-      $('.resumen').classList.toggle('duda', !r.real);
-    }
-    const panel = $('.menu-panel');
-    panel.classList.remove('abre'); void panel.offsetWidth; panel.classList.add('abre');
-  }
-
-  // El Jukumari: con la lluvia (en la montaña) explica la lluvia; si no, habla del lugar elegido
-  function pintarDialogo() {
-    $('.dialogo').textContent = estado.variable === 'lluvia' && lugarConDatos() ? FRASES.lluvia : estado.textoLugar;
-    if (!burbuja.hidden) burbuja.textContent = $('.dialogo').textContent;
-  }
-
-  // El chip del globo sobre la Cordillera Real: "La nieve bajó 23 % · Tendencia real" (dato real)
-  function ponerChip() {
-    if (!region || !globo?.notaGlaciar) return;
-    const r = resumenNieve();
-    globo.notaGlaciar(principal.id, `La nieve ${r.cambio < 0 ? 'bajó' : 'subió'} ${fmt(Math.abs(r.cambio), 0)} % · ${r.real ? 'Tendencia real' : 'Tendencia: aún no se sabe'}`);
-  }
-
-  // La historia se abre cuando el planeta terminó de girar hacia el lugar (vuelo de 1,6 s)
-  let esperaHistoria = 0;
-  const abrirHistoria = () => {
-    clearTimeout(esperaHistoria);
-    esperaHistoria = setTimeout(() => { if (vivo) pintarPanel(); }, globo?.viewer ? 1600 : 0);
-  };
-
-  function mostrarGlaciar(g, alejarVentana) {
-    cerrarMontana();
-    estado.elegido = 'glaciar';
-    estado.glaciar = g.id;
-    estado.cerca = true;
-    if (alejarVentana) { // si vino de un toque en el globo, el carrusel pasa a glaciares y lo muestra
-      estado.modo = 'glaciares';
-      const i = GLACIARES.indexOf(g);
-      const v = estado.ventana.glaciares;
-      if (![0, 1, 2].some((k) => (v + k) % GLACIARES.length === i)) estado.ventana.glaciares = i;
-    }
-    estado.textoLugar = g.texto;
-    pintarDialogo();
-    pintarEtiqueta(g.nombre, g.pais);
-    abrirHistoria();
-    pintarTodo();
-  }
-
-  function mostrarPico(i) {
-    cerrarMontana();
-    const p = PICOS[i];
-    estado.elegido = 'pico';
-    estado.pico = i;
-    estado.cerca = true;
-    estado.textoLugar = `Explora ${p.t}. Con datos reales de NASA comprobamos que la nieve de la Cordillera Real bajó desde 2001.`;
-    pintarDialogo();
-    pintarEtiqueta(p.n, `${p.h} m s. n. m.`);
-    abrirHistoria();
-    pintarTodo();
-  }
-
-  function pintarTodo() {
-    pintarCarrusel();
-    const boton = $('.ver-planeta');
-    boton.hidden = !estado.cerca && !montana;
-    boton.lastChild.textContent = montana ? 'Volver al planeta' : 'Ver planeta';
-  }
-
-  lista.addEventListener('click', (e) => {
-    const b = e.target.closest('.pico'); if (!b) return;
-    const i = Number(b.dataset.i);
-    if (estado.modo === 'glaciares') {
-      if (globo?.elegirGlaciar) globo.elegirGlaciar(GLACIARES[i].id); // avisa con alElegir → mostrarGlaciar
-      else mostrarGlaciar(GLACIARES[i], false);
-    } else {
-      globo?.elegirPico?.(i);
-      mostrarPico(i);
-    }
-  });
-  const mover = (paso) => {
-    const n = elementos().length;
-    estado.ventana[estado.modo] = (estado.ventana[estado.modo] + n + paso) % n;
-    pintarCarrusel();
-  };
-  $('.anterior').addEventListener('click', () => mover(-1));
-  $('.siguiente').addEventListener('click', () => mover(1));
-  raiz.querySelectorAll('.menu-modos [data-modo]').forEach((b) => {
-    b.addEventListener('click', () => { estado.modo = b.dataset.modo; pintarCarrusel(); });
-  });
-  $('.ver-planeta').addEventListener('click', () => {
-    if (montana) { cerrarMontana(); pintarTodo(); return; } // "Volver al planeta"
-    globo?.verPlaneta?.();
-    estado.cerca = false;
-    pintarTodo();
-  });
-
-  // ---------------------------------------------------------------
-  // "Ver montaña en 3D": el puente (montanas-puente.js) pone la vista de Jhoel (o "En proceso")
-  // en el espacio del planeta y el panel con los datos de NASA a la derecha
-  // ---------------------------------------------------------------
-  let montana = null;
-  let abriendo = false;
-  $('.ver-montana').addEventListener('click', async () => {
-    if (montana || abriendo) return;
-    abriendo = true;
-    const lugar = estado.elegido === 'pico'
-      ? { tipo: 'pico', ...PICOS[estado.pico], nombre: PICOS[estado.pico].n, pais: 'Bolivia' }
-      : glaciarActual();
-    try {
-      montana = await abrirMontana({
-        raiz, glaciar: lugar, region, globo,
-        alCambiarVariable: (v) => { estado.variable = v; pintarDialogo(); }
-      });
-    } finally {
-      abriendo = false;
-    }
-    if (!vivo) { montana?.cerrar(); montana = null; return; }
-    pintarTodo();
-    $('.ver-planeta').focus();
-  });
-  function cerrarMontana() {
-    if (!montana) return;
-    montana.cerrar();
-    montana = null;
-  }
-
-  // El Jukumari es solo una carita (en todas las pantallas, para dejar libre el espacio bajo el
-  // planeta); al tocarla dice su texto en un globo de diálogo que se cierra a los 5 s o al tocar fuera.
-  const bajas = window.matchMedia('all');
-  const cara = $('.menu-guia img');
-  const burbuja = $('.menu-guia .burbuja');
-  let cierre = 0;
-  const cerrarBurbuja = () => { clearTimeout(cierre); burbuja.hidden = true; };
-  const abrirBurbuja = () => {
-    burbuja.textContent = $('.dialogo').textContent;
-    burbuja.hidden = false;
-    burbuja.classList.remove('nueva'); void burbuja.offsetWidth; burbuja.classList.add('nueva');
-    clearTimeout(cierre);
-    cierre = setTimeout(cerrarBurbuja, 5000);
-  };
-  const ajustarCara = () => {
-    if (bajas.matches) { cara.setAttribute('role', 'button'); cara.tabIndex = 0; cara.setAttribute('aria-label', 'Escuchar al Jukumari, tu guía'); }
-    else { cara.removeAttribute('role'); cara.removeAttribute('tabindex'); cara.removeAttribute('aria-label'); cerrarBurbuja(); }
-  };
-  ajustarCara();
-  bajas.addEventListener('change', ajustarCara);
-  cara.addEventListener('click', () => { if (bajas.matches) (burbuja.hidden ? abrirBurbuja() : cerrarBurbuja()); });
-  cara.addEventListener('keydown', (e) => { if (bajas.matches && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); abrirBurbuja(); } });
-  // Menú "Capas de datos": al lado del riel, a la altura de su botón
   const botonCapas = $('.menu-riel [data-k="capas"]');
   const menuCapas = $('.menu-capas');
   function abrirCapas(abrir) {
@@ -408,7 +162,8 @@ export function montar(contenedor) {
   }
   menuCapas.addEventListener('click', (e) => {
     const b = e.target.closest('[role="menuitemradio"]'); if (!b) return;
-    elegirCapa(b.dataset.capa || null);
+    menuCapas.querySelectorAll('[data-capa]').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+    pedirCapa(b.dataset.capa || null);
     abrirCapas(false);
     botonCapas.focus();
   });
@@ -419,46 +174,180 @@ export function montar(contenedor) {
     if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
     if (e.key === 'ArrowUp') { e.preventDefault(); items[(i + items.length - 1) % items.length].focus(); }
   });
-
-  // Pide la capa al globo; si NASA no responde, el globo queda como estaba y el panel lo dice
-  function pedirCapa(capa, fecha) {
-    $('.aviso-capa').hidden = true;
-    if (!globo?.mostrarCapa) { $('.aviso-capa').hidden = !capa; return; } // planeta de la maqueta: no hay capas
-    globo.mostrarCapa(capa, fecha).then((r) => {
-      if (vivo && !r.ok && r.motivo === 'sin-respuesta') $('.aviso-capa').hidden = false;
+  // Pide la capa al globo; si NASA no responde, el planeta queda como estaba y se avisa
+  function pedirCapa(capa) {
+    const aviso = $('.menu-aviso');
+    aviso.hidden = true;
+    if (!globo?.mostrarCapa) { aviso.hidden = !capa; return; } // planeta de la maqueta: no hay capas
+    globo.mostrarCapa(capa).then((r) => {
+      if (vivo && !r.ok && r.motivo !== 'reemplazado') aviso.hidden = false;
     });
   }
 
+  // ---------------------------------------------------------------
+  // Planeta: globo 3D de Cesium o, si no está, el planeta de la maqueta
+  // ---------------------------------------------------------------
+  const ranura = $('.menu-planeta');
+  import('../../componentes/globo3d.js')
+    .then((m) => {
+      if (!vivo) return;
+      if (typeof m.crearGlobo !== 'function') throw new Error('globo3d.js todavía no exporta crearGlobo');
+      globo = m.crearGlobo(ranura, {
+        glaciares: GLACIARES,
+        credito: $('.menu-credito'),
+        tamano: 0.96, // el planeta llena el 96 % de su caja (.menu-planeta, sin contar el halo)
+        alElegir: (g) => { if (vivo) abrirPestana(g); } // al tocar su pin
+      });
+      if (import.meta.env.DEV) window.__globo = globo; // para las pruebas en el navegador
+    })
+    .catch((e) => {
+      console.info('APU: se usa el planeta de la maqueta.', e.message);
+      if (!vivo) return;
+      ranura.classList.add('maqueta');
+      ranura.innerHTML = '<img class="tierra" src="/img/planeta.webp" alt="La Tierra vista desde el espacio, centrada en Sudamérica, con Perú, Bolivia y Chile">';
+    });
 
-  function elegirCapa(capa) {
-    estado.capa = capa;
-    menuCapas.querySelectorAll('[data-capa]').forEach((b) => b.setAttribute('aria-checked', String((b.dataset.capa || null) === capa)));
-    pedirCapa(capa);
+  // ---------------------------------------------------------------
+  // Pestaña de historia
+  // ---------------------------------------------------------------
+  const pestana = $('.menu-pestana');
+  let cuenta = 0;
+  function abrirPestana(g) {
+    cerrarMontana();
+    elegido = g;
+    raiz.classList.add('con-pestana');
+    pestana.hidden = false;
+    pestana.classList.toggle('principal', Boolean(g.principal));
+    $('.pestana-caso').hidden = !g.principal;
+    $('.pestana-nombre').textContent = g.nombre;
+    $('.pestana-lugar').textContent = lugarDe(g);
+
+    // Línea de tiempo: se dibuja punto por punto
+    const linea = g.linea ?? [];
+    $('.pestana-linea').innerHTML = linea.length
+      ? linea.map((p, i) => `<li class="${p.destacado ? 'destacado' : ''}" style="--i:${i}"><b>${escapar(p.cuando)}</b><span>${escapar(p.texto)}</span></li>`).join('')
+      : `<li class="vacio" style="--i:0"><span>${EN_PREPARACION}</span></li>`;
+
+    // Dato grande: el número cuenta desde 0
+    const d = g.datoGrande;
+    const dato = $('.pestana-dato');
+    dato.classList.toggle('vacio', !d);
+    dato.innerHTML = d
+      ? `<p class="numero"><b>0</b><span>${escapar(d.unidad)}</span></p><p class="texto">${escapar(d.texto)}</p><p class="fuente">Fuente: ${escapar(d.fuente)}</p>`
+      : `<p class="texto">${EN_PREPARACION}</p>`;
+    cancelAnimationFrame(cuenta);
+    if (d) {
+      const b = dato.querySelector('.numero b');
+      if (sinMovimiento.matches) b.textContent = String(d.numero);
+      else {
+        const inicio = performance.now() + 450; // cuando la pestaña terminó de entrar
+        const paso = (ahora) => {
+          const k = Math.min(1, Math.max(0, (ahora - inicio) / 1200));
+          b.textContent = String(Math.round(d.numero * (1 - (1 - k) ** 3)));
+          if (k < 1) cuenta = requestAnimationFrame(paso);
+        };
+        cuenta = requestAnimationFrame(paso);
+      }
+    }
+    // Reinicia la entrada (se desliza, la línea se dibuja)
+    pestana.classList.remove('entra'); void pestana.offsetWidth; pestana.classList.add('entra');
+    pestana.scrollTop = 0;
+
+    // El Jukumari tiene algo nuevo que decir: su nubecita vuelve a latir (sin abrirse sola)
+    cerrarGlobo();
+    avisarNube();
   }
+  function cerrarPestana() {
+    if (!elegido) return;
+    elegido = null;
+    cancelAnimationFrame(cuenta);
+    raiz.classList.remove('con-pestana');
+    pestana.hidden = true;
+    globo?.verPlaneta?.(); // el planeta vuelve al centro y sigue girando
+    cerrarGlobo();
+    avisarNube();
+  }
+  $('.pestana-cerrar').addEventListener('click', cerrarPestana);
+
+  // ---------------------------------------------------------------
+  // "VER MONTAÑA EN 3D": la vista de la montaña (montanas-puente.js)
+  // ---------------------------------------------------------------
+  let montana = null;
+  let abriendo = false;
+  $('.pestana-ver').addEventListener('click', async () => {
+    if (montana || abriendo || !elegido) return;
+    abriendo = true;
+    try {
+      montana = await abrirMontana({ raiz, glaciar: elegido, region, globo });
+    } finally {
+      abriendo = false;
+    }
+    if (!vivo) { montana?.cerrar(); montana = null; return; }
+    $('.menu-volver').hidden = false;
+    $('.menu-volver').focus();
+  });
+  function cerrarMontana() {
+    if (!montana) return;
+    montana.cerrar();
+    montana = null;
+    $('.menu-volver').hidden = true;
+  }
+  $('.menu-volver').addEventListener('click', () => { cerrarMontana(); $('.pestana-ver').focus(); });
+
+  // ---------------------------------------------------------------
+  // El Jukumari: su nubecita (3 puntitos) avisa que tiene algo que decir; al tocarla o al tocarlo
+  // a él, el globo de diálogo dice el texto del momento. Se cierra al tocar fuera o a los 6 s.
+  // ---------------------------------------------------------------
+  const nube = $('.juku-nube');
+  const globoDialogo = $('.juku-globo');
+  let cierre = 0;
+  const textoJukumari = () => (elegido ? (elegido.jukumari || `${elegido.nombre}: su historia está en preparación.`) : SIN_GLACIAR);
+  function cerrarGlobo() {
+    clearTimeout(cierre);
+    globoDialogo.hidden = true;
+  }
+  function abrirGlobo() {
+    globoDialogo.textContent = textoJukumari();
+    globoDialogo.hidden = false;
+    globoDialogo.classList.remove('nueva'); void globoDialogo.offsetWidth; globoDialogo.classList.add('nueva');
+    clearTimeout(cierre);
+    cierre = setTimeout(cerrarGlobo, ESPERA_GLOBO);
+  }
+  function avisarNube() {
+    nube.classList.remove('late'); void nube.offsetWidth; nube.classList.add('late');
+  }
+  const alternarGlobo = () => (globoDialogo.hidden ? abrirGlobo() : cerrarGlobo());
+  nube.addEventListener('click', alternarGlobo);
+  $('.juku-btn').addEventListener('click', alternarGlobo);
 
   const tocarFuera = (e) => {
-    if (!burbuja.hidden && !e.target.closest('.menu-guia')) cerrarBurbuja();
+    if (!globoDialogo.hidden && !e.target.closest('.menu-juku')) cerrarGlobo();
     if (!menuCapas.hidden && !e.target.closest('.menu-capas') && !e.target.closest('[data-k="capas"]')) abrirCapas(false);
   };
+  const conTeclado = (e) => {
+    if (e.key !== 'Escape') return;
+    if (!globoDialogo.hidden) cerrarGlobo();
+    else if (montana) cerrarMontana();
+    else if (elegido) cerrarPestana();
+  };
   document.addEventListener('pointerdown', tocarFuera);
-  quitarAlSalir = () => { document.removeEventListener('pointerdown', tocarFuera); bajas.removeEventListener('change', ajustarCara); clearTimeout(cierre); clearTimeout(esperaHistoria); cerrarMontana(); };
+  document.addEventListener('keydown', conTeclado);
+  quitarAlSalir = () => {
+    document.removeEventListener('pointerdown', tocarFuera);
+    document.removeEventListener('keydown', conTeclado);
+    clearTimeout(cierre);
+    cancelAnimationFrame(cuenta);
+    cerrarMontana();
+  };
 
-  // Al empezar: nuestro caso, la Cordillera Real, con el planeta completo
-  pintarDialogo();
-  pintarEtiqueta(principal.nombre, principal.pais);
-  pintarPanel();
-  pintarTodo();
+  avisarNube();
 
+  // Datos de NASA de la Cordillera Real (los usa la vista de la montaña)
   cargarRegion('cordillera-real').then((datos) => {
     if (!vivo) return;
     region = datos;
-    pintarPanel();
-    ponerChip();
     montana?.ponerRegion(datos);
-  }).catch((e) => {
-    console.warn('APU: no se pudieron leer los datos de la Cordillera Real.', e);
-    $('.resumen').hidden = true;
-  });
+  }).catch((e) => console.warn('APU: no se pudieron leer los datos de la Cordillera Real.', e));
 }
 
 export function desmontar() {

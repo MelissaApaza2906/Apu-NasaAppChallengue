@@ -1,7 +1,7 @@
 // Globo 3D de APU (CesiumJS) con imágenes reales de NASA GIBS.
 //
 //   const globo = crearGlobo(contenedor, {
-//     glaciares: GLACIARES,              // los 11 halos que brillan (contenido/glaciares.js)
+//     glaciares: GLACIARES,              // los 11 pines (contenido/glaciares.js)
 //     picos: [{ n, h, lat, lon }, …],    // picos de la Cordillera Real
 //     alElegir: (glaciar) => { … }       // aviso cuando se elige un glaciar (toque o elegirGlaciar)
 //   });
@@ -9,16 +9,15 @@
 //   globo.elegirPico(0);                 // lo mismo con un pico de la Cordillera Real
 //   globo.verPlaneta();                  // vuelve al tamaño del diseño y sigue girando
 //   await globo.mostrarCapa('hoy');      // 'hoy' (foto de ayer con nubes reales y el sol real) o null
-//   globo.notaGlaciar('cordillera-real', 'La nieve bajó 23 % · Tendencia real'); // texto del chip
 //   globo.destruir();                    // al salir de la pantalla
 //   globo.viewer                         // el Cesium.Viewer (reutilízalo; null si se ve la imagen)
 //
 // El planeta es para explorar: siempre se ve entero (el zoom no lo deja pasar del 100 % de su caja).
 // Capas de NASA: Blue Marble (base) + luces de las ciudades (VIIRS) en la parte de noche, con un
 // terminador en diagonal y la atmósfera azul en el borde. Sin nubes (ver CAPAS_DATOS).
-// Glaciares: estrellas (billboards de Cesium) que pulsan; se ocultan detrás del planeta.
-// Encima del canvas (HTML/SVG): marcador rojo de 8 px con anillos finos (nuestro caso), chip de lo elegido,
-// satélite que se mueve por la órbita punteada del menú y haz de luz del satélite a lo elegido.
+// Encima del canvas (HTML/SVG): un pin por glaciar (se oculta detrás del planeta; la Cordillera Real
+// en rojo con dos anillos), la etiqueta de lo elegido y el satélite, que da vueltas solo por la
+// órbita punteada del menú (por detrás del planeta en la mitad de atrás) con su haz hacia el planeta.
 //
 // El globo llena su contenedor con fondo TRANSPARENTE (se ve el cielo de la pantalla).
 // Si no hay WebGL o NASA no responde, muestra /img/planeta.webp en su lugar.
@@ -52,14 +51,12 @@ const POR_DEFECTO = {
   alElegir: null,           // (glaciar) => void
   credito: null,            // elemento donde escribir el crédito de NASA (si no, va debajo del globo)
   capa: null,               // capa al empezar: 'hoy' o null (imagen normal)
-  marcador: { lat: -16.2, lon: -68.2 }, // nuestro caso si no hay glaciar principal
   duracionVuelo: 1.6,       // segundos: girar hasta dejar lo elegido al frente (y "ver planeta")
   // Órbita punteada del menú (SVG viewBox 100, elipse rx 48 ry 44 girada −24°), medida
   // en "cajas del globo": su caja es 108cqh × 80cqh y la del globo 80cqh × 80cqh, mismo centro.
-  orbita: { rx: 48, ry: 44, giro: -24, ancho: 108 / 80, alto: 1 }
+  orbita: { rx: 48, ry: 44, giro: -24, ancho: 108 / 80, alto: 1 },
+  vueltaSatelite: 40        // segundos por vuelta
 };
-
-const RADIO_TOQUE = 22; // px: área de toque mínima de 44 px (celular)
 
 // La altura puede venir como número (6438) o como texto ya formateado ('6 438')
 const alturaNumero = (h) => (typeof h === 'number' ? h : Number(String(h ?? '').replace(/\D/g, '')) || 0);
@@ -90,32 +87,12 @@ function hayWebGL() {
   }
 }
 
-// Glaciar como estrella: punto blanco de 6 px con un destello en cruz (32 × 32 px)
-function imagenEstrella() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 32;
-  const g = c.getContext('2d');
-  // Destello en cruz: dos líneas finas que se desvanecen hacia las puntas
-  for (const [x1, y1, x2, y2] of [[0, 16, 32, 16], [16, 0, 16, 32]]) {
-    const d = g.createLinearGradient(x1, y1, x2, y2);
-    d.addColorStop(0, 'rgba(200,235,255,0)');
-    d.addColorStop(0.5, 'rgba(235,248,255,.95)');
-    d.addColorStop(1, 'rgba(200,235,255,0)');
-    g.strokeStyle = d;
-    g.lineWidth = 1.2;
-    g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
-  }
-  // Brillo suave alrededor del punto
-  const b = g.createRadialGradient(16, 16, 0, 16, 16, 8);
-  b.addColorStop(0, 'rgba(180,225,255,.55)');
-  b.addColorStop(1, 'rgba(180,225,255,0)');
-  g.fillStyle = b;
-  g.fillRect(8, 8, 16, 16);
-  // Punto de 6 px
-  g.fillStyle = '#FFFFFF';
-  g.beginPath(); g.arc(16, 16, 3, 0, Math.PI * 2); g.fill();
-  return c;
-}
+// Copo de nieve del pin (12 px, blanco)
+const COPO = '<svg class="copo" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round"><path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7"/><path d="m9 4 3 3 3-3M9 20l3-3 3 3M4 10.5l4 1.5-1 4M20 13.5l-4-1.5 1-4M4 13.5 8 12 7 8M20 10.5 16 12l1 4"/></svg>';
+
+// "16,2° S · 68,2° O"
+const coordenadas = (lat, lon) =>
+  `${Math.abs(lat).toFixed(1).replace('.', ',')}° ${lat < 0 ? 'S' : 'N'} · ${Math.abs(lon).toFixed(1).replace('.', ',')}° ${lon < 0 ? 'O' : 'E'}`;
 
 export function crearGlobo(contenedor, opciones = {}) {
   const op = { ...POR_DEFECTO, ...opciones };
@@ -169,7 +146,6 @@ export function crearGlobo(contenedor, opciones = {}) {
     viewer: null, // sin globo 3D no hay visor de Cesium
     irA() {}, elegirPico() {}, verPlaneta() {}, estado: () => ({ modo: 'imagen' }),
     mostrarCapa: async () => ({ ok: false, motivo: 'sin-globo' }),
-    notaGlaciar() {},
     elegirGlaciar(id) { const g = glaciares.find((x) => x.id === id); if (g) op.alElegir?.(g); },
     destruir: () => { destruido = true; raiz.remove(); }
   });
@@ -195,7 +171,7 @@ export function crearGlobo(contenedor, opciones = {}) {
   anillo.setAttribute('aria-hidden', 'true');
   anillo.hidden = true;
 
-  // Capa de la maqueta: haz, satélite, marcador rojo y selección con etiqueta
+  // Capa de la maqueta: haz, satélite, pines y etiqueta de lo elegido
   const idDegradado = `globo3d-haz-${Math.random().toString(36).slice(2, 8)}`;
   const capa = document.createElement('div');
   capa.className = 'globo3d-capa objetivo-oculto';
@@ -212,22 +188,16 @@ export function crearGlobo(contenedor, opciones = {}) {
     <div class="globo3d-satelite" aria-hidden="true">
       <svg viewBox="0 0 64 32">${SATELITE_SVG}</svg>
     </div>
-    <div class="globo3d-marcador oculto" aria-hidden="true">
-      <span class="pulso"></span>
-      <span class="pulso"></span>
-      <span class="punto"></span>
-    </div>
+    <div class="globo3d-pines"></div>
     <div class="globo3d-seleccion">
-      <span class="nodo" aria-hidden="true"></span>
       <span class="linea" aria-hidden="true"></span>
-      <div class="globo3d-etiqueta" role="status"><strong></strong><span></span></div>
+      <div class="globo3d-etiqueta" role="status"></div>
     </div>`;
-  const marcador = capa.querySelector('.globo3d-marcador');
   const seleccion = capa.querySelector('.globo3d-seleccion');
-  const nodo = capa.querySelector('.nodo');
   const etiqueta = capa.querySelector('.globo3d-etiqueta');
   const satelite = capa.querySelector('.globo3d-satelite');
-  const haz = capa.querySelector('.globo3d-haz polygon');
+  const hazSvg = capa.querySelector('.globo3d-haz');
+  const haz = hazSvg.querySelector('polygon');
   const degradado = capa.querySelector('linearGradient');
 
   flotante.append(lienzo, anillo, crearHalo(), capa);
@@ -332,7 +302,7 @@ export function crearGlobo(contenedor, opciones = {}) {
   function escribirCredito() {
     const d = infoCapa && CAPAS_DATOS[infoCapa.nombre];
     credito.textContent = d
-      ? `${CREDITO_BASE}\n${d.titulo} · ${fechaBonita(infoCapa.fecha)}${infoCapa.sinImagen ? ' · sin imagen de NASA para esta fecha' : ''}${infoCapa.nota ? ` · ${infoCapa.nota}` : ''}`
+      ? `${CREDITO_BASE} · ${d.titulo} · ${fechaBonita(infoCapa.fecha)}${infoCapa.sinImagen ? ' · sin imagen de NASA para esta fecha' : ''}${infoCapa.nota ? ` · ${infoCapa.nota}` : ''}`
       : CREDITO_BASE;
   }
 
@@ -461,65 +431,44 @@ export function crearGlobo(contenedor, opciones = {}) {
 
   const debeGirar = () => op.rotar && !sinMovimiento.matches && !arrastrando && !temporizadorGiro
     && !enfocado && !volando;
-  const hayPulsos = () => glaciares.length > 0 && !sinMovimiento.matches;
-
-  // Dibujo continuo mientras gira, vuela o pulsan los halos; si no, solo cuando algo cambia
+  // Dibujo continuo mientras gira o vuela; si no, solo cuando algo cambia
   const actualizarModo = () => {
-    const continuo = debeGirar() || volando || hayPulsos();
+    const continuo = debeGirar() || volando;
     escena.requestRenderMode = !continuo;
     if (!continuo) escena.requestRender();
     ultimo = performance.now();
   };
 
   // ---------------------------------------------------------------
-  // Glaciares como estrellas (billboards: punto blanco de 6 px con destello en cruz y pulso suave).
-  // La Cordillera Real no lleva estrella: es el marcador rojo de 8 px con anillos finos (HTML);
-  // su billboard es invisible y solo sirve para tocarla.
+  // Pines de los glaciares (HTML encima del canvas): círculo de 22 px con un copo; área táctil de
+  // 44 px. Se ocultan detrás del planeta. La Cordillera Real va en rojo con dos anillos finos.
   // ---------------------------------------------------------------
   const ocultador = new Cesium.EllipsoidalOccluder(Cesium.Ellipsoid.WGS84, Cesium.Cartesian3.ZERO);
-  const halos = new Cesium.BillboardCollection({ scene: escena });
-  escena.primitives.add(halos);
-  const imgEstrella = imagenEstrella();
-  const listaHalos = glaciares.map((g, i) => {
-    const pos = Cesium.Cartesian3.fromDegrees(g.lon, g.lat, 0);
-    const b = halos.add({
-      position: pos,
-      image: imgEstrella,
-      scale: 1,
-      color: g.principal ? Cesium.Color.TRANSPARENT : Cesium.Color.WHITE,
-      disableDepthTestDistance: Number.POSITIVE_INFINITY, // la oclusión la hacemos nosotros
-      id: g
-    });
-    return { g, b, pos, base: 1, fase: i * 0.9, invisible: Boolean(g.principal) };
+  const cajaPines = capa.querySelector('.globo3d-pines');
+  const pines = glaciares.map((g) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `globo3d-pin${g.principal ? ' principal' : ''} oculto`;
+    b.setAttribute('aria-label', `${g.nombre}, ${g.pais}`);
+    b.tabIndex = -1;
+    b.innerHTML = `${g.principal ? '<span class="anillo"></span><span class="anillo"></span>' : ''}<span class="disco">${COPO}</span>`;
+    b.addEventListener('click', () => elegirGlaciar(g.id));
+    cajaPines.append(b);
+    return { g, b, pos: Cesium.Cartesian3.fromDegrees(g.lon, g.lat, 0), visible: false };
   });
-
-  const actualizarHalos = (ahora) => {
-    ocultador.cameraPosition = viewer.camera.positionWC;
-    const quieto = sinMovimiento.matches;
-    for (const h of listaHalos) {
-      h.b.show = ocultador.isPointVisible(h.pos);
-      if (!h.b.show || h.invisible) continue;
-      const s = quieto ? 0 : Math.sin((ahora / 3200) * 2 * Math.PI + h.fase);
-      h.b.scale = h.base * (1 + 0.12 * s);
-      h.b.color = Cesium.Color.WHITE.withAlpha(quieto ? 1 : 0.78 + 0.22 * s);
+  const auxPin = new Cesium.Cartesian2();
+  const actualizarPines = () => {
+    for (const p of pines) {
+      const ve = aPantalla(p.pos, auxPin);
+      if (ve !== p.visible) {
+        p.visible = ve;
+        p.b.classList.toggle('oculto', !ve);
+        p.b.tabIndex = ve ? 0 : -1;
+      }
+      if (ve) p.b.style.transform = `translate(${auxPin.x.toFixed(1)}px, ${auxPin.y.toFixed(1)}px)`;
+      p.b.classList.toggle('elegido', enfocado && objetivo?.ref === p.g);
     }
   };
-
-  // Glaciar bajo un punto de la pantalla (radio mínimo de 22 px = toque de 44 px)
-  const auxToque = new Cesium.Cartesian2();
-  function glaciarEn(pos) {
-    let mejor = null;
-    let dMin = Infinity;
-    for (const h of listaHalos) {
-      if (!h.b.show) continue;
-      const p = escena.cartesianToCanvasCoordinates(h.pos, auxToque);
-      if (!p) continue;
-      const d = Math.hypot(p.x - pos.x, p.y - pos.y);
-      const radio = RADIO_TOQUE;
-      if (d <= radio && d < dMin) { dMin = d; mejor = h.g; }
-    }
-    return mejor;
-  }
 
   limpiezas.push(escena.preRender.addEventListener(() => {
     const ahora = performance.now();
@@ -530,7 +479,6 @@ export function crearGlobo(contenedor, opciones = {}) {
       viewer.camera.rotate(Cesium.Cartesian3.UNIT_Z, op.velocidad * dt);
     }
     orientarLuz();
-    actualizarHalos(ahora);
   }));
 
   // Anillo de luz: mismo diámetro que el planeta, centrado (la cámara mira al centro de la Tierra).
@@ -560,85 +508,77 @@ export function crearGlobo(contenedor, opciones = {}) {
     const y = a * sinG + b * cosG;
     return { x: 0.5 + (x / 100) * o.ancho, y: 0.5 + (y / 100) * o.alto };
   }
-  // Ángulo de la órbita que queda arriba a la derecha de un punto (fracciones de la caja).
-  // Solo el tramo que cae sobre la caja del globo: los extremos de la órbita la pasan y ahí el
-  // satélite quedaría debajo de los paneles del menú.
-  function anguloArribaDerecha(px, py) {
-    const deseo = { x: px + 0.35, y: py - 0.35 };
-    let mejor = 0;
-    let dMin = Infinity;
-    for (let k = 0; k < 360; k++) {
-      const t = (k / 360) * 2 * Math.PI;
-      const p = puntoOrbita(t);
-      if (p.x < 0.08 || p.x > 0.92) continue;
-      const d = (p.x - deseo.x) ** 2 + (p.y - deseo.y) ** 2;
-      if (d < dMin) { dMin = d; mejor = t; }
-    }
-    return mejor;
-  }
-  let tSatelite = null;
+  // Da vueltas solo, sin parar (una vuelta cada op.vueltaSatelite s), siempre sobre la línea y
+  // centrado en el planeta. En la mitad de atrás de la órbita (la de arriba) pasa DETRÁS del planeta:
+  // más chico (.8) y más tenue (.6). El haz apunta siempre al centro del planeta y pulsa (CSS).
+  // Con menos movimiento: quieto arriba a la derecha.
+  const T_QUIETO = -0.6; // arriba a la derecha, fuera del disco del planeta
+  let tSatelite = T_QUIETO;
   let animSatelite = 0;
-  const colocarSatelite = () => {
+  let antesSat = performance.now();
+  function colocarSatelite() {
     const p = puntoOrbita(tSatelite);
+    const w = lienzo.clientWidth;
+    const h = lienzo.clientHeight;
     satelite.style.left = `${(p.x * 100).toFixed(2)}%`;
     satelite.style.top = `${(p.y * 100).toFixed(2)}%`;
-  };
-  function moverSatelite(tDestino) {
-    cancelAnimationFrame(animSatelite);
-    if (tSatelite === null || sinMovimiento.matches) {
-      tSatelite = tDestino;
-      colocarSatelite();
-      escena.requestRender();
-      return;
-    }
-    const desde = tSatelite;
-    let delta = (tDestino - desde) % (2 * Math.PI);
-    if (delta > Math.PI) delta -= 2 * Math.PI;
-    if (delta < -Math.PI) delta += 2 * Math.PI;
-    const inicio = performance.now();
-    const duracion = op.duracionVuelo * 1000;
-    const paso = (ahora) => {
-      const k = Math.min(1, (ahora - inicio) / duracion);
-      const e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2; // ease-in-out
-      tSatelite = desde + delta * e;
-      colocarSatelite();
-      if (k < 1) animSatelite = requestAnimationFrame(paso);
-      else escena.requestRender();
-    };
-    animSatelite = requestAnimationFrame(paso);
+    // Delante (1) o detrás (0), con un paso suave cerca de los extremos (fuera del disco)
+    const s = Math.sin(tSatelite);
+    const f = Math.min(1, Math.max(0, (s + 0.25) / 0.5));
+    const detras = s < 0;
+    satelite.style.transform = `scale(${(0.8 + 0.2 * f).toFixed(3)})`;
+    satelite.style.opacity = (0.6 + 0.4 * f).toFixed(3);
+    satelite.classList.toggle('detras', detras);
+    hazSvg.classList.toggle('detras', detras);
+    // Haz: triángulo con la punta en la antena del satélite y la base, perpendicular, en el centro del planeta
+    const sx = p.x * w;
+    const sy = p.y * h + satelite.offsetHeight * 0.31;
+    const mx = w / 2;
+    const my = h / 2;
+    const dx = mx - sx;
+    const dy = my - sy;
+    const largo = Math.hypot(dx, dy) || 1;
+    const medioAncho = satelite.offsetWidth * 0.3;
+    const nx = (-dy / largo) * medioAncho;
+    const ny = (dx / largo) * medioAncho;
+    haz.setAttribute('points',
+      `${sx.toFixed(1)},${sy.toFixed(1)} ${(mx + nx).toFixed(1)},${(my + ny).toFixed(1)} ${(mx - nx).toFixed(1)},${(my - ny).toFixed(1)}`);
+    degradado.setAttribute('x1', sx.toFixed(1));
+    degradado.setAttribute('y1', sy.toFixed(1));
+    degradado.setAttribute('x2', mx.toFixed(1));
+    degradado.setAttribute('y2', my.toFixed(1));
   }
+  function pasoSatelite(ahora) {
+    const dt = Math.min((ahora - antesSat) / 1000, 0.1);
+    antesSat = ahora;
+    if (sinMovimiento.matches) tSatelite = T_QUIETO;
+    else tSatelite = (tSatelite + (2 * Math.PI * dt) / op.vueltaSatelite) % (2 * Math.PI);
+    colocarSatelite();
+    animSatelite = requestAnimationFrame(pasoSatelite);
+  }
+  animSatelite = requestAnimationFrame(pasoSatelite);
   limpiezas.push(() => cancelAnimationFrame(animSatelite));
 
   // ---------------------------------------------------------------
-  // Marcador rojo (nuestro caso) y selección (etiqueta + haz)
+  // Etiqueta de lo elegido: una línea, "Cordillera Real · 16,2° S · 68,2° O"
   // ---------------------------------------------------------------
-  const lugarPrincipal = principal ?? op.marcador;
-  const posPrincipal = Cesium.Cartesian3.fromDegrees(lugarPrincipal.lon, lugarPrincipal.lat, 0);
-  let posMarcador = posPrincipal;
-  let objetivo = null;     // { tipo: 'glaciar' | 'pico', ref, n, sub, lat, lon, h }
+  let objetivo = null;     // { tipo: 'glaciar' | 'pico', ref, texto, lat, lon, h }
   let posObjetivo = null;
-  const enPantalla = new Cesium.Cartesian2();
   const enPantallaObj = new Cesium.Cartesian2();
 
   function ponerObjetivo(nuevo) {
     objetivo = nuevo;
     posObjetivo = nuevo ? Cesium.Cartesian3.fromDegrees(nuevo.lon, nuevo.lat, alturaNumero(nuevo.h)) : null;
-    // El marcador rojo va en el pico elegido; si no, en la Cordillera Real
-    posMarcador = nuevo?.tipo === 'pico' ? posObjetivo : posPrincipal;
-    // Punto celeste propio solo si lo elegido no es nuestro caso
-    nodo.hidden = !nuevo || nuevo.tipo === 'pico' || Boolean(nuevo.ref?.principal);
     if (nuevo) {
-      etiqueta.querySelector('strong').textContent = nuevo.n;
-      etiqueta.querySelector('span').textContent = nuevo.sub;
+      etiqueta.textContent = nuevo.texto;
       etiqueta.classList.remove('aparece');
       void etiqueta.offsetWidth; // reinicia la animación de entrada
       etiqueta.classList.add('aparece');
     }
     escena.requestRender();
   }
-  const notas = new Map(); // id del glaciar → texto del chip (notaGlaciar)
-  const objetivoGlaciar = (g) => ({ tipo: 'glaciar', ref: g, n: g.nombre, sub: notas.get(g.id) ?? g.pais, lat: g.lat, lon: g.lon, h: 0 });
-  const objetivoPico = (p) => ({ tipo: 'pico', ref: p, n: p.n, sub: `${conMiles(p.h)} m s. n. m.`, lat: p.lat, lon: p.lon, h: p.h });
+  const objetivoGlaciar = (g) => ({ tipo: 'glaciar', ref: g, texto: `${g.nombre} · ${coordenadas(g.lat, g.lon)}`, lat: g.lat, lon: g.lon, h: 0 });
+  const objetivoPico = (p) => ({ tipo: 'pico', ref: p, texto: `${p.n} · ${conMiles(p.h)} m`, lat: p.lat, lon: p.lon, h: p.h });
 
   // Posición en pantalla de un punto si se ve: no está detrás del planeta y cae dentro de la caja,
   // con un margen de 4 px
@@ -650,44 +590,18 @@ export function crearGlobo(contenedor, opciones = {}) {
     return resultado.x >= 4 && resultado.x <= w - 4 && resultado.y >= 4 && resultado.y <= h - 4;
   }
 
-  let sateliteColocado = false;
   const actualizarCapa = () => {
-    // Marcador rojo
-    const veMarcador = aPantalla(posMarcador, enPantalla);
-    marcador.classList.toggle('oculto', !veMarcador);
-    if (veMarcador) marcador.style.transform = `translate(${enPantalla.x.toFixed(1)}px, ${enPantalla.y.toFixed(1)}px)`;
-
-    // Selección + haz
+    actualizarPines();
     const veObjetivo = Boolean(posObjetivo) && aPantalla(posObjetivo, enPantallaObj);
     capa.classList.toggle('objetivo-oculto', !veObjetivo);
     if (!veObjetivo) return;
     const mx = enPantallaObj.x;
     const my = enPantallaObj.y;
     seleccion.style.transform = `translate(${mx.toFixed(1)}px, ${my.toFixed(1)}px)`;
-    // La etiqueta no se sale de la caja del globo por la derecha: si no cabe, va a la izquierda
-    seleccion.classList.toggle('izquierda', mx + etiqueta.offsetWidth + lienzo.clientWidth * 0.06 > lienzo.clientWidth);
-
-    // Primera vez que se ve: el satélite se coloca arriba a la derecha de lo elegido
-    if (!sateliteColocado) {
-      sateliteColocado = true;
-      moverSatelite(anguloArribaDerecha(mx / lienzo.clientWidth, my / lienzo.clientHeight));
-    }
-
-    // Haz: triángulo con la punta en el satélite (su antena) y la base, perpendicular, en lo elegido
-    const sx = satelite.offsetLeft + satelite.offsetWidth / 2;
-    const sy = satelite.offsetTop + satelite.offsetHeight * (26 / 32);
-    const dx = mx - sx;
-    const dy = my - sy;
-    const largo = Math.hypot(dx, dy) || 1;
-    const medioAncho = satelite.offsetWidth * 0.28;
-    const nx = (-dy / largo) * medioAncho;
-    const ny = (dx / largo) * medioAncho;
-    haz.setAttribute('points',
-      `${sx.toFixed(1)},${sy.toFixed(1)} ${(mx + nx).toFixed(1)},${(my + ny).toFixed(1)} ${(mx - nx).toFixed(1)},${(my - ny).toFixed(1)}`);
-    degradado.setAttribute('x1', sx.toFixed(1));
-    degradado.setAttribute('y1', sy.toFixed(1));
-    degradado.setAttribute('x2', mx.toFixed(1));
-    degradado.setAttribute('y2', my.toFixed(1));
+    // La etiqueta va a la derecha; si ahí no cabe en la caja del globo, al lado con más espacio
+    const ancho = etiqueta.offsetWidth + lienzo.clientWidth * 0.06;
+    const cabeDerecha = mx + ancho <= lienzo.clientWidth;
+    seleccion.classList.toggle('izquierda', !cabeDerecha && (mx - ancho >= 0 || mx > lienzo.clientWidth / 2));
   };
   limpiezas.push(escena.postRender.addEventListener(actualizarCapa));
 
@@ -696,22 +610,12 @@ export function crearGlobo(contenedor, opciones = {}) {
   else if (picos.length) ponerObjetivo(objetivoPico(picos[0]));
 
   // ---------------------------------------------------------------
-  // Toques: arrastrar pausa el giro; tocar un halo elige ese glaciar
+  // Gestos: arrastrar pausa el giro (los pines se tocan como botones)
   // ---------------------------------------------------------------
-  // Cuando el planeta queda quieto tras un gesto, el satélite vuelve arriba a la derecha de lo elegido
-  let temporizadorSatelite = 0;
-  const reubicarSatelite = () => {
-    clearTimeout(temporizadorSatelite);
-    temporizadorSatelite = setTimeout(() => {
-      if (!viewer || arrastrando || volando || !posObjetivo || !aPantalla(posObjetivo, enPantallaObj)) return;
-      moverSatelite(anguloArribaDerecha(enPantallaObj.x / lienzo.clientWidth, enPantallaObj.y / lienzo.clientHeight));
-    }, 700); // tras la inercia del arrastre
-  };
   const alPresionar = () => {
     arrastrando = true;
     raiz.classList.add('arrastrando'); // el planeta deja de flotar mientras se arrastra
     clearTimeout(temporizadorGiro);
-    clearTimeout(temporizadorSatelite);
     temporizadorGiro = 0;
     actualizarModo();
   };
@@ -722,9 +626,8 @@ export function crearGlobo(contenedor, opciones = {}) {
     clearTimeout(temporizadorGiro);
     temporizadorGiro = setTimeout(() => { temporizadorGiro = 0; actualizarModo(); }, op.esperaTrasArrastre);
     actualizarModo();
-    reubicarSatelite();
   };
-  const alZoom = () => { encuadreAuto = false; reubicarSatelite(); }; // el usuario eligió su distancia
+  const alZoom = () => { encuadreAuto = false; }; // el usuario eligió su distancia
   const lienzoCanvas = escena.canvas;
   lienzoCanvas.addEventListener('wheel', alZoom, { passive: true });
   lienzoCanvas.addEventListener('pointerdown', alPresionar);
@@ -732,24 +635,13 @@ export function crearGlobo(contenedor, opciones = {}) {
   window.addEventListener('pointercancel', alSoltar);
   sinMovimiento.addEventListener('change', actualizarModo);
 
-  const manejador = new Cesium.ScreenSpaceEventHandler(lienzoCanvas);
-  manejador.setInputAction((clic) => {
-    const g = glaciarEn(clic.position);
-    if (g) elegirGlaciar(g.id);
-  }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
-  manejador.setInputAction((mov) => {
-    lienzoCanvas.style.cursor = glaciarEn(mov.endPosition) ? 'pointer' : '';
-  }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
-
   limpiezas.push(() => {
-    manejador.destroy();
     lienzoCanvas.removeEventListener('wheel', alZoom);
     lienzoCanvas.removeEventListener('pointerdown', alPresionar);
     window.removeEventListener('pointerup', alSoltar);
     window.removeEventListener('pointercancel', alSoltar);
     sinMovimiento.removeEventListener('change', actualizarModo);
     clearTimeout(temporizadorGiro);
-    clearTimeout(temporizadorSatelite);
     temporizadorGiro = 0;
   });
 
@@ -757,7 +649,7 @@ export function crearGlobo(contenedor, opciones = {}) {
 
   // ---------------------------------------------------------------
   // Rendimiento en celular: si al empezar va a menos de 30 FPS, se quita la capa de datos
-  // (quedan los halos). Solo una vez: si después la persona elige una capa, se respeta.
+  // (quedan los pines). Solo una vez: si después la persona elige una capa, se respeta.
   // ---------------------------------------------------------------
   let fpsMedidos = null;
   if (window.innerWidth < 900 && !sinMovimiento.matches) {
@@ -775,7 +667,7 @@ export function crearGlobo(contenedor, opciones = {}) {
         quitarCapaDatos();
         infoCapa = null;
         escribirCredito();
-        console.info(`APU: ${fpsMedidos} FPS en celular; se quita la capa de datos y quedan los halos.`);
+        console.info(`APU: ${fpsMedidos} FPS en celular; se quita la capa de datos y quedan los pines.`);
       }
     });
     limpiezas.push(quitar);
@@ -803,11 +695,9 @@ export function crearGlobo(contenedor, opciones = {}) {
 
   // Dejar un lugar al frente: el planeta gira (1,6 s) hasta tenerlo en el centro y crece hasta
   // llenar su caja (100 %, siempre entero). La rotación se pausa hasta "ver planeta".
-  // El satélite va arriba a la derecha del centro (donde quedará el lugar).
   function mirarA(lon, lat) {
     enfocado = true;
     encuadreAuto = false;
-    moverSatelite(anguloArribaDerecha(0.5, 0.5));
     volar(Cesium.Cartesian3.fromDegrees(lon, lat, alturaEncuadre(op.tamanoMaximo)), op.duracionVuelo);
   }
 
@@ -830,7 +720,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     op.alElegir?.(g);
   }
 
-  // Deja el pico i al frente; el marcador rojo y la etiqueta pasan a ese pico
+  // Deja el pico i al frente; la etiqueta pasa a ese pico
   function elegirPico(i) {
     const p = picos[i];
     if (!viewer || !p) return;
@@ -844,21 +734,9 @@ export function crearGlobo(contenedor, opciones = {}) {
     encuadreAuto = true;
     enfocado = false;
     const lon = objetivo?.lon ?? op.lon;
-    volar(Cesium.Cartesian3.fromDegrees(lon, op.lat, alturaEncuadre()), op.duracionVuelo, () => {
-      // el satélite vuelve a quedar arriba a la derecha de lo elegido
-      if (posObjetivo && aPantalla(posObjetivo, enPantallaObj)) {
-        moverSatelite(anguloArribaDerecha(enPantallaObj.x / lienzo.clientWidth, enPantallaObj.y / lienzo.clientHeight));
-      }
-    });
+    volar(Cesium.Cartesian3.fromDegrees(lon, op.lat, alturaEncuadre()), op.duracionVuelo);
   }
 
-  // Texto del chip de un glaciar (debajo del nombre), por ejemplo
-  // "La nieve bajó 23 % · Tendencia real" para la Cordillera Real (el menú lo calcula del dato real)
-  function notaGlaciar(id, texto) {
-    if (texto) notas.set(id, texto);
-    else notas.delete(id);
-    if (objetivo?.tipo === 'glaciar' && objetivo.ref.id === id) ponerObjetivo(objetivoGlaciar(objetivo.ref));
-  }
   function destruir() {
     if (destruido) return;
     destruido = true;
@@ -880,15 +758,15 @@ export function crearGlobo(contenedor, opciones = {}) {
       modo: '3d', cargado: globo.tilesLoaded, canvas: [w, h],
       diametroPx: Math.round(diametro), fraccionAlto: +(diametro / h).toFixed(3),
       objetivo: objetivo?.n ?? null, objetivoVisible: !capa.classList.contains('objetivo-oculto'),
-      marcadorVisible: !marcador.classList.contains('oculto'),
-      halosVisibles: listaHalos.filter((x) => x.b.show).map((x) => x.g.id),
+      pinesVisibles: pines.filter((p) => p.visible).map((p) => p.g.id),
+      satelite: { t: +tSatelite.toFixed(2), detras: satelite.classList.contains('detras') },
       capa: infoCapa ? { ...infoCapa, visible: Boolean(capaDatos) } : null, fpsCelular: fpsMedidos,
       volando, girando: debeGirar()
     };
   }
 
   return {
-    irA, elegirGlaciar, elegirPico, verPlaneta, mostrarCapa, destruir, estado, notaGlaciar,
+    irA, elegirGlaciar, elegirPico, verPlaneta, mostrarCapa, destruir, estado,
     // El Cesium.Viewer del globo, para reutilizarlo (no crear otro visor). null si pasó a imagen.
     get viewer() { return viewer; }
   };

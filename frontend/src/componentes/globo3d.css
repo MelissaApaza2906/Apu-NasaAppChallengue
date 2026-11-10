@@ -108,29 +108,25 @@
   animation: haz-pulso 2.6s ease-in-out infinite alternate;
 }
 @keyframes haz-pulso {
-  from { opacity: .35; }
-  to   { opacity: .8; }
+  from { opacity: .3; }
+  to   { opacity: .65; }
 }
 
-/* Satélite sobre la órbita punteada. JS pone left/top = su centro sobre la elipse
-   (los márgenes negativos lo centran: 12u de ancho × 6u de alto). */
+/* Satélite sobre la órbita punteada. JS pone left/top = su centro sobre la elipse (los márgenes
+   negativos lo centran: 12u × 6u), su escala y su opacidad. En la mitad de atrás (.detras) queda
+   por debajo del canvas: el planeta lo tapa. */
 .globo3d-satelite {
   position: absolute;
   left: 95%;
   top: 6%;
   width: calc(var(--u) * 12);
   margin: calc(var(--u) * -3) 0 0 calc(var(--u) * -6);
-  animation: satelite-vaiven 5s ease-in-out infinite;
 }
 .globo3d-satelite svg { display: block; width: 100%; height: auto; }
-@keyframes satelite-vaiven {
-  0%, 100% { transform: translateY(calc(var(--u) * 0.4)) rotate(-3deg); }
-  50%      { transform: translateY(calc(var(--u) * -0.4)) rotate(3deg); }
-}
+.globo3d-satelite.detras,
+.globo3d-haz.detras { z-index: -1; }
 
-/* Marcador rojo ("nuestro caso": Cordillera Real o el pico elegido) y selección (etiqueta
-   del glaciar o pico elegido). Cajas de tamaño 0 en el punto exacto; JS las mueve con translate. */
-.globo3d-marcador,
+/* Selección (etiqueta de lo elegido): caja de tamaño 0 en el punto exacto; JS la mueve con translate */
 .globo3d-seleccion {
   position: absolute;
   left: 0;
@@ -140,47 +136,67 @@
   transition: opacity .3s;
   will-change: transform;
 }
-.globo3d-marcador.oculto,
-.globo3d-capa.objetivo-oculto .globo3d-seleccion,
-.globo3d-capa.objetivo-oculto .globo3d-haz { opacity: 0; }
+.globo3d-capa.objetivo-oculto .globo3d-seleccion { opacity: 0; }
 
-/* Punto celeste de la selección cuando no coincide con el marcador rojo */
-.globo3d-seleccion .nodo {
+/* ---------- Pines de los glaciares ---------- */
+/* Botón de 44 px (área táctil) con el disco de 22 px en el centro; JS lo mueve con translate */
+.globo3d-pines { position: absolute; inset: 0; }
+.globo3d-pin {
   position: absolute;
-  left: calc(var(--u) * -0.7);
-  top: calc(var(--u) * -0.7);
-  width: calc(var(--u) * 1.4);
-  height: calc(var(--u) * 1.4);
+  left: -22px;
+  top: -22px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  will-change: transform;
+}
+.globo3d-pin.oculto { visibility: hidden; }
+.globo3d-pin .disco {
+  position: relative;
+  z-index: 1;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
+  background: #0B192E;
   border: 2px solid #F2F4F8;
-  background: #8FDBFF;
-  box-shadow: 0 0 calc(var(--u) * 1.2) rgba(143, 219, 255, .9);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .6);
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: width .15s, height .15s, border-color .15s;
 }
-
-.globo3d-marcador .punto,
-.globo3d-marcador .pulso {
+.globo3d-pin .copo { width: 12px; height: 12px; display: block; }
+.globo3d-pin:hover .disco,
+.globo3d-pin.elegido .disco { width: 26px; height: 26px; border-color: #8FDBFF; }
+.globo3d-pin:focus-visible { outline: none; }
+.globo3d-pin:focus-visible .disco { outline: 3px solid #8FDBFF; outline-offset: 2px; }
+/* Cordillera Real: fondo rojo y dos anillos finos que se abren */
+.globo3d-pin.principal .disco { background: #D12021; }
+.globo3d-pin .anillo {
   position: absolute;
-  left: -4px;
-  top: -4px;
-  width: 8px;
-  height: 8px;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
   border-radius: 50%;
-  box-sizing: border-box;
-}
-/* Punto rojo de 8 px con anillos finos que se abren despacio */
-.globo3d-marcador .punto {
-  background: #D12021;
-  box-shadow: 0 0 0 1px rgba(242, 244, 248, .9), 0 0 8px rgba(209, 32, 33, .9);
-}
-.globo3d-marcador .pulso {
   border: 1px solid rgba(255, 120, 120, .9);
-  animation: marcador-pulso 2.8s ease-out infinite;
+  box-sizing: border-box;
+  animation: pin-anillo 2.8s ease-out infinite;
 }
-.globo3d-marcador .pulso + .pulso { animation-delay: 1.4s; }
-@keyframes marcador-pulso {
+.globo3d-pin .anillo + .anillo { animation-delay: 1.4s; }
+@keyframes pin-anillo {
   from { transform: scale(1); opacity: .9; }
-  to   { transform: scale(4); opacity: 0; }
+  to   { transform: scale(2.4); opacity: 0; }
 }
 
 /* Línea fina de la selección a la etiqueta (sube a 45° hacia la derecha) */
@@ -202,8 +218,7 @@
   bottom: calc(var(--u) * 3.5);
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 0.3);
-  padding: calc(var(--u) * 0.9) calc(var(--u) * 1.4);
+  padding: calc(var(--u) * 0.8) calc(var(--u) * 1.3);
   border: 1px solid rgba(242, 244, 248, .8);
   border-radius: calc(var(--u) * 1.2);
   background: rgba(8, 18, 48, .92);
@@ -213,15 +228,8 @@
 /* Si lo elegido está cerca del borde derecho, línea y etiqueta van hacia la izquierda */
 .globo3d-seleccion.izquierda .linea { transform: rotate(-135deg); }
 .globo3d-seleccion.izquierda .globo3d-etiqueta { left: auto; right: calc(var(--u) * 3.5); transform-origin: 100% 100%; }
-.globo3d-seleccion .globo3d-etiqueta strong {
-  font: 400 max(10px, calc(var(--u) * 1.5)) / 1.15 var(--letra-titulo);
-  letter-spacing: .08em;
-  color: #fff;
-}
-.globo3d-seleccion .globo3d-etiqueta span {
-  font: 500 max(9px, calc(var(--u) * 1.2)) / 1.2 var(--letra-texto);
-  color: #A9B4CC;
-}
+/* Una línea; si la caja del planeta es angosta (celular con la pestaña) se parte en dos */
+.globo3d-seleccion .globo3d-etiqueta { width: max-content; max-width: 45cqw; white-space: normal; font: 600 max(12px, calc(var(--u) * 1.5)) / 1.25 var(--letra-texto); color: #F2F4F8; }
 .globo3d-seleccion .globo3d-etiqueta.aparece { animation: etiqueta-aparece .35s ease-out both; }
 @keyframes etiqueta-aparece {
   from { transform: scale(.8); opacity: 0; }
@@ -259,9 +267,8 @@
 @media (prefers-reduced-motion: reduce) {
   .globo3d-flotante,
   .globo3d-halo,
-  .globo3d-satelite,
   .globo3d-haz polygon,
   .globo3d-seleccion .globo3d-etiqueta.aparece { animation: none; }
-  .globo3d-marcador .pulso { display: none; }
+  .globo3d-pin .anillo { animation: none; opacity: 0; }
 }
 
