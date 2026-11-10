@@ -14,8 +14,13 @@ export const CAPAS = {
   marmolAzul: { layer: 'BlueMarble_ShadedRelief_Bathymetry', formato: 'image/jpeg', matriz: 'GoogleMapsCompatible_Level8', nivelMax: 8, fecha: null },
   // Luces de las ciudades de noche (Black Marble)
   lucesNoche: { layer: 'VIIRS_Black_Marble', formato: 'image/png', matriz: 'GoogleMapsCompatible_Level8', nivelMax: 8, fecha: '2016-01-01' },
-  // Foto real del satélite Terra, un día concreto
-  fotoDia: { layer: 'MODIS_Terra_CorrectedReflectance_TrueColor', formato: 'image/jpeg', matriz: 'GoogleMapsCompatible_Level9', nivelMax: 9 },
+  // Foto real (color verdadero, con nubes) de un día concreto, de 4 satélites. Cada uno deja franjas
+  // sin imagen entre sus pasadas; apiladas, se tapan entre sí. Nombres y matriz verificados en el
+  // GetCapabilities de GIBS (epsg3857/best): GoogleMapsCompatible_Level9 · image/jpeg · P1D.
+  fotoTerra: { layer: 'MODIS_Terra_CorrectedReflectance_TrueColor', formato: 'image/jpeg', matriz: 'GoogleMapsCompatible_Level9', nivelMax: 9 },
+  fotoAqua: { layer: 'MODIS_Aqua_CorrectedReflectance_TrueColor', formato: 'image/jpeg', matriz: 'GoogleMapsCompatible_Level9', nivelMax: 9 },
+  fotoSnpp: { layer: 'VIIRS_SNPP_CorrectedReflectance_TrueColor', formato: 'image/jpeg', matriz: 'GoogleMapsCompatible_Level9', nivelMax: 9 },
+  fotoNoaa20: { layer: 'VIIRS_NOAA20_CorrectedReflectance_TrueColor', formato: 'image/jpeg', matriz: 'GoogleMapsCompatible_Level9', nivelMax: 9 },
   // Cobertura de nieve (MODIS, índice NDSI) de un día concreto
   nieveDia: { layer: 'MODIS_Terra_NDSI_Snow_Cover', formato: 'image/png', matriz: 'GoogleMapsCompatible_Level8', nivelMax: 8 },
   // Lluvia diaria de GPM IMERG. Nombre y matriz verificados en el GetCapabilities de GIBS

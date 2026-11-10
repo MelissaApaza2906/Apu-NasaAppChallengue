@@ -65,10 +65,15 @@
 .logo-btn img { height: clamp(40px, 10cqh, 92px); width: auto; display: block; }
 .logo-btn:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
 .menu-logo .separador { width: 1.5px; height: 6cqh; background: rgba(242, 244, 248, .6); }
-.menu-estado { position: absolute; right: 2.6cqh; top: 2.8cqh; display: flex; align-items: center; gap: 1.4cqh; padding: 1.1cqh 2.4cqh; border-radius: 999px; border: 1.5px solid rgba(91, 160, 255, .7); background: rgba(8, 18, 48, .8); font-weight: 600; font-size: clamp(12px, 2.2cqh, 20px); }
+/* Arriba a la derecha: "Monitoreo satelital" y, debajo, el botón flotante de capas (se corren con la pestaña) */
+.menu-arriba-der { position: absolute; z-index: 6; top: 2.8cqh; right: calc(var(--margen) + var(--borde-der)); display: flex; flex-direction: column; align-items: flex-end; gap: 1.2cqh; transition: right .6s cubic-bezier(.2, .8, .2, 1); }
+.menu-estado { display: flex; align-items: center; gap: 1.4cqh; padding: 1.1cqh 2.4cqh; border-radius: 999px; border: 1.5px solid rgba(91, 160, 255, .7); background: rgba(8, 18, 48, .8); font-weight: 600; font-size: clamp(12px, 2.2cqh, 20px); }
 .menu-estado svg { width: 3cqh; height: 3cqh; }
 .menu-estado .punto { width: 1.2cqh; height: 1.2cqh; border-radius: 50%; background: #3DDC84; box-shadow: 0 0 1cqh #3DDC84; }
-.menu-aviso { position: absolute; z-index: 6; left: 50%; top: 2.8cqh; translate: -50% 0; max-width: 40cqw; margin: 0; padding: 1cqh 1.8cqh; border-radius: 1.4cqh; border: 1px solid rgba(249, 200, 14, .6); background: rgba(40, 32, 6, .92); color: #FCE7A0; font-size: clamp(12px, 1.9cqh, 15px); line-height: 1.4; }
+.menu-aviso, .menu-cargando { max-width: 40cqw; margin: 0; padding: .8cqh 1.6cqh; border-radius: 1.4cqh; font-size: clamp(12px, 1.7cqh, 14px); line-height: 1.4; }
+.menu-aviso { border: 1px solid rgba(249, 200, 14, .6); background: rgba(40, 32, 6, .92); color: #FCE7A0; }
+.menu-cargando { border: 1px solid rgba(91, 160, 255, .45); background: rgba(8, 18, 48, .85); color: #D7DEEA; }
+.menu-aviso[hidden], .menu-cargando[hidden] { display: none; }
 
 /* ---------- Riel de 5 botones (arriba, para dejar al Jukumari entero abajo) ---------- */
 .menu-riel { position: absolute; z-index: 3; left: 1.6cqw; top: 14cqh; padding: 1.4cqh; border-radius: 999px; display: flex; flex-direction: column; gap: 1.6cqh; }
@@ -78,12 +83,16 @@
 .menu-riel .redondo:not(.actual):hover { background: rgba(31, 65, 108, .9); box-shadow: 0 0 1.6cqh rgba(242, 244, 248, .3); }
 .menu-riel .redondo:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
 
-/* Menú "Capas de datos" al lado del riel (JS lo pone a la altura de su botón) */
-.menu-capas { position: absolute; z-index: 6; display: flex; flex-direction: column; gap: .6cqh; padding: 1cqh; border-radius: 1.8cqh; }
-.menu-capas button { min-height: 44px; padding: 0 2cqh 0 1.4cqh; display: flex; align-items: center; gap: 1cqh; border: none; border-radius: 999px; background: transparent; color: var(--nieve); cursor: pointer; font: 500 clamp(12px, 1.9cqh, 16px) var(--letra-texto); white-space: nowrap; text-align: left; }
-.menu-capas button::before { content: ''; width: 1.6cqh; height: 1.6cqh; min-width: 10px; min-height: 10px; border-radius: 50%; border: 2px solid rgba(242, 244, 248, .7); box-sizing: border-box; }
-.menu-capas button[aria-checked="true"] { background: rgba(209, 32, 33, .18); box-shadow: inset 0 0 0 1.5px var(--rojo-apu); }
-.menu-capas button[aria-checked="true"]::before { background: var(--rojo-apu); border-color: var(--nieve); }
+/* Botón flotante de capas (52 px, 3 rombos) y su menú, que se abre debajo */
+.menu-capas-caja { position: relative; }
+.boton-capas { width: 52px; height: 52px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--nieve); cursor: pointer; transition: box-shadow .15s; }
+.boton-capas svg { width: 26px; height: 26px; }
+.boton-capas:hover, .boton-capas[aria-expanded="true"] { box-shadow: 0 0 1.6cqh rgba(242, 244, 248, .35); }
+.boton-capas:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
+.menu-capas { position: absolute; z-index: 1; top: calc(100% + 8px); right: 0; display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 14px; }
+.menu-capas[hidden] { display: none; }
+.menu-capas button { min-height: 44px; padding: 0 16px; display: flex; align-items: center; border: 1.5px solid transparent; border-radius: 10px; background: transparent; color: var(--nieve); cursor: pointer; font: 500 clamp(12px, 1.9cqh, 16px) var(--letra-texto); white-space: nowrap; text-align: left; }
+.menu-capas button[aria-checked="true"] { border-color: var(--rojo-apu); background: rgba(209, 32, 33, .16); }
 .menu-capas button:hover { background: rgba(31, 65, 108, .9); }
 .menu-capas button:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
 
@@ -136,6 +145,10 @@
 .pestana-caso[hidden] { display: none; }
 .pestana-nombre { margin: 0; font: 400 clamp(20px, 4cqh, 34px) / 1.15 var(--letra-titulo); letter-spacing: .02em; text-shadow: 0 2px 8px rgba(0, 0, 0, .6); }
 .pestana-lugar { margin: 0; font: 500 clamp(12px, 1.7cqh, 14px) var(--letra-dato); letter-spacing: .06em; color: #CFE3FF; }
+.pestana-foto { position: absolute; right: 1.2cqh; bottom: 3px; max-width: calc(100% - 2.4cqh); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 10px / 1.2 var(--letra-texto); color: #F2F4F8; opacity: .7; text-decoration: none; }
+.pestana-foto[hidden] { display: none; }
+.pestana-foto:hover, .pestana-foto:focus-visible { opacity: 1; text-decoration: underline; }
+.pestana-foto:focus-visible { outline: 2px solid var(--rojo-apu); outline-offset: 1px; }
 .pestana-cerrar { position: absolute; top: 1.2cqh; right: 1.2cqh; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 1.5px solid rgba(242, 244, 248, .8); background: rgba(6, 14, 34, .7); color: var(--nieve); cursor: pointer; }
 .pestana-cerrar svg { width: 20px; height: 20px; }
 .pestana-cerrar:hover { background: rgba(31, 65, 108, .95); }
@@ -145,10 +158,6 @@
 .pestana-titulo .barras { color: var(--rojo-apu); font-style: italic; letter-spacing: -.1em; }
 /* Línea de tiempo vertical: la línea se dibuja y los puntos aparecen uno por uno */
 .pestana-linea { position: relative; margin: 0; padding: 0 0 0 26px; list-style: none; display: flex; flex-direction: column; gap: 2cqh; }
-.pestana-foto { position: absolute; right: 1.2cqh; bottom: 3px; max-width: calc(100% - 2.4cqh); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 10px / 1.2 var(--letra-texto); color: #F2F4F8; opacity: .7; text-decoration: none; }
-.pestana-foto[hidden] { display: none; }
-.pestana-foto:hover, .pestana-foto:focus-visible { opacity: 1; text-decoration: underline; }
-.pestana-foto:focus-visible { outline: 2px solid var(--rojo-apu); outline-offset: 1px; }
 .pestana-linea::before { content: ''; position: absolute; left: 7px; top: 6px; bottom: 6px; width: 2px; background: linear-gradient(180deg, #8FDBFF, rgba(143, 219, 255, .25)); transform-origin: top; animation: lineaDibuja .9s ease-out .35s both; }
 @keyframes lineaDibuja { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 .pestana-linea li { position: relative; display: flex; flex-direction: column; gap: .4cqh; animation: puntoAparece .45s ease-out both; animation-delay: calc(.45s + var(--i) * .3s); }
@@ -186,7 +195,8 @@
 .menu-volver:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
 /* Con la vista de la montaña, la pestaña y el Jukumari se esconden */
 .pantalla-menu.con-montana .menu-pestana,
-.pantalla-menu.con-montana .menu-juku { display: none; }
+.pantalla-menu.con-montana .menu-juku,
+.pantalla-menu.con-montana .menu-capas-caja { display: none; }
 
 /* ---------- Panel de datos y máquina del tiempo de la vista de la montaña ---------- */
 .menu-panel { position: absolute; z-index: 5; right: 2.6cqh; top: 11.4cqh; bottom: var(--carrusel-arriba); width: var(--ancho-panel); padding: 2.6cqh; border-radius: 2.2cqh; display: flex; flex-direction: column; gap: 1.6cqh; overflow-y: auto; }
@@ -273,7 +283,7 @@
 
 /* ---------- Menos movimiento: sin animaciones ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .menu-orbita, .menu-planeta, .menu-credito { transition: none; }
+  .menu-orbita, .menu-planeta, .menu-credito, .menu-arriba-der { transition: none; }
   .menu-estrellas span, .menu-planeta.maqueta, .entra-der, .entra-izq,
   .juku-nube, .juku-nube span, .juku-globo.nueva, .menu-pestana.entra,
   .pestana-linea::before, .pestana-linea li, .linea-graf,

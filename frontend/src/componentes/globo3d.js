@@ -32,8 +32,13 @@ import { CAPAS, proveedor, nasaResponde, hayImagen, haceDias, fechaBonita } from
 // (Nubes encima del planeta: GIBS no tiene una capa de nubes blancas sobre transparente
 // —las de nubes son mapas de colores—, así que el planeta va sin nubes.)
 const CAPAS_DATOS = {
-  // La Tierra de hoy: foto en color real de ayer (con sus nubes), opaca, con el sol en su posición real
-  hoy: { capa: CAPAS.fotoDia, titulo: 'Hoy: MODIS Terra (nubes reales)', fechaDefecto: async () => haceDias(1), alpha: 1, sol: true }
+  // La Tierra de hoy: fotos en color real de ayer (con sus nubes), con el sol en su posición real.
+  // De abajo hacia arriba: MODIS Terra, MODIS Aqua, VIIRS SNPP y VIIRS NOAA-20; cada una tapa las
+  // franjas sin imagen de las otras y donde no hay ninguna se ve el Blue Marble.
+  hoy: {
+    capas: [CAPAS.fotoTerra, CAPAS.fotoAqua, CAPAS.fotoSnpp, CAPAS.fotoNoaa20],
+    titulo: 'Nubes: MODIS Terra/Aqua y VIIRS', fechaDefecto: async () => haceDias(1), alpha: 1, sol: true
+  }
 };
 const CREDITO_BASE = 'Imágenes: NASA GIBS / Blue Marble';
 
@@ -49,6 +54,7 @@ const POR_DEFECTO = {
   glaciares: [],            // [{ id, nombre, pais, lat, lon, principal?, texto, datos }]
   picos: [],                // [{ n: nombre, h: altura en m (6438 o '6 438'), lat, lon }]
   alElegir: null,           // (glaciar) => void
+  alCargarCapa: null,       // (cargando) => void: true mientras cargan las teselas de la capa "hoy"
   credito: null,            // elemento donde escribir el crédito de NASA (si no, va debajo del globo)
   capa: null,               // capa al empezar: 'hoy' o null (imagen normal)
   duracionVuelo: 1.6,       // segundos: girar hasta dejar lo elegido al frente (y "ver planeta")
@@ -293,29 +299,46 @@ export function crearGlobo(contenedor, opciones = {}) {
   luces.brightness = 1.4;
 
   // ---------------------------------------------------------------
-  // Capa de datos de NASA encima del Blue Marble (nieve MODIS o lluvia GPM IMERG)
+  // Capa "Hoy" encima del Blue Marble: las fotos de ayer de 4 satélites apiladas (las nubes reales)
   // ---------------------------------------------------------------
-  let capaDatos = null;   // ImageryLayer de Cesium
+  let capasDatos = [];    // ImageryLayer de Cesium (de abajo hacia arriba)
   let infoCapa = null;    // { nombre, fecha, sinImagen }
   let pedidoCapa = 0;     // si llega otro pedido mientras esperamos a NASA, el anterior se descarta
+  let cargandoCapa = false;
 
   function escribirCredito() {
     const d = infoCapa && CAPAS_DATOS[infoCapa.nombre];
     credito.textContent = d
-      ? `${CREDITO_BASE} · ${d.titulo} · ${fechaBonita(infoCapa.fecha)}${infoCapa.sinImagen ? ' · sin imagen de NASA para esta fecha' : ''}${infoCapa.nota ? ` · ${infoCapa.nota}` : ''}`
+      ? `${CREDITO_BASE} · ${d.titulo} · ${fechaBonita(infoCapa.fecha)}${infoCapa.sinImagen ? ' · sin imagen de NASA para esta fecha' : ''}`
       : CREDITO_BASE;
   }
 
+  // "Cargando nubes de NASA…": avisa al menú (op.alCargarCapa) mientras faltan teselas
+  function avisarCarga(si) {
+    if (cargandoCapa === si) return;
+    cargandoCapa = si;
+    op.alCargarCapa?.(si);
+  }
+  let cargaDesde = 0; // las capas recién puestas tardan un cuadro en pedir sus teselas
+  limpiezas.push(globo.tileLoadProgressEvent.addEventListener((pendientes) => {
+    if (cargandoCapa && pendientes === 0 && performance.now() > cargaDesde) avisarCarga(false);
+  }));
+  // Si las teselas ya estaban en caché, no hay evento de progreso: se mira después de cada cuadro
+  limpiezas.push(escena.postRender.addEventListener(() => {
+    if (cargandoCapa && performance.now() > cargaDesde && globo.tilesLoaded) avisarCarga(false);
+  }));
+
   function quitarCapaDatos() {
-    if (capaDatos && viewer) viewer.imageryLayers.remove(capaDatos, true);
-    capaDatos = null;
+    if (viewer) capasDatos.forEach((c) => viewer.imageryLayers.remove(c, true));
+    capasDatos = [];
+    avisarCarga(false);
   }
 
-  // Capa de NASA debajo de las luces de las ciudades
-  function ponerCapa(nombre, f) {
-    const c = viewer.imageryLayers.addImageryProvider(proveedor(CAPAS_DATOS[nombre].capa, f));
-    c.alpha = CAPAS_DATOS[nombre].alpha ?? 0.85;
-    // Los huecos entre las pasadas del satélite vienen en negro: transparentes (se ve el Blue Marble)
+  // Una capa de NASA debajo de las luces de las ciudades
+  function ponerCapa(capa, f, alpha) {
+    const c = viewer.imageryLayers.addImageryProvider(proveedor(capa, f));
+    c.alpha = alpha;
+    // Los huecos entre las pasadas del satélite vienen en negro: transparentes (se ve lo de abajo)
     c.colorToAlpha = Cesium.Color.BLACK;
     c.colorToAlphaThreshold = 0.06;
     viewer.imageryLayers.raiseToTop(luces);
@@ -327,7 +350,8 @@ export function crearGlobo(contenedor, opciones = {}) {
   const nivelNecesario = () => Math.max(0, Math.ceil(Math.log2((Math.PI * estado().diametroPx) / 256)));
 
   // nombre: 'hoy' | null. fecha: 'AAAA-MM-DD' (por defecto, ayer).
-  // Devuelve { ok, nombre, fecha, sinImagen } o { ok: false, motivo: 'sin-respuesta' | 'sin-detalle' }.
+  // Apila las capas de esa fecha que tienen imagen (las que no, se saltan). Devuelve
+  // { ok, nombre, fecha, capas, sinImagen } o { ok: false, motivo: 'sin-respuesta' | 'sin-detalle' }.
   // Si NASA no responde, el globo queda como estaba.
   async function mostrarCapa(nombre, fecha) {
     const yo = ++pedidoCapa;
@@ -342,23 +366,25 @@ export function crearGlobo(contenedor, opciones = {}) {
     }
     const d = CAPAS_DATOS[nombre];
     if (!d) return { ok: false, motivo: 'capa-desconocida' };
-    if (d.capa.nivelMax < nivelNecesario()) return { ok: false, motivo: 'sin-detalle' };
+    if (Math.min(...d.capas.map((c) => c.nivelMax)) < nivelNecesario()) return { ok: false, motivo: 'sin-detalle' };
     const f = fecha ?? await d.fechaDefecto();
     if (yo !== pedidoCapa || !viewer) return { ok: false, motivo: 'reemplazado' };
     if (!f) return { ok: false, motivo: 'sin-respuesta' };
-    const hay = await hayImagen(d.capa, f);
+    avisarCarga(true);
+    const hay = await Promise.all(d.capas.map((c) => hayImagen(c, f)));
     if (yo !== pedidoCapa || !viewer) return { ok: false, motivo: 'reemplazado' };
-    if (hay === 'error') return { ok: false, motivo: 'sin-respuesta' };
+    if (hay.every((h) => h === 'error')) { avisarCarga(false); return { ok: false, motivo: 'sin-respuesta' }; }
 
     quitarCapaDatos();
-    infoCapa = { nombre, fecha: f, sinImagen: hay === 'no' };
-    if (hay === 'si') capaDatos = ponerCapa(nombre, f);
+    const conImagen = d.capas.filter((_, i) => hay[i] === 'si');
+    capasDatos = conImagen.map((c) => ponerCapa(c, f, d.alpha ?? 0.85));
+    infoCapa = { nombre, fecha: f, sinImagen: !conImagen.length };
+    if (conImagen.length) { cargaDesde = performance.now() + 300; avisarCarga(true); }
     usarSol(Boolean(d.sol));
     escribirCredito();
     escena.requestRender();
-    return { ok: true, nombre, fecha: f, sinImagen: hay === 'no' };
+    return { ok: true, nombre, fecha: f, capas: conImagen.map((c) => c.layer), sinImagen: !conImagen.length };
   }
-
   if (op.capa) mostrarCapa(op.capa);
 
   // Distancia de cámara para que el planeta mida `tamano` del lado menor del contenedor.
@@ -656,7 +682,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     let inicio = null;
     let cuadros = 0;
     const quitar = escena.postRender.addEventListener(() => {
-      if (!capaDatos || !globo.tilesLoaded) return;         // medimos con la capa ya cargada
+      if (!capasDatos.length || !globo.tilesLoaded) return;         // medimos con la capa ya cargada
       if (inicio === null) { inicio = performance.now(); return; }
       cuadros++;
       const ms = performance.now() - inicio;
@@ -760,7 +786,7 @@ export function crearGlobo(contenedor, opciones = {}) {
       objetivo: objetivo?.n ?? null, objetivoVisible: !capa.classList.contains('objetivo-oculto'),
       pinesVisibles: pines.filter((p) => p.visible).map((p) => p.g.id),
       satelite: { t: +tSatelite.toFixed(2), detras: satelite.classList.contains('detras') },
-      capa: infoCapa ? { ...infoCapa, visible: Boolean(capaDatos) } : null, fpsCelular: fpsMedidos,
+      capa: infoCapa ? { ...infoCapa, capas: capasDatos.length, cargando: cargandoCapa } : null, fpsCelular: fpsMedidos,
       volando, girando: debeGirar()
     };
   }

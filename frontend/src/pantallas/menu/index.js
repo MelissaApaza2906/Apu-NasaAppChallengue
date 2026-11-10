@@ -19,7 +19,7 @@ const AVISO_CAPA = 'No se pudo cargar la capa de NASA. El planeta sigue con la i
 const SIN_GLACIAR = 'Toca un glaciar para conocer su historia. ¡Empieza por el rojo, el de Bolivia!';
 const EN_PREPARACION = 'En preparación';
 const ESPERA_GLOBO = 6000; // ms que se ve el globo de diálogo del Jukumari
-// Capas del botón "Capas de datos" del planeta
+// Opciones del botón flotante de capas (arriba a la derecha)
 const CAPAS_MENU = [
   { capa: null, n: 'Normal' },
   { capa: 'hoy', n: 'Hoy (nubes reales)' }
@@ -29,17 +29,18 @@ const CAPAS_MENU = [
 const ICONOS = {
   explorar: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5 13.5 13.5 8.5 15.5 10.5 10.5z"/>',
   entrenar: '<path d="M3 8l9-4 9 4-9 4z"/><path d="M7 10v5c0 1.5 2.5 3 5 3s5-1.5 5-3v-5"/>',
-  capas: '<path d="M12 3 3 8l9 5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 16 9 5 9-5"/>',
   perfil: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',
   ajustes: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>'
 };
 const RIEL = [
   { k: 'explorar', n: 'Explorar el globo', ruta: null, actual: true },
   { k: 'entrenar', n: 'Entrenamiento', ruta: 'etapas' },
-  { k: 'capas', n: 'Capas de datos', ruta: null },
   { k: 'perfil', n: 'Mi expediente', ruta: 'insignias' },
   { k: 'ajustes', n: 'Ajustes', ruta: 'ajustes' }
 ];
+// Capas: 3 rombos apilados
+const ICONO_CAPAS = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3 20 7 12 11 4 7z"/><path d="M12 8.5 20 12.5 12 16.5 4 12.5z" opacity=".75"/><path d="M12 14 20 18 12 22 4 18z" opacity=".5"/></svg>';
+const AVISO_NUBES = 'Cargando nubes de NASA…';
 const MONTANA = '<svg aria-hidden="true" viewBox="0 0 32 20" fill="none" stroke="#F2F4F8" stroke-width="1.7" stroke-linejoin="round"><path d="M1 19 11 5l6 8 4-5 10 11"/><path d="M8 9.5 11 5l3 4"/></svg>';
 
 // "BOLIVIA · 16,2° S · 68,2° O"
@@ -85,35 +86,40 @@ export function montar(contenedor) {
       <span class="separador" aria-hidden="true"></span>
     </header>
 
-    <div class="menu-estado entra-der">
-      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="#F2F4F8" stroke-width="1.5"><rect x="9" y="9" width="6" height="6" rx="1" transform="rotate(45 12 12)"/><path d="M4 4l4 4M16 16l4 4M3 8l5-5M16 21l5-5"/></svg>
-      <span class="punto" aria-hidden="true"></span>Monitoreo satelital
+    <div class="menu-arriba-der entra-der">
+      <div class="menu-estado">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="#F2F4F8" stroke-width="1.5"><rect x="9" y="9" width="6" height="6" rx="1" transform="rotate(45 12 12)"/><path d="M4 4l4 4M16 16l4 4M3 8l5-5M16 21l5-5"/></svg>
+        <span class="punto" aria-hidden="true"></span>Monitoreo satelital
+      </div>
+      <div class="menu-capas-caja">
+        <button type="button" class="boton-capas hud" aria-label="Capas de datos de NASA" title="Capas de datos de NASA" aria-haspopup="menu" aria-expanded="false" aria-controls="menu-capas">${ICONO_CAPAS}</button>
+        <div class="menu-capas hud" id="menu-capas" role="menu" aria-label="Capas de datos de NASA" hidden>
+          ${CAPAS_MENU.map((c) => `<button type="button" role="menuitemradio" data-capa="${c.capa ?? ''}" aria-checked="${c.capa === null}">${c.n}</button>`).join('')}
+        </div>
+      </div>
+      <p class="menu-cargando" role="status" hidden>${AVISO_NUBES}</p>
+      <p class="menu-aviso" role="status" hidden>${AVISO_CAPA}</p>
     </div>
 
     <nav class="menu-riel hud entra-izq" aria-label="Menú">
       ${RIEL.map((m) => `
-        <button type="button" class="redondo${m.actual ? ' actual' : ''}" data-k="${m.k}" data-ruta="${m.ruta ?? ''}" aria-label="${m.n}" title="${m.n}"${m.actual ? ' aria-current="page"' : ''}${m.k === 'capas' ? ' aria-haspopup="menu" aria-expanded="false" aria-controls="menu-capas"' : ''}>
+        <button type="button" class="redondo${m.actual ? ' actual' : ''}" data-k="${m.k}" data-ruta="${m.ruta ?? ''}" aria-label="${m.n}" title="${m.n}"${m.actual ? ' aria-current="page"' : ''}>
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICONOS[m.k]}</svg>
         </button>`).join('')}
     </nav>
-
-    <div class="menu-capas hud" id="menu-capas" role="menu" aria-label="Capas de datos de NASA" hidden>
-      ${CAPAS_MENU.map((c) => `<button type="button" role="menuitemradio" data-capa="${c.capa ?? ''}" aria-checked="${c.capa === null}">${c.n}</button>`).join('')}
-    </div>
-    <p class="menu-aviso" role="status" hidden>${AVISO_CAPA}</p>
 
     <aside class="menu-pestana" aria-label="Historia del glaciar" hidden>
       <div class="pestana-portada">
         <span class="pestana-caso">GLACIAR TROPICAL · NUESTRO CASO</span>
         <h2 class="pestana-nombre"></h2>
         <p class="pestana-lugar"></p>
+        <a class="pestana-foto" target="_blank" rel="noopener noreferrer"></a>
         <button type="button" class="pestana-cerrar" aria-label="Cerrar la historia y volver al planeta">
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
         </button>
       </div>
       <div class="pestana-cuerpo">
         <h3 class="pestana-titulo"><span class="barras" aria-hidden="true">//</span> SU HISTORIA</h3>
-        <a class="pestana-foto" target="_blank" rel="noopener noreferrer"></a>
         <ol class="pestana-linea"></ol>
         <div class="pestana-dato"></div>
         <button type="button" class="btn-mision pestana-ver">
@@ -149,24 +155,17 @@ export function montar(contenedor) {
   // ---------------------------------------------------------------
   $('.logo-btn').addEventListener('click', () => ir(''));
   raiz.querySelectorAll('.menu-riel [data-ruta]').forEach((b) => {
-    b.addEventListener('click', () => {
-      if (b.dataset.k === 'capas') abrirCapas($('.menu-capas').hidden);
-      else if (b.dataset.ruta) ir(b.dataset.ruta);
-    });
+    b.addEventListener('click', () => { if (b.dataset.ruta) ir(b.dataset.ruta); });
   });
-  const botonCapas = $('.menu-riel [data-k="capas"]');
+  // Botón flotante de capas: el menú se abre debajo (CSS) y se cierra al elegir o al tocar fuera
+  const botonCapas = $('.boton-capas');
   const menuCapas = $('.menu-capas');
   function abrirCapas(abrir) {
     menuCapas.hidden = !abrir;
     botonCapas.setAttribute('aria-expanded', String(abrir));
-    if (!abrir) return;
-    const base = raiz.getBoundingClientRect();
-    const rb = botonCapas.getBoundingClientRect();
-    const rr = $('.menu-riel').getBoundingClientRect();
-    menuCapas.style.left = `${rr.right - base.left + 10}px`;
-    menuCapas.style.top = `${Math.max(8, Math.min(rb.top - base.top + rb.height / 2 - menuCapas.offsetHeight / 2, base.height - menuCapas.offsetHeight - 8))}px`;
-    (menuCapas.querySelector('[aria-checked="true"]') ?? menuCapas.querySelector('button')).focus();
+    if (abrir) (menuCapas.querySelector('[aria-checked="true"]') ?? menuCapas.querySelector('button')).focus();
   }
+  botonCapas.addEventListener('click', () => abrirCapas(menuCapas.hidden));
   menuCapas.addEventListener('click', (e) => {
     const b = e.target.closest('[role="menuitemradio"]'); if (!b) return;
     menuCapas.querySelectorAll('[data-capa]').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
@@ -190,6 +189,8 @@ export function montar(contenedor) {
       if (vivo && !r.ok && r.motivo !== 'reemplazado') aviso.hidden = false;
     });
   }
+  // "Cargando nubes de NASA…" mientras llegan las teselas de la capa Hoy (lo avisa el globo)
+  const cargandoNubes = (si) => { if (vivo) $('.menu-cargando').hidden = !si; };
 
   // ---------------------------------------------------------------
   // Planeta: globo 3D de Cesium o, si no está, el planeta de la maqueta
@@ -202,6 +203,7 @@ export function montar(contenedor) {
       globo = m.crearGlobo(ranura, {
         glaciares: GLACIARES,
         credito: $('.menu-credito'),
+        alCargarCapa: cargandoNubes,
         tamano: 0.96, // el planeta llena el 96 % de su caja (.menu-planeta, sin contar el halo)
         alElegir: (g) => { if (vivo) abrirPestana(g); } // al tocar su pin
       });
@@ -228,8 +230,6 @@ export function montar(contenedor) {
     $('.pestana-caso').hidden = !g.principal;
     $('.pestana-nombre').textContent = g.nombre;
     $('.pestana-lugar').textContent = lugarDe(g);
-
-    // Historia (contenido/glaciares.js → HISTORIAS, unida por id o por nombre)
     // Portada: foto real del glaciar (Wikimedia Commons) con su crédito; si no hay, la del Illimani
     const foto = g.foto;
     pestana.style.setProperty('--foto', `url('${foto?.src ?? '/img/fondo-illimani.webp'}')`);
@@ -240,6 +240,8 @@ export function montar(contenedor) {
       credito.href = foto.url;
       credito.title = `Ver la foto en Wikimedia Commons (${foto.licencia})`;
     }
+
+    // Historia (contenido/glaciares.js → HISTORIAS, unida por id o por nombre)
     const h = historiaDe(g);
 
     // Línea de tiempo: se dibuja punto por punto; cada hito con su fuente en letra pequeña
@@ -345,7 +347,7 @@ export function montar(contenedor) {
 
   const tocarFuera = (e) => {
     if (!globoDialogo.hidden && !e.target.closest('.menu-juku')) cerrarGlobo();
-    if (!menuCapas.hidden && !e.target.closest('.menu-capas') && !e.target.closest('[data-k="capas"]')) abrirCapas(false);
+    if (!menuCapas.hidden && !e.target.closest('.menu-capas') && !e.target.closest('.boton-capas')) abrirCapas(false);
   };
   const conTeclado = (e) => {
     if (e.key !== 'Escape') return;
