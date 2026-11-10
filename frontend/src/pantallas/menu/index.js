@@ -12,7 +12,7 @@ import '../carga/carga.css'; // el Jukumari en 3D y el botón con cuña roja (.c
 import './montanas-puente.css';
 import { ir } from '../../router.js';
 import { cargarRegion } from '../../servicios/datos.js';
-import { GLACIARES } from '../../contenido/glaciares.js';
+import { GLACIARES, historiaDe } from '../../contenido/glaciares.js';
 import { abrirMontana } from './montanas-puente.js';
 
 const AVISO_CAPA = 'No se pudo cargar la capa de NASA. El planeta sigue con la imagen normal.';
@@ -45,6 +45,12 @@ const MONTANA = '<svg aria-hidden="true" viewBox="0 0 32 20" fill="none" stroke=
 // "BOLIVIA · 16,2° S · 68,2° O"
 const grados = (v, pos, neg) => `${Math.abs(v).toFixed(1).replace('.', ',')}° ${v < 0 ? neg : pos}`;
 const lugarDe = (g) => `${g.pais.toUpperCase()} · ${grados(g.lat, 'N', 'S')} · ${grados(g.lon, 'E', 'O')}`;
+// Números en formato español: 7,4 · 6 768 · 8 848,86 (miles con espacio que no se corta)
+const decimalesDe = (n) => (String(n).split('.')[1] ?? '').length;
+const numeroEs = (n, d = decimalesDe(n)) => {
+  const [entero, fraccion] = n.toFixed(d).split('.');
+  return entero.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + (fraccion ? `,${fraccion}` : '');
+};
 const escapar = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 let globo = null;
@@ -222,28 +228,34 @@ export function montar(contenedor) {
     $('.pestana-nombre').textContent = g.nombre;
     $('.pestana-lugar').textContent = lugarDe(g);
 
-    // Línea de tiempo: se dibuja punto por punto
-    const linea = g.linea ?? [];
+    // Historia (contenido/glaciares.js → HISTORIAS, unida por id o por nombre)
+    const h = historiaDe(g);
+
+    // Línea de tiempo: se dibuja punto por punto; cada hito con su fuente en letra pequeña
+    const linea = h?.linea ?? [];
     $('.pestana-linea').innerHTML = linea.length
-      ? linea.map((p, i) => `<li class="${p.destacado ? 'destacado' : ''}" style="--i:${i}"><b>${escapar(p.cuando)}</b><span>${escapar(p.texto)}</span></li>`).join('')
+      ? linea.map((p, i) => `<li class="${p.destacado ? 'destacado' : ''}" style="--i:${i}"><b>${escapar(p.cuando)}</b><span>${escapar(p.texto)}</span>${p.fuente ? `<small>Fuente: ${escapar(p.fuente)}</small>` : ''}</li>`).join('')
       : `<li class="vacio" style="--i:0"><span>${EN_PREPARACION}</span></li>`;
 
-    // Dato grande: el número cuenta desde 0
-    const d = g.datoGrande;
+    // Dato grande: el número cuenta desde 0 (con sus decimales, en formato español)
+    const d = h?.datoGrande;
     const dato = $('.pestana-dato');
     dato.classList.toggle('vacio', !d);
+    dato.classList.toggle('largo', Boolean(d) && numeroEs(d.numero).length > 5); // 8 848,86: letra más chica
     dato.innerHTML = d
-      ? `<p class="numero"><b>0</b><span>${escapar(d.unidad)}</span></p><p class="texto">${escapar(d.texto)}</p><p class="fuente">Fuente: ${escapar(d.fuente)}</p>`
+      ? `<p class="numero"><b>${numeroEs(0, decimalesDe(d.numero))}</b><span>${escapar(d.unidad)}</span></p><p class="texto">${escapar(d.texto)}</p><p class="fuente">Fuente: ${escapar(d.fuente)}</p>`
       : `<p class="texto">${EN_PREPARACION}</p>`;
     cancelAnimationFrame(cuenta);
     if (d) {
       const b = dato.querySelector('.numero b');
-      if (sinMovimiento.matches) b.textContent = String(d.numero);
+      const dec = decimalesDe(d.numero);
+      b.setAttribute('aria-label', numeroEs(d.numero)); // el lector de pantalla dice el número final
+      if (sinMovimiento.matches) b.textContent = numeroEs(d.numero);
       else {
         const inicio = performance.now() + 450; // cuando la pestaña terminó de entrar
         const paso = (ahora) => {
           const k = Math.min(1, Math.max(0, (ahora - inicio) / 1200));
-          b.textContent = String(Math.round(d.numero * (1 - (1 - k) ** 3)));
+          b.textContent = k < 1 ? numeroEs(d.numero * (1 - (1 - k) ** 3), dec) : numeroEs(d.numero);
           if (k < 1) cuenta = requestAnimationFrame(paso);
         };
         cuenta = requestAnimationFrame(paso);
@@ -301,7 +313,7 @@ export function montar(contenedor) {
   const nube = $('.juku-nube');
   const globoDialogo = $('.juku-globo');
   let cierre = 0;
-  const textoJukumari = () => (elegido ? (elegido.jukumari || `${elegido.nombre}: su historia está en preparación.`) : SIN_GLACIAR);
+  const textoJukumari = () => (elegido ? (historiaDe(elegido)?.jukumari || `${elegido.nombre}: su historia está en preparación.`) : SIN_GLACIAR);
   function cerrarGlobo() {
     clearTimeout(cierre);
     globoDialogo.hidden = true;

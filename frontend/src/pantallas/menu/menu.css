@@ -156,11 +156,14 @@
 .pestana-linea li.destacado b { color: #FF6B6B; }
 .pestana-linea span { font-size: clamp(13px, 2cqh, 17px); line-height: 1.45; color: #E6EBF3; }
 .pestana-linea li.vacio span { color: #A9B4CC; font-style: italic; }
+.pestana-linea small { font: 500 clamp(11px, 1.4cqh, 12px) var(--letra-dato); color: #A9B4CC; }
 /* Dato grande en una tarjeta con degradado rojo → azul */
 .pestana-dato { display: flex; flex-direction: column; gap: .8cqh; padding: 2cqh 2.2cqh; border-radius: 1.8cqh; border: 1px solid rgba(242, 244, 248, .25); background: linear-gradient(135deg, rgba(209, 32, 33, .55), rgba(31, 95, 200, .45)); }
 .pestana-dato p { margin: 0; }
 .pestana-dato .numero { display: flex; align-items: baseline; gap: .3em; }
 .pestana-dato .numero b { font: 400 clamp(32px, 6cqh, 52px) / 1 var(--letra-titulo); }
+.pestana-dato .numero { flex-wrap: wrap; }
+.pestana-dato.largo .numero b { font-size: clamp(26px, 4.4cqh, 40px); }
 .pestana-dato .numero span { font: 400 clamp(18px, 3.2cqh, 28px) var(--letra-titulo); }
 .pestana-dato .texto { font-size: clamp(13px, 2cqh, 17px); line-height: 1.45; }
 .pestana-dato .fuente { font: 500 clamp(11px, 1.4cqh, 12px) var(--letra-dato); color: #D7DEEA; opacity: .85; }
