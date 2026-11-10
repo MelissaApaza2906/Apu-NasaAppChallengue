@@ -95,6 +95,14 @@
 .menu-panel .miniaturas figcaption { position: absolute; left: .8cqh; bottom: .8cqh; padding: .2cqh .9cqh; border-radius: .6cqh; background: rgba(242, 244, 248, .92); color: var(--noche); font: 700 clamp(9px, 1.6cqh, 14px) var(--letra-texto); }
 .menu-panel .nota { font-size: clamp(8px, 1.3cqh, 11px); color: #A9B4CC; }
 .menu-panel .miniaturas + .nota { margin-top: -.8cqh; }
+/* Nevada / Lluvia según el dato del mes */
+.menu-panel .clima { display: flex; flex-direction: column; gap: .6cqh; }
+.menu-panel .clima-fila { display: flex; gap: .8cqh; align-items: center; }
+.menu-panel .clima button { min-height: 36px; padding: 0 1.4cqh; border-radius: 999px; border: 1px solid rgba(91, 160, 255, .55); background: rgba(8, 18, 48, .85); color: #D7DEEA; cursor: pointer; font: 500 clamp(10px, 1.6cqh, 13px) var(--letra-texto); white-space: nowrap; }
+.menu-panel .clima button[aria-pressed="true"] { color: var(--nieve); background: rgba(209, 32, 33, .22); box-shadow: inset 0 0 0 1.5px var(--rojo-apu); border-color: transparent; }
+.menu-panel .clima button:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
+.menu-panel .clima .clima-mes { flex: 1; min-width: 0; height: 36px; padding: 0 .6cqh 0 1.2cqh; font-size: clamp(10px, 1.6cqh, 13px); }
+.menu-panel .clima-valor { margin: 0; font: 700 clamp(11px, 1.8cqh, 15px) var(--letra-texto); color: var(--nieve); }
 .menu-panel .nota-periodo { display: block; margin-top: -.6cqh; text-align: right; }
 .menu-panel .nota-periodo[hidden] { display: none; }
 .menu-panel .tarjetas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2cqh; }

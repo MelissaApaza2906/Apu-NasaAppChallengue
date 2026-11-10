@@ -8,6 +8,7 @@ import { ir } from '../../router.js';
 import { cargarRegion } from '../../servicios/datos.js';
 import { GLACIARES } from '../../contenido/glaciares.js';
 import { FRASES } from '../../contenido/frases-jukumari.js';
+import { crearClima } from '../../componentes/clima-particulas.js';
 
 const PICOS = [
   { n: 'Illimani', h: '6 438', lat: -16.64, lon: -67.79, t: 'el Illimani, el guardián de La Paz' },
@@ -68,6 +69,8 @@ const MONTANA = '<svg aria-hidden="true" viewBox="0 0 32 20" fill="none" stroke=
 const SATELITE = '<svg class="menu-sat" aria-hidden="true" viewBox="0 0 64 32"><rect x="0" y="9" width="22" height="14" fill="#2F6FD6" stroke="#CFE3FF"/><path d="M7 9v14M14 9v14M0 16h22" stroke="#CFE3FF" stroke-width=".6"/><rect x="42" y="9" width="22" height="14" fill="#2F6FD6" stroke="#CFE3FF"/><path d="M49 9v14M56 9v14M42 16h22" stroke="#CFE3FF" stroke-width=".6"/><rect x="24" y="8" width="16" height="16" rx="2" fill="#E8EEF8" stroke="#9FB3D9"/><circle cx="32" cy="26" r="3" fill="#B8C6E0"/></svg>';
 
 const fmt = (v, d) => v.toFixed(d).replace('.', ',');
+const MESES_LARGOS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const nombreMes = (m) => `${MESES_LARGOS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`; // '2018-01' → 'Enero 2018'
 
 let globo = null;
 let vivo = false;
@@ -140,6 +143,15 @@ export function montar(contenedor) {
         <div class="cambio"><b class="cambio-valor">…</b><span class="cambio-etiqueta">Índice de nieve</span></div>
       </div>
       <span class="nota nota-periodo" hidden></span>
+      <div class="clima" role="group" aria-label="Nevada y lluvia según el dato de cada mes">
+        <div class="clima-fila">
+          <button type="button" data-clima="nieve" aria-pressed="false">❄ Nevada</button>
+          <button type="button" data-clima="lluvia" aria-pressed="false">☂ Lluvia</button>
+          <select class="clima-mes" aria-label="Mes del dato"></select>
+        </div>
+        <p class="clima-valor" aria-live="polite" hidden></p>
+        <span class="nota">Efecto visual: la intensidad sale del dato de NASA de ese mes.</span>
+      </div>
       <div class="ilustrativas">
       <div class="miniaturas">
         <figure><img src="/img/ilustrativa-antes.webp" alt="Imagen ilustrativa de la montaña con más nieve"><figcaption class="anio-antes"></figcaption></figure>
@@ -270,6 +282,7 @@ export function montar(contenedor) {
     $('.intro').textContent = con ? V.intro : `Explora ${g.nombre} (${g.pais}) con las capas de los satélites de NASA.`;
     $('.con-datos').hidden = !con;
     $('.sin-datos').hidden = con;
+    if (!con && tipoClima) { tipoClima = null; pintarClima(); } // el efecto es de la Cordillera Real
     if (con && region) pintarVariable();
   }
 
@@ -468,12 +481,59 @@ export function montar(contenedor) {
     if (estado.anio === null) $('.anio-valor').textContent = '15 ago';
   }
 
+  // Nevada / Lluvia según el dato: la intensidad es el valor real del mes elegido
+  // (variables.nieve.valores o variables.lluvia.valores) entre el mínimo y el máximo de la serie.
+  let clima = null;
+  let tipoClima = null; // 'nieve' | 'lluvia' | null
+  const selMes = $('.clima-mes');
+  function llenarMeses(tipo) {
+    const v = region.variables[tipo];
+    const anterior = selMes.value;
+    // Del más reciente al más antiguo, agrupados por año
+    const porAnio = new Map();
+    v.meses.forEach((m) => { const a = m.slice(0, 4); if (!porAnio.has(a)) porAnio.set(a, []); porAnio.get(a).push(m); });
+    selMes.innerHTML = [...porAnio].reverse().map(([a, ms]) => `<optgroup label="${a}">${ms.slice().reverse().map((m) => `<option value="${m}">${nombreMes(m)}</option>`).join('')}</optgroup>`).join('');
+    selMes.value = v.meses.includes(anterior) ? anterior : v.meses[v.meses.length - 1];
+  }
+  function apagarClima() {
+    clima?.destruir();
+    clima = null;
+  }
+  function pintarClima() {
+    raiz.querySelectorAll('.clima [data-clima]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.clima === tipoClima)));
+    const valor = $('.clima-valor');
+    apagarClima();
+    if (!tipoClima) { valor.hidden = true; return; }
+    valor.hidden = false;
+    if (!region) { valor.textContent = 'Cargando los datos…'; return; }
+    const v = region.variables[tipoClima];
+    const i = v.meses.indexOf(selMes.value);
+    if (i < 0) { valor.textContent = 'Ese mes no tiene dato.'; return; }
+    const x = v.valores[i];
+    const min = Math.min(...v.valores);
+    const max = Math.max(...v.valores);
+    const intensidad01 = (x - min) / (max - min);
+    const dato = tipoClima === 'lluvia' ? `${Math.round(x)} mm` : `índice de nieve ${fmt(x, 2)}`;
+    valor.textContent = `${nombreMes(v.meses[i])} · ${dato}`;
+    if (!globo?.viewer) { valor.textContent += ' · el efecto necesita el globo 3D'; return; }
+    clima = crearClima(globo.viewer, { tipo: tipoClima, intensidad01 });
+    if (!clima.animado) valor.textContent += ' · sin animación (menos movimiento)';
+  }
+  raiz.querySelectorAll('.clima [data-clima]').forEach((b) => {
+    b.addEventListener('click', () => {
+      tipoClima = tipoClima === b.dataset.clima ? null : b.dataset.clima;
+      if (tipoClima && region) llenarMeses(tipoClima);
+      pintarClima();
+    });
+  });
+  selMes.addEventListener('change', pintarClima);
+
   const tocarFuera = (e) => {
     if (!burbuja.hidden && !e.target.closest('.menu-guia')) cerrarBurbuja();
     if (!menuCapas.hidden && !e.target.closest('.menu-capas') && !e.target.closest('[data-k="capas"]')) abrirCapas(false);
   };
   document.addEventListener('pointerdown', tocarFuera);
-  quitarAlSalir = () => { document.removeEventListener('pointerdown', tocarFuera); bajas.removeEventListener('change', ajustarCara); clearTimeout(cierre); parar(); };
+  quitarAlSalir = () => { document.removeEventListener('pointerdown', tocarFuera); bajas.removeEventListener('change', ajustarCara); clearTimeout(cierre); parar(); apagarClima(); };
 
   // Al empezar: nuestro caso, la Cordillera Real, con el planeta completo y la capa de nieve
   pintarDialogo();
@@ -567,6 +627,7 @@ export function montar(contenedor) {
     if (!vivo) return;
     region = datos;
     pintarPanel();
+    if (tipoClima) { llenarMeses(tipoClima); pintarClima(); } // se eligió antes de que llegaran los datos
   }).catch((e) => {
     console.warn('APU: no se pudieron leer los datos de la Cordillera Real.', e);
     $('.tarjetas').innerHTML = '<p class="nota">No se pudieron cargar los datos. Revisa que exista public/datos/cordillera-real.json.</p>';
