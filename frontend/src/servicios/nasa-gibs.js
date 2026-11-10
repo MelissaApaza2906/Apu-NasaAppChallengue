@@ -83,6 +83,18 @@ export async function hayImagen(capa, fecha) {
   }
 }
 
+// Primera fecha de la lista que tiene imagen de esa capa (en orden).
+// Devuelve 'AAAA-MM-DD', null si ninguna tiene imagen, o 'error' si NASA no respondió y no hubo ninguna.
+export async function primeraFechaConImagen(capa, fechas) {
+  let huboError = false;
+  for (const f of fechas) {
+    const hay = await hayImagen(capa, f);
+    if (hay === 'si') return f;
+    if (hay === 'error') huboError = true;
+  }
+  return huboError ? 'error' : null;
+}
+
 // Comprueba si NASA responde, pidiendo una sola imagen pequeña
 export async function nasaResponde() {
   const url = `${GIBS}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=BlueMarble_ShadedRelief_Bathymetry&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible_Level8&TILEMATRIX=0&TILEROW=0&TILECOL=0&FORMAT=image%2Fjpeg`;

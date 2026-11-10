@@ -18,6 +18,8 @@ const PICOS = [
   { n: 'Mururata', h: '5 869', lat: -16.53, lon: -67.78, t: 'el Mururata, vecino del Illimani' }
 ];
 const PERIODOS = [[2001, 2005, 2021, 2025], [2006, 2010, 2016, 2020]];
+const ANIOS_TIEMPO = [2001, 2025]; // máquina del tiempo: nieve MODIS del 15 de agosto de cada año
+const PASO_PLAY = 1200;            // ms por año al reproducir
 const INTRO_CR = 'Explora la nieve de la Cordillera Real y analiza su evolución con datos reales del satélite MODIS de NASA.';
 const SIN_DATOS = 'Aquí vemos la nieve del satélite MODIS. El análisis de 25 años de este glaciar todavía no está en APU.';
 const AVISO_CAPA = 'No se pudo cargar la capa de NASA. Los números del panel son los mismos.';
@@ -77,7 +79,7 @@ export function montar(contenedor) {
   const estado = {
     modo: 'glaciares', elegido: 'glaciar', glaciar: principal.id, pico: 0,
     ventana: { glaciares: 0, picos: 0 }, periodo: 0, cerca: false,
-    capa: 'nieve', variable: 'nieve', fecha: '', textoLugar: principal.texto
+    capa: 'nieve', variable: 'nieve', anio: null, textoLugar: principal.texto
   };
   let region = null; // cordillera-real.json cuando termina de cargar
   const raiz = document.createElement('section');
@@ -154,11 +156,11 @@ export function montar(contenedor) {
       </div>
     </aside>
 
-    <div class="menu-fechas" role="group" aria-label="Fecha de la capa de nieve" hidden>
-      <span class="rotulo">Nieve del</span>
-      <button type="button" data-fecha="" aria-pressed="true">Más reciente</button>
-      <button type="button" data-fecha="2001" aria-pressed="false"></button>
-      <button type="button" data-fecha="2025" aria-pressed="false"></button>
+    <div class="menu-fechas" role="group" aria-label="Máquina del tiempo: nieve de cada año" hidden>
+      <button type="button" class="reciente" aria-pressed="true">Más reciente</button>
+      <button type="button" class="play" aria-pressed="false" aria-label="Reproducir los años">▶</button>
+      <input type="range" class="anio" min="${ANIOS_TIEMPO[0]}" max="${ANIOS_TIEMPO[1]}" step="1" value="${ANIOS_TIEMPO[0]}" aria-label="Año de la nieve (15 de agosto)">
+      <output class="anio-valor" aria-live="polite">15 ago</output>
     </div>
 
     <div class="menu-guia entra-abajo">
@@ -399,7 +401,7 @@ export function montar(contenedor) {
   function elegirCapa(capa) {
     estado.capa = capa;
     estado.variable = CAPAS_MENU.find((c) => c.capa === capa).variable;
-    estado.fecha = '';
+    estado.anio = null;
     menuCapas.querySelectorAll('[data-capa]').forEach((b) => b.setAttribute('aria-checked', String((b.dataset.capa || null) === capa)));
     pedirCapa(capa);
     pintarPanel();
@@ -407,25 +409,62 @@ export function montar(contenedor) {
     pintarFechas();
   }
 
-  // Fecha de la capa de nieve: la más reciente, o el mismo día (diaComparar) de 2001 y de 2025
-  const [mesC, diaC] = principal.diaComparar.split('-').map(Number);
-  const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  raiz.querySelectorAll('.menu-fechas [data-fecha]').forEach((b) => {
-    if (b.dataset.fecha) b.textContent = `${diaC} ${MESES[mesC - 1]} ${b.dataset.fecha}`;
-    b.addEventListener('click', () => {
-      estado.fecha = b.dataset.fecha ? `${b.dataset.fecha}-${principal.diaComparar}` : '';
-      pintarFechas();
-      pedirCapa('nieve', estado.fecha || undefined);
+  // Máquina del tiempo: nieve MODIS del 15 de agosto de cada año (2001–2025) o la más reciente.
+  // estado.anio = null → la más reciente. El año elegido se marca en el gráfico con su índice real.
+  const deslizador = $('.menu-fechas .anio');
+  const botonPlay = $('.menu-fechas .play');
+  let reloj = 0;
+  function verAnio(anio) {
+    estado.anio = anio;
+    deslizador.value = String(anio);
+    pintarFechas();
+    $('.anio-valor').textContent = `… ${anio}`; // mientras NASA responde
+    if (region && estado.variable === 'nieve' && lugarConDatos()) pintarVariable();
+    $('.aviso-capa').hidden = true;
+    if (!globo?.mostrarNieveDelAnio) { $('.aviso-capa').hidden = false; return; } // planeta de la maqueta
+    globo.mostrarNieveDelAnio(anio).then((r) => {
+      if (!vivo || estado.anio !== anio) return;
+      if (!r.ok && r.motivo === 'sin-respuesta') $('.aviso-capa').hidden = false;
+      $('.anio-valor').textContent = r.ok ? `${Number(r.fecha.slice(8))} ago ${anio}` : `${anio}: sin imagen`;
     });
+  }
+  function parar() {
+    clearInterval(reloj);
+    reloj = 0;
+    botonPlay.setAttribute('aria-pressed', 'false');
+    botonPlay.textContent = '▶';
+    botonPlay.setAttribute('aria-label', 'Reproducir los años');
+  }
+  botonPlay.addEventListener('click', () => {
+    if (reloj) { parar(); return; }
+    // Empieza en 2001 (o donde estaba) y avanza 1 año cada 1,2 s hasta 2025
+    let anio = estado.anio === null || estado.anio >= ANIOS_TIEMPO[1] ? ANIOS_TIEMPO[0] : estado.anio;
+    verAnio(anio);
+    botonPlay.setAttribute('aria-pressed', 'true');
+    botonPlay.textContent = '❚❚';
+    botonPlay.setAttribute('aria-label', 'Pausar');
+    reloj = setInterval(() => {
+      anio += 1;
+      if (anio > ANIOS_TIEMPO[1]) { parar(); return; }
+      verAnio(anio);
+    }, PASO_PLAY);
+  });
+  deslizador.addEventListener('input', () => { parar(); verAnio(Number(deslizador.value)); });
+  $('.menu-fechas .reciente').addEventListener('click', () => {
+    parar();
+    estado.anio = null;
+    pintarFechas();
+    if (region && estado.variable === 'nieve' && lugarConDatos()) pintarVariable();
+    pedirCapa('nieve');
   });
   function pintarFechas() {
     const visible = estado.capa === 'nieve';
+    if (!visible) parar();
     $('.menu-fechas').hidden = !visible;
     raiz.classList.toggle('con-fechas', visible);
-    raiz.querySelectorAll('.menu-fechas [data-fecha]').forEach((b) => {
-      const f = b.dataset.fecha ? `${b.dataset.fecha}-${principal.diaComparar}` : '';
-      b.setAttribute('aria-pressed', String(f === estado.fecha));
-    });
+    $('.menu-fechas .reciente').setAttribute('aria-pressed', String(estado.anio === null));
+    deslizador.classList.toggle('activo', estado.anio !== null);
+    if (estado.anio === null) $('.anio-valor').textContent = '15 ago';
   }
 
   const tocarFuera = (e) => {
@@ -433,7 +472,7 @@ export function montar(contenedor) {
     if (!menuCapas.hidden && !e.target.closest('.menu-capas') && !e.target.closest('[data-k="capas"]')) abrirCapas(false);
   };
   document.addEventListener('pointerdown', tocarFuera);
-  quitarAlSalir = () => { document.removeEventListener('pointerdown', tocarFuera); bajas.removeEventListener('change', ajustarCara); clearTimeout(cierre); };
+  quitarAlSalir = () => { document.removeEventListener('pointerdown', tocarFuera); bajas.removeEventListener('change', ajustarCara); clearTimeout(cierre); parar(); };
 
   // Al empezar: nuestro caso, la Cordillera Real, con el planeta completo y la capa de nieve
   pintarDialogo();
@@ -505,7 +544,22 @@ export function montar(contenedor) {
       <text x="16" y="${(Y(valores[0]) - 5).toFixed(1)}" fill="#F2F4F8" font-size="10" font-weight="700" font-family="Inter, sans-serif">${fmt(valores[0], V.decimales)}</text>
       <text x="292" y="${(Y(valores[n - 1]) - 9).toFixed(1)}" fill="#F2F4F8" font-size="10" font-weight="700" text-anchor="end" font-family="Inter, sans-serif">${fmt(valores[n - 1], V.decimales)}</text>
       <text x="12" y="108" fill="#A9B4CC" font-size="9" font-family="Inter, sans-serif">${anios[0]}</text>
-      <text x="296" y="108" fill="#A9B4CC" font-size="9" text-anchor="end" font-family="Inter, sans-serif">${ultimo}</text>`;
+      <text x="296" y="108" fill="#A9B4CC" font-size="9" text-anchor="end" font-family="Inter, sans-serif">${ultimo}</text>
+      ${marcaAnio()}`;
+
+    // Máquina del tiempo: el año que se ve en el globo, con su índice real de ese año
+    function marcaAnio() {
+      const i = estado.anio === null || lluvia ? -1 : anios.indexOf(estado.anio);
+      if (i < 0) return '';
+      const x = X(i), y = Y(valores[i]);
+      const texto = `${anios[i]} · ${fmt(valores[i], V.decimales)}`;
+      const ancla = x > 210 ? 'end' : x < 90 ? 'start' : 'middle';
+      return `<line x1="${x.toFixed(1)}" y1="10" x2="${x.toFixed(1)}" y2="96" stroke="#F2F4F8" stroke-opacity=".55" stroke-dasharray="2 2"/>
+        <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.2" fill="#F2F4F8" stroke="#0B192E" stroke-width="1.5"/>
+        <text x="${x.toFixed(1)}" y="8" fill="#F2F4F8" font-size="9.5" font-weight="700" text-anchor="${ancla}" font-family="Inter, sans-serif">${texto}</text>`;
+    }
+    svg.setAttribute('aria-label', svg.getAttribute('aria-label') + (estado.anio !== null && !lluvia && anios.includes(estado.anio)
+      ? ` Año marcado: ${estado.anio}, índice ${fmt(valores[anios.indexOf(estado.anio)], V.decimales)}.` : ''));
   }
 
   cargarRegion('cordillera-real').then((datos) => {

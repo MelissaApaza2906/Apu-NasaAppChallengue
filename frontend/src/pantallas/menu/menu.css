@@ -167,6 +167,12 @@
 .menu-fechas button { min-height: 32px; padding: 0 1.4cqh; border-radius: 999px; border: 1px solid rgba(91, 160, 255, .55); background: rgba(8, 18, 48, .85); color: #D7DEEA; cursor: pointer; font: 500 clamp(10px, 1.6cqh, 13px) var(--letra-texto); white-space: nowrap; }
 .menu-fechas button[aria-pressed="true"] { color: var(--nieve); background: rgba(209, 32, 33, .22); box-shadow: inset 0 0 0 1.5px var(--rojo-apu); border-color: transparent; }
 .menu-fechas button:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
+/* Máquina del tiempo: [Más reciente] [▶] ——o—— 15 ago 2016 */
+.menu-fechas .play { min-width: 36px; padding: 0; font-size: clamp(11px, 1.6cqh, 14px); }
+.menu-fechas .anio { flex: 1; min-width: 0; height: 32px; margin: 0; accent-color: var(--dato-nieve, #8FDBFF); cursor: pointer; opacity: .65; }
+.menu-fechas .anio.activo { opacity: 1; }
+.menu-fechas .anio:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; border-radius: 4px; }
+.menu-fechas .anio-valor { min-width: 7.5ch; font: 600 clamp(10px, 1.6cqh, 13px) var(--letra-texto); color: var(--nieve); white-space: nowrap; text-align: right; }
 
 /* Globo de diálogo del Jukumari en pantallas bajas (mismo estilo que el de la pantalla de carga) */
 .menu-guia .burbuja { position: absolute; left: calc(100% + 1.2cqh); bottom: 0; z-index: 4; width: max-content; max-width: min(46cqw, 320px); margin: 0; padding: 1.2cqh 1.8cqh; border-radius: 2cqh 2cqh 2cqh .4cqh; background: rgba(242, 244, 248, .96); color: var(--noche); font: 600 clamp(11px, 2.6cqh, 15px) / 1.35 var(--letra-texto); box-shadow: 0 .8cqh 2.4cqh rgba(0, 0, 0, .35); transform-origin: 0 100%; }

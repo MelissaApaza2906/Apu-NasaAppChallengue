@@ -9,6 +9,7 @@
 //   globo.elegirPico(0);                 // vuela a ~2 500 km del pico; pausa la rotación
 //   globo.verPlaneta();                  // vuelve al planeta completo y sigue girando
 //   await globo.mostrarCapa('lluvia');   // capa de NASA encima ('nieve' | 'lluvia' | null), fecha opcional
+//   await globo.mostrarNieveDelAnio(2016); // máquina del tiempo: nieve del 15 ago (o hasta el 18); precarga el siguiente
 //   globo.destruir();                    // al salir de la pantalla
 //   globo.viewer                         // el Cesium.Viewer (reutilízalo; null si se ve la imagen)
 //
@@ -24,7 +25,7 @@ import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import './globo3d.css';
 import { CESIUM_TOKEN, EXAGERACION, DIAS_ATRAS_NIEVE } from '../servicios/config.js';
-import { CAPAS, proveedor, nasaResponde, fechaPorDefecto, hayImagen, haceDias, fechaBonita } from '../servicios/nasa-gibs.js';
+import { CAPAS, proveedor, nasaResponde, fechaPorDefecto, hayImagen, haceDias, fechaBonita, primeraFechaConImagen } from '../servicios/nasa-gibs.js';
 
 // Capas de datos que se pueden poner encima del Blue Marble con mostrarCapa(nombre, fecha)
 const CAPAS_DATOS = {
@@ -53,6 +54,9 @@ const POR_DEFECTO = {
   duracionVuelo: 1.6,       // segundos (picos y "ver planeta")
   alturaGlaciar: 3_000_000, // metros sobre el glaciar al elegirlo
   duracionGlaciar: 1.8,     // segundos
+  // Máquina del tiempo (mostrarNieveDelAnio): nieve MODIS del 15 de agosto de cada año;
+  // si ese día no tiene imagen, se prueba hasta el 18
+  tiempo: { desde: 2001, hasta: 2025, mes: '08', dias: [15, 16, 17, 18] },
   // Órbita punteada del menú (SVG viewBox 100, elipse rx 48 ry 44 girada −24°), medida
   // en "cajas del globo": su caja es 108cqh × 80cqh y la del globo 80cqh × 80cqh, mismo centro.
   orbita: { rx: 48, ry: 44, giro: -24, ancho: 108 / 80, alto: 1 }
@@ -155,6 +159,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     viewer: null, // sin globo 3D no hay visor de Cesium
     irA() {}, elegirPico() {}, verPlaneta() {}, estado: () => ({ modo: 'imagen' }),
     mostrarCapa: async () => ({ ok: false, motivo: 'sin-globo' }),
+    mostrarNieveDelAnio: async () => ({ ok: false, motivo: 'sin-globo' }),
     elegirGlaciar(id) { const g = glaciares.find((x) => x.id === id); if (g) op.alElegir?.(g); },
     destruir: () => { destruido = true; raiz.remove(); }
   });
@@ -301,7 +306,7 @@ export function crearGlobo(contenedor, opciones = {}) {
   function escribirCredito() {
     const d = infoCapa && CAPAS_DATOS[infoCapa.nombre];
     credito.textContent = d
-      ? `${CREDITO_BASE}\n${d.titulo} · ${fechaBonita(infoCapa.fecha)}${infoCapa.sinImagen ? ' · sin imagen de NASA para esta fecha' : ''}`
+      ? `${CREDITO_BASE}\n${d.titulo} · ${fechaBonita(infoCapa.fecha)}${infoCapa.sinImagen ? ' · sin imagen de NASA para esta fecha' : ''}${infoCapa.nota ? ` · ${infoCapa.nota}` : ''}`
       : CREDITO_BASE;
   }
 
@@ -310,12 +315,87 @@ export function crearGlobo(contenedor, opciones = {}) {
     capaDatos = null;
   }
 
+  // Capa de NASA con el estilo de su variable, debajo de las luces de las ciudades
+  function ponerCapa(nombre, f, alpha = 0.85) {
+    const c = viewer.imageryLayers.addImageryProvider(proveedor(CAPAS_DATOS[nombre].capa, f));
+    estilizar(c, nombre, alpha);
+    viewer.imageryLayers.raiseToTop(luces);
+    return c;
+  }
+  function estilizar(c, nombre, alpha) {
+    c.alpha = alpha;
+    if (nombre === 'nieve') {
+      // La paleta de NASA para la nieve es rosada/naranja: sin color y con más brillo se ve blanca
+      c.brightness = 1.3;
+      c.saturation = 0;
+      c.gamma = 1.8;
+    }
+  }
+
+  // Máquina del tiempo: fecha con imagen de cada año (15 de agosto; si falta, hasta el 18).
+  // Se recuerda por año. La capa del año siguiente se precarga invisible (alpha 0).
+  const fechasAnio = new Map(); // anio → Promise<'AAAA-MM-DD' | null | 'error'>
+  let precarga = null;          // { fecha, capa }
+  function fechaDelAnio(anio) {
+    const t = op.tiempo;
+    if (!fechasAnio.has(anio)) {
+      const p = primeraFechaConImagen(CAPAS.nieveDia, t.dias.map((d) => `${anio}-${t.mes}-${String(d).padStart(2, '0')}`));
+      fechasAnio.set(anio, p);
+      p.then((f) => { if (f === 'error') fechasAnio.delete(anio); }); // si NASA no respondió, se reintenta luego
+    }
+    return fechasAnio.get(anio);
+  }
+  function quitarPrecarga() {
+    if (precarga && viewer) viewer.imageryLayers.remove(precarga.capa, true);
+    precarga = null;
+  }
+  async function precargarAnio(anio, yo) {
+    if (anio > op.tiempo.hasta) return;
+    const f = await fechaDelAnio(anio);
+    if (yo !== pedidoCapa || !viewer || !f || f === 'error' || precarga?.fecha === f) return;
+    quitarPrecarga();
+    precarga = { fecha: f, capa: ponerCapa('nieve', f, 0) };
+  }
+
+  // Nieve MODIS del año pedido (2001–2025). Devuelve { ok, anio, fecha, nota } o
+  // { ok: false, motivo: 'sin-respuesta' | 'sin-imagen' | 'reemplazado' }.
+  async function mostrarNieveDelAnio(anio) {
+    const yo = ++pedidoCapa;
+    if (!viewer) return { ok: false, motivo: 'sin-globo' };
+    const f = await fechaDelAnio(anio);
+    if (yo !== pedidoCapa || !viewer) return { ok: false, motivo: 'reemplazado' };
+    if (f === 'error') return { ok: false, motivo: 'sin-respuesta' };
+    const pedida = `${anio}-${op.tiempo.mes}-${String(op.tiempo.dias[0]).padStart(2, '0')}`;
+    quitarCapaDatos();
+    if (!f) {
+      quitarPrecarga();
+      infoCapa = { nombre: 'nieve', fecha: pedida, sinImagen: true, nota: `ni hasta el ${op.tiempo.dias.at(-1)}` };
+      escribirCredito();
+      escena.requestRender();
+      return { ok: false, motivo: 'sin-imagen', anio };
+    }
+    if (precarga?.fecha === f) { // ya estaba cargando: se hace visible
+      capaDatos = precarga.capa;
+      precarga = null;
+      estilizar(capaDatos, 'nieve', 0.85);
+    } else {
+      capaDatos = ponerCapa('nieve', f);
+    }
+    const nota = f === pedida ? '' : `el ${op.tiempo.dias[0]} no tenía imagen`;
+    infoCapa = { nombre: 'nieve', fecha: f, sinImagen: false, nota };
+    escribirCredito();
+    escena.requestRender();
+    precargarAnio(anio + 1, yo);
+    return { ok: true, anio, fecha: f, nota };
+  }
+
   // nombre: 'nieve' | 'lluvia' | null. fecha: 'AAAA-MM-DD' (por defecto, la más reciente con datos).
   // Devuelve { ok, nombre, fecha, sinImagen } o { ok: false, motivo: 'sin-respuesta' } si NASA no
   // responde (en ese caso el globo queda como estaba).
   async function mostrarCapa(nombre, fecha) {
     const yo = ++pedidoCapa;
     if (!viewer) return { ok: false, motivo: 'sin-globo' };
+    quitarPrecarga(); // fuera de la máquina del tiempo no hace falta el año siguiente
     if (!nombre) {
       quitarCapaDatos();
       infoCapa = null;
@@ -334,17 +414,7 @@ export function crearGlobo(contenedor, opciones = {}) {
 
     quitarCapaDatos();
     infoCapa = { nombre, fecha: f, sinImagen: hay === 'no' };
-    if (hay === 'si') {
-      capaDatos = viewer.imageryLayers.addImageryProvider(proveedor(d.capa, f));
-      capaDatos.alpha = 0.85;
-      if (nombre === 'nieve') {
-        // La paleta de NASA para la nieve es rosada/naranja: sin color y con más brillo se ve blanca
-        capaDatos.brightness = 1.3;
-        capaDatos.saturation = 0;
-        capaDatos.gamma = 1.8;
-      }
-      viewer.imageryLayers.raiseToTop(luces);
-    }
+    if (hay === 'si') capaDatos = ponerCapa(nombre, f);
     escribirCredito();
     escena.requestRender();
     return { ok: true, nombre, fecha: f, sinImagen: hay === 'no' };
@@ -739,6 +809,7 @@ export function crearGlobo(contenedor, opciones = {}) {
       fpsMedidos = Math.round((cuadros * 1000) / ms);
       if (fpsMedidos < 30) {
         quitarCapaDatos();
+        quitarPrecarga();
         infoCapa = null;
         escribirCredito();
         console.info(`APU: ${fpsMedidos} FPS en celular; se quita la capa de datos y quedan los halos.`);
@@ -846,7 +917,7 @@ export function crearGlobo(contenedor, opciones = {}) {
   }
 
   return {
-    irA, elegirGlaciar, elegirPico, verPlaneta, mostrarCapa, destruir, estado,
+    irA, elegirGlaciar, elegirPico, verPlaneta, mostrarCapa, mostrarNieveDelAnio, destruir, estado,
     // El Cesium.Viewer del globo, para reutilizarlo (no crear otro visor). null si pasó a imagen.
     get viewer() { return viewer; }
   };
