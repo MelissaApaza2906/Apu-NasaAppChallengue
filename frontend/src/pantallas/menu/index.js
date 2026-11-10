@@ -2,13 +2,14 @@
 // El planeta es para explorar: grande, centrado y siempre entero, con un pin por glaciar.
 // Al tocar un pin, el planeta lo deja al frente y se corre a la izquierda, y se abre la pestaña
 // de historia (portada, línea de tiempo, dato grande y "VER MONTAÑA EN 3D", que abre
-// montanas-puente.js). El Jukumari, de cuerpo entero, habla al tocarlo o al tocar su nubecita.
+// montanas-puente.js). El Jukumari es el asistente de toda la app (componentes/jukumari-asistente.js):
+// el menú le avisa con 'apu:contexto' cuándo se abre la historia de un glaciar o la montaña.
 // Textos y datos de cada glaciar: contenido/glaciares.js. Datos de NASA de la montaña:
 // frontend/public/datos/cordillera-real.json.
 // Globo: si componentes/globo3d.js exporta crearGlobo(), se usa el globo 3D de Cesium;
 // si no (o si falla), se muestra el planeta de la maqueta.
 import './menu.css';
-import '../carga/carga.css'; // el Jukumari en 3D y el botón con cuña roja (.carga-juku, .btn-mision)
+import '../carga/carga.css'; // el botón con cuña roja (.btn-mision)
 import './montanas-puente.css';
 import { ir } from '../../router.js';
 import { cargarRegion } from '../../servicios/datos.js';
@@ -18,9 +19,7 @@ import { leerProgreso } from '../../servicios/progreso.js';
 import { avatarPorId } from '../../contenido/avatares.js';
 
 const AVISO_CAPA = 'No se pudo cargar la capa de NASA. El planeta sigue con la imagen normal.';
-const SIN_GLACIAR = 'Toca un glaciar para conocer su historia. ¡Empieza por el rojo, el de Bolivia!';
 const EN_PREPARACION = 'En preparación';
-const ESPERA_GLOBO = 6000; // ms que se ve el globo de diálogo del Jukumari
 // Opciones del botón flotante de capas (arriba a la derecha)
 const CAPAS_MENU = [
   { capa: null, n: 'Normal' },
@@ -130,19 +129,6 @@ export function montar(contenedor) {
         </button>
       </div>
     </aside>
-
-    <div class="carga-juku menu-juku">
-      <div class="aura" aria-hidden="true"></div>
-      <div class="sombra" aria-hidden="true"></div>
-      <div class="cuerpo-anim">
-        <button type="button" class="juku-btn" aria-label="Escuchar al Jukumari, tu guía">
-          <img class="capa" src="/img/jukumari-cuerpo.webp" alt="El Jukumari, tu guía, con su máscara de la Diablada, gafas de nieve y equipo de montaña, saludando con la mano">
-          <div class="saludo" aria-hidden="true"></div>
-        </button>
-      </div>
-      <button type="button" class="juku-nube" aria-label="El Jukumari quiere decirte algo"><span></span><span></span><span></span></button>
-      <p class="juku-globo" role="status" hidden></p>
-    </div>
 
     <button type="button" class="menu-volver" hidden>
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3Z"/></svg>Volver al planeta
@@ -280,9 +266,9 @@ export function montar(contenedor) {
     pestana.classList.remove('entra'); void pestana.offsetWidth; pestana.classList.add('entra');
     pestana.scrollTop = 0;
 
-    // El Jukumari tiene algo nuevo que decir: su nubecita vuelve a latir (sin abrirse sola)
-    cerrarGlobo();
-    avisarNube();
+    // El Jukumari asistente: ahora habla de este glaciar (con su frase, si la tiene)
+    avisarAsistente('glaciar');
+    window.dispatchEvent(new CustomEvent('apu:jukumari', { detail: h?.jukumari || `${g.nombre}: su historia está en preparación.` }));
   }
   function cerrarPestana() {
     if (!elegido) return;
@@ -291,8 +277,7 @@ export function montar(contenedor) {
     raiz.classList.remove('con-pestana');
     pestana.hidden = true;
     globo?.verPlaneta?.(); // el planeta vuelve al centro y sigue girando
-    cerrarGlobo();
-    avisarNube();
+    avisarAsistente('menu');
   }
   $('.pestana-cerrar').addEventListener('click', cerrarPestana);
 
@@ -312,49 +297,26 @@ export function montar(contenedor) {
     if (!vivo) { montana?.cerrar(); montana = null; return; }
     $('.menu-volver').hidden = false;
     $('.menu-volver').focus();
+    avisarAsistente('montana');
   });
   function cerrarMontana() {
     if (!montana) return;
     montana.cerrar();
     montana = null;
     $('.menu-volver').hidden = true;
+    avisarAsistente(elegido ? 'glaciar' : 'menu');
   }
   $('.menu-volver').addEventListener('click', () => { cerrarMontana(); $('.pestana-ver').focus(); });
 
-  // ---------------------------------------------------------------
-  // El Jukumari: su nubecita (3 puntitos) avisa que tiene algo que decir; al tocarla o al tocarlo
-  // a él, el globo de diálogo dice el texto del momento. Se cierra al tocar fuera o a los 6 s.
-  // ---------------------------------------------------------------
-  const nube = $('.juku-nube');
-  const globoDialogo = $('.juku-globo');
-  let cierre = 0;
-  const textoJukumari = () => (elegido ? (historiaDe(elegido)?.jukumari || `${elegido.nombre}: su historia está en preparación.`) : SIN_GLACIAR);
-  function cerrarGlobo() {
-    clearTimeout(cierre);
-    globoDialogo.hidden = true;
-  }
-  function abrirGlobo() {
-    globoDialogo.textContent = textoJukumari();
-    globoDialogo.hidden = false;
-    globoDialogo.classList.remove('nueva'); void globoDialogo.offsetWidth; globoDialogo.classList.add('nueva');
-    clearTimeout(cierre);
-    cierre = setTimeout(cerrarGlobo, ESPERA_GLOBO);
-  }
-  function avisarNube() {
-    nube.classList.remove('late'); void nube.offsetWidth; nube.classList.add('late');
-  }
-  const alternarGlobo = () => (globoDialogo.hidden ? abrirGlobo() : cerrarGlobo());
-  nube.addEventListener('click', alternarGlobo);
-  $('.juku-btn').addEventListener('click', alternarGlobo);
+  // Avisa al Jukumari asistente qué se está viendo en el menú: 'menu' | 'glaciar' | 'montana'
+  const avisarAsistente = (contexto) => window.dispatchEvent(new CustomEvent('apu:contexto', { detail: contexto }));
 
   const tocarFuera = (e) => {
-    if (!globoDialogo.hidden && !e.target.closest('.menu-juku')) cerrarGlobo();
     if (!menuCapas.hidden && !e.target.closest('.menu-capas') && !e.target.closest('.boton-capas')) abrirCapas(false);
   };
   const conTeclado = (e) => {
     if (e.key !== 'Escape') return;
-    if (!globoDialogo.hidden) cerrarGlobo();
-    else if (montana) cerrarMontana();
+    if (montana) cerrarMontana();
     else if (elegido) cerrarPestana();
   };
   document.addEventListener('pointerdown', tocarFuera);
@@ -362,12 +324,9 @@ export function montar(contenedor) {
   quitarAlSalir = () => {
     document.removeEventListener('pointerdown', tocarFuera);
     document.removeEventListener('keydown', conTeclado);
-    clearTimeout(cierre);
     cancelAnimationFrame(cuenta);
     cerrarMontana();
   };
-
-  avisarNube();
 
   // "Mi expediente" del riel: la cara del avatar elegido en el registro (si no hay, el ícono)
   leerProgreso().then((p) => {

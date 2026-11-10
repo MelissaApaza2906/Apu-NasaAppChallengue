@@ -1,8 +1,8 @@
 // Pantalla: registro del detective (apodo + avatar) · #/acceso/<ruta a la que volver>
 // Aparece solo cuando una ruta necesita perfil (etapas, lecciones, casos, insignias). La sesión ya
 // existe (anónima, se crea sola al iniciar la app): aquí no hay correo ni contraseña.
-// Al terminar, vuelve a la ruta pedida (o al menú).
-import '../carga/carga.css'; // el Jukumari en 3D y la nieve de la pantalla de carga
+// Al terminar, vuelve a la ruta pedida (o al menú). El Jukumari que saluda aquí es el asistente de la app.
+import '../carga/carga.css'; // la nieve de la pantalla de carga
 import './acceso.css';
 import { ir } from '../../router.js';
 import { crearCopos } from '../carga/index.js';
@@ -10,7 +10,6 @@ import { guardarPerfil, leerProgreso } from '../../servicios/progreso.js';
 import { AVATARES } from '../../contenido/avatares.js';
 
 const APODO_VALIDO = /^[\p{L}\p{N} _-]{2,20}$/u;
-const SALUDO = 'Soy el Jukumari, explorador de la Cordillera. ¿Cómo te llamo, detective?';
 
 export function montar(contenedor, params = []) {
   const destino = params.filter(Boolean).join('/') || 'menu';
@@ -20,16 +19,6 @@ export function montar(contenedor, params = []) {
     <div class="acceso-fondo" aria-hidden="true"></div>
     <div class="carga-nieve" aria-hidden="true"></div>
     <div class="acceso-velo" aria-hidden="true"></div>
-
-    <div class="carga-juku acceso-juku">
-      <div class="aura" aria-hidden="true"></div>
-      <div class="sombra" aria-hidden="true"></div>
-      <div class="cuerpo-anim">
-        <img class="capa" src="/img/jukumari-cuerpo.webp" alt="El Jukumari, tu guía, con su máscara de la Diablada, gafas de nieve y equipo de montaña, saludando con la mano">
-        <div class="saludo" aria-hidden="true"></div>
-      </div>
-      <p class="dialogo nuevo">${SALUDO}</p>
-    </div>
 
     <form class="acceso-tarjeta" novalidate aria-labelledby="acceso-titulo">
       <img src="/img/logo-apu.png" alt="APU" class="logo">

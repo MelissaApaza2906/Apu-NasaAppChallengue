@@ -16,7 +16,7 @@
   --panel-izq: calc(100cqw - 2.6cqh - var(--ancho-panel) - 2cqh);
   --carrusel-arriba: calc(3.2cqh + 52px);
 }
-/* Con la pestaña: el planeta (más chico y un poco más arriba) no toca al Jukumari */
+/* Con la pestaña: el planeta, más chico y un poco más arriba (deja libre la esquina del Jukumari asistente) */
 .pantalla-menu.con-pestana { --borde-der: var(--ancho-pestana); --diam: min(86cqh, var(--libre)); --planeta-arriba: max(1.5cqh, calc((100cqh - var(--diam)) / 2 - 7cqh)); }
 
 /* Fondo galáctico */
@@ -75,7 +75,7 @@
 .menu-cargando { border: 1px solid rgba(91, 160, 255, .45); background: rgba(8, 18, 48, .85); color: #D7DEEA; }
 .menu-aviso[hidden], .menu-cargando[hidden] { display: none; }
 
-/* ---------- Riel de 5 botones (arriba, para dejar al Jukumari entero abajo) ---------- */
+/* ---------- Riel de 4 botones (arriba, para dejar libre la esquina del Jukumari asistente) ---------- */
 .menu-riel { position: absolute; z-index: 3; left: 1.6cqw; top: 14cqh; padding: 1.4cqh; border-radius: 999px; display: flex; flex-direction: column; gap: 1.6cqh; }
 .menu-riel .redondo { width: var(--boton-riel); height: var(--boton-riel); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--nieve); cursor: pointer; border: 1.5px solid rgba(242, 244, 248, .75); background: rgba(8, 18, 48, .6); transition: background .15s, box-shadow .15s; }
 .menu-riel .redondo svg { width: 46%; height: 46%; }
@@ -101,33 +101,6 @@
 /* Crédito de NASA: una línea, abajo a la derecha */
 .menu-credito { position: absolute; z-index: 2; right: var(--margen); bottom: 1.4cqh; margin: 0; white-space: nowrap; font: 500 11px / 1.2 var(--letra-texto); color: #D7DEEA; opacity: .6; pointer-events: none; transition: right .6s cubic-bezier(.2, .8, .2, 1); }
 .pantalla-menu.con-pestana .menu-credito { right: calc(var(--ancho-pestana) + var(--margen)); }
-
-/* ---------- El Jukumari de cuerpo entero (reutiliza .carga-juku de la pantalla de carga) ---------- */
-.carga-juku.menu-juku { z-index: 4; top: auto; bottom: 2cqh; left: 1.2cqw; height: clamp(150px, 30cqh, 300px); }
-/* Nubecita de chat junto a su cabeza: 3 puntitos que laten */
-.juku-nube {
-  position: absolute; z-index: 2; left: 66%; top: -4%; width: 46px; height: 36px; padding: 0;
-  display: flex; align-items: center; justify-content: center; gap: 5px;
-  border: none; border-radius: 18px 18px 18px 4px; background: #FFFFFF; cursor: pointer;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, .35); transform-origin: 0 100%;
-}
-.juku-nube::after { content: ''; position: absolute; inset: -4px; } /* área táctil de 54 × 44 px */
-.juku-nube span { width: 7px; height: 7px; border-radius: 50%; background: #0B192E; animation: nubePunto 1.2s ease-in-out infinite; }
-.juku-nube span:nth-child(2) { animation-delay: .2s; }
-.juku-nube span:nth-child(3) { animation-delay: .4s; }
-@keyframes nubePunto { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-4px); opacity: 1; } }
-.juku-nube.late { animation: nubeLate .9s cubic-bezier(.2, 1.6, .4, 1) both; }
-@keyframes nubeLate { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); } }
-.juku-nube:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
-/* Globo de diálogo: arriba a la derecha del Jukumari, nunca más ancho que 40cqw */
-.juku-globo {
-  position: absolute; z-index: 3; left: 88%; bottom: 80%; width: max-content; max-width: 40cqw; margin: 0;
-  padding: 1.2cqh 1.8cqh; border-radius: 2cqh 2cqh 2cqh .4cqh; background: rgba(242, 244, 248, .97); color: #0B192E;
-  font: 600 clamp(13px, 2.2cqh, 18px) / 1.4 var(--letra-texto); box-shadow: 0 .8cqh 2.4cqh rgba(0, 0, 0, .4); transform-origin: 0 100%;
-}
-.juku-globo[hidden] { display: none; }
-.juku-globo.nueva { animation: menuBurbuja .35s cubic-bezier(.2, 1.5, .4, 1) both; }
-@keyframes menuBurbuja { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
 
 /* ---------- Pestaña de historia (lateral derecha, de arriba a abajo) ---------- */
 .menu-pestana {
@@ -195,9 +168,8 @@
 .menu-volver svg { width: 1.3em; height: 1.3em; }
 .menu-volver:hover { background: rgba(31, 65, 108, .95); }
 .menu-volver:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
-/* Con la vista de la montaña, la pestaña y el Jukumari se esconden */
+/* Con la vista de la montaña, la pestaña y el botón de capas se esconden */
 .pantalla-menu.con-montana .menu-pestana,
-.pantalla-menu.con-montana .menu-juku,
 .pantalla-menu.con-montana .menu-capas-caja { display: none; }
 
 /* ---------- Panel de datos y máquina del tiempo de la vista de la montaña ---------- */
@@ -271,12 +243,8 @@
 /* ---------- Pantallas bajas (celular horizontal) ---------- */
 @media (max-height: 500px) {
   .pantalla-menu { --ancho-pestana: 50cqw; }
-  .pantalla-menu.con-pestana { --diam: min(92cqh, var(--libre)); --planeta-arriba: calc((100cqh - var(--diam)) / 2); } /* sin Jukumari a la vista */
+  .pantalla-menu.con-pestana { --diam: min(92cqh, var(--libre)); --planeta-arriba: calc((100cqh - var(--diam)) / 2); }
   .menu-riel { gap: 1.2cqh; padding: 1cqh; }
-  /* El riel ocupa toda la columna izquierda: el Jukumari va a su derecha */
-  .carga-juku.menu-juku { left: var(--riel-der); bottom: 2cqh; }
-  /* Con la pestaña (mitad derecha), el planeta ocupa la mitad izquierda y el Jukumari se esconde para no taparlo */
-  .pantalla-menu.con-pestana .menu-juku { display: none; }
   .pestana-portada { min-height: 104px; }
   .menu-panel .grafico svg text { font-size: 15.5px; } /* el panel mide 260 px: 15,5 unidades = 12 px */
   .menu-panel select { font-size: 12px; }
@@ -287,7 +255,7 @@
 @media (prefers-reduced-motion: reduce) {
   .menu-orbita, .menu-planeta, .menu-credito, .menu-arriba-der { transition: none; }
   .menu-estrellas span, .menu-planeta.maqueta, .entra-der, .entra-izq,
-  .juku-nube, .juku-nube span, .juku-globo.nueva, .menu-pestana.entra,
+  .menu-pestana.entra,
   .pestana-linea::before, .pestana-linea li, .linea-graf,
-  .menu-juku .saludo, .menu-juku .cuerpo-anim, .pestana-ver.btn-mision::before { animation: none; }
+  .pestana-ver.btn-mision::before { animation: none; }
 }

@@ -1,0 +1,105 @@
+/* El Jukumari asistente: abajo a la izquierda en todas las pantallas (menos la carga).
+   JS lo corre (--mover-x / --mover-y) si chocaría con un botón, el riel o un panel. */
+.asistente {
+  --alto-juku: clamp(120px, 26cqh, 260px);
+  position: fixed; z-index: 40; left: max(1.2vw, env(safe-area-inset-left)); bottom: max(2vh, env(safe-area-inset-bottom));
+  transform: translate(var(--mover-x, 0px), var(--mover-y, 0px)); transition: transform .35s cubic-bezier(.2, .8, .2, 1);
+  color: var(--nieve); font-family: var(--letra-texto);
+}
+.asistente[hidden] { display: none; }
+
+/* Cuerpo entero con la mano que saluda y el efecto 3D (reutiliza .carga-juku de la pantalla de carga) */
+.carga-juku.asistente-juku { position: relative; top: auto; left: auto; height: var(--alto-juku); z-index: auto; }
+.carga-juku.asistente-juku .aura { filter: blur(1.4cqh); }
+.carga-juku.asistente-juku .capa { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* Nubecita blanca con 3 puntitos, junto a la cabeza */
+.asistente-nube {
+  position: absolute; z-index: 2; left: 68%; top: -6%; width: 46px; height: 36px; padding: 0;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  border: none; border-radius: 18px 18px 18px 4px; background: #FFFFFF; cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .35); transform-origin: 0 100%;
+}
+.asistente-nube::after { content: ''; position: absolute; inset: -4px; } /* área táctil de 54 × 44 px */
+.asistente-nube span { width: 7px; height: 7px; border-radius: 50%; background: #0B192E; animation: asistentePunto 1.2s ease-in-out infinite; }
+.asistente-nube span:nth-child(2) { animation-delay: .2s; }
+.asistente-nube span:nth-child(3) { animation-delay: .4s; }
+@keyframes asistentePunto { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-4px); opacity: 1; } }
+/* La primera vez en cada pantalla: late 3 veces */
+.asistente-nube.late { animation: asistenteLate .8s cubic-bezier(.2, 1.6, .4, 1) 3; }
+@keyframes asistenteLate { 0% { transform: scale(1); } 40% { transform: scale(1.28); box-shadow: 0 0 0 8px rgba(255, 255, 255, .25); } 100% { transform: scale(1); } }
+.asistente-nube:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
+
+/* Botón "—" para minimizar (se ve chico; el área táctil es de 44 px) */
+.asistente-minimizar {
+  position: absolute; z-index: 2; left: -6px; top: -6px; width: 44px; height: 44px; padding: 0; border: none; background: transparent; cursor: pointer;
+  color: var(--nieve); font: 700 14px / 1 var(--letra-texto);
+}
+.asistente-minimizar::before { content: ''; position: absolute; left: 10px; top: 10px; width: 24px; height: 24px; border-radius: 50%; background: rgba(8, 18, 48, .85); border: 1px solid rgba(242, 244, 248, .6); z-index: -1; }
+.asistente-minimizar:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: -4px; border-radius: 50%; }
+
+/* Minimizado: una carita redonda de 56 px */
+.asistente-carita { display: none; width: 56px; height: 56px; padding: 0; border-radius: 50%; border: 2px solid #5BA0FF; background: rgba(8, 18, 48, .9); cursor: pointer; overflow: hidden; box-shadow: 0 0 12px rgba(64, 150, 255, .55); }
+.asistente-carita img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.asistente-carita:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
+.asistente.minimizado .asistente-juku { display: none; }
+.asistente.minimizado .asistente-carita { display: block; }
+
+/* ---------- El panel (diálogo), encima del Jukumari ---------- */
+.asistente-panel {
+  position: absolute; left: 0; bottom: calc(100% + 10px);
+  width: clamp(260px, 30cqw, 380px); max-height: calc(100vh - var(--alto-juku) - 4vh - 24px); overflow-y: auto; overscroll-behavior: contain;
+  padding: 14px 16px 16px; border-radius: 18px; box-sizing: border-box;
+  background: linear-gradient(160deg, rgba(14, 30, 72, .96), rgba(8, 18, 48, .97));
+  border: 1px solid rgba(91, 160, 255, .45);
+  box-shadow: 0 0 3cqh rgba(31, 95, 200, .25), inset 0 0 2cqh rgba(31, 95, 200, .12), 0 10px 30px rgba(0, 0, 0, .45);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  font-size: 14px; line-height: 1.45; animation: asistentePanel .25s ease-out both; transform-origin: 20% 100%;
+}
+.asistente-panel[hidden] { display: none; }
+.asistente-panel:focus { outline: none; }
+.asistente-panel:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
+.asistente.minimizado .asistente-panel { bottom: calc(56px + 10px); max-height: calc(100vh - 56px - 4vh - 24px); }
+@keyframes asistentePanel { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+.asistente-panel header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.asistente-panel h2 { margin: 0; font: 400 13px var(--letra-titulo); letter-spacing: .1em; color: #8FDBFF; }
+.asistente-cerrar { flex: none; width: 44px; height: 44px; margin: -8px -8px -8px 0; display: grid; place-items: center; border: none; border-radius: 50%; background: transparent; color: var(--nieve); cursor: pointer; }
+.asistente-cerrar svg { width: 20px; height: 20px; }
+.asistente-cerrar:hover { background: rgba(31, 65, 108, .9); }
+.asistente-cerrar:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: -3px; }
+.asistente-cuerpo { display: flex; flex-direction: column; gap: 12px; }
+.asistente-globo { margin: 0; padding: 10px 14px; border-radius: 14px 14px 14px 4px; background: rgba(242, 244, 248, .97); color: #0B192E; font-weight: 600; font-size: 14px; }
+.asistente-bloque { display: flex; flex-direction: column; gap: 8px; }
+.asistente-bloque h3 { margin: 0; font: 600 13px var(--letra-texto); color: #D7DEEA; }
+.asistente-opcion { min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(91, 160, 255, .55); background: rgba(8, 18, 48, .85); color: var(--nieve); cursor: pointer; font: 600 14px var(--letra-texto); text-align: left; }
+.asistente-opcion:hover, .asistente-chip:hover { background: rgba(31, 65, 108, .9); }
+.asistente-opcion:focus-visible, .asistente-chip:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
+.asistente-respuesta { margin: 0; padding: 10px 12px; border-radius: 12px; background: rgba(12, 28, 68, .85); border: 1px solid rgba(91, 160, 255, .3); color: #E6EBF3; font-size: 14px; }
+.asistente-respuesta[hidden], .asistente-concepto[hidden] { display: none; }
+.asistente-respuesta p { margin: 0; }
+.asistente-respuesta small, .asistente-concepto small { display: block; margin-top: 4px; font: 500 13px var(--letra-dato); color: #A9B4CC; }
+.asistente-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.asistente-chip { min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(143, 219, 255, .5); background: rgba(8, 18, 48, .85); color: #CFE3FF; cursor: pointer; font: 500 13px var(--letra-texto); }
+.asistente-chip[aria-pressed="true"] { border-color: var(--rojo-apu); background: rgba(209, 32, 33, .2); color: var(--nieve); }
+.asistente-concepto { padding: 10px 12px; border-radius: 12px; background: rgba(12, 28, 68, .85); border: 1px solid rgba(143, 219, 255, .35); }
+.asistente-concepto h4 { margin: 0 0 4px; font: 700 14px var(--letra-texto); color: #8FDBFF; }
+.asistente-concepto p { margin: 0; font-size: 14px; color: #E6EBF3; }
+.asistente-concepto details, .asistente-pregunta { margin-top: 6px; }
+.asistente-pregunta { border-radius: 12px; background: rgba(12, 28, 68, .7); border: 1px solid rgba(91, 160, 255, .25); }
+.asistente-panel summary { min-height: 44px; display: flex; align-items: center; padding: 0 12px; cursor: pointer; font-weight: 600; font-size: 14px; list-style-position: inside; }
+.asistente-panel summary:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: -3px; border-radius: 12px; }
+.asistente-pregunta p, .asistente-concepto details p { margin: 0; padding: 0 12px 10px; font-size: 14px; color: #E6EBF3; }
+/* Lecciones y casos: lugar para el botón "Dame una pista" (lo conecta quien escribe las lecciones) */
+.asistente-pista:empty { display: none; }
+
+/* Celular horizontal: 30 % más chico */
+@media (max-height: 500px) {
+  .asistente { --alto-juku: clamp(84px, 18.2cqh, 182px); }
+  .asistente-nube { top: -14%; left: 62%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .asistente { transition: none; }
+  .asistente-nube, .asistente-nube span, .asistente-nube.late, .asistente-panel,
+  .asistente .saludo, .asistente .cuerpo-anim { animation: none; }
+}

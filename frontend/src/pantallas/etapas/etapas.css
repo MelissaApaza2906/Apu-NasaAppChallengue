@@ -97,6 +97,3 @@
 
 .etapas-panel .bloqueo { display: flex; align-items: center; justify-content: center; gap: 1cqh; min-height: clamp(44px, 7cqh, 64px); padding: 0 2cqh; border-radius: 999px; border: 1.5px dashed rgba(169, 180, 204, .6); color: #A9B4CC; font-size: clamp(10px, 1.7cqh, 14px); text-align: center; }
 .etapas-panel .bloqueo svg { width: 2.4cqh; height: 2.4cqh; flex: none; }
-.etapas-panel .jukumari { display: flex; align-items: flex-end; gap: 1.2cqh; }
-.etapas-panel .jukumari img { width: clamp(40px, 7.4cqh, 70px); height: clamp(40px, 7.4cqh, 70px); flex: none; border-radius: 50%; border: 2.5px solid var(--rojo-apu); object-fit: cover; }
-.etapas-panel .jukumari p { margin: 0; padding: 1cqh 1.4cqh; border-radius: 1.6cqh 1.6cqh 1.6cqh .4cqh; background: rgba(242, 244, 248, .95); color: var(--noche); font-size: clamp(10px, 1.7cqh, 14px); line-height: 1.4; font-weight: 500; }

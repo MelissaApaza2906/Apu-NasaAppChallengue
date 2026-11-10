@@ -1,20 +1,14 @@
-/* Registro del detective: el Jukumari a la izquierda, la tarjeta a la derecha */
+/* Registro del detective: la tarjeta al centro (el Jukumari es el asistente de la app, abajo a la izquierda) */
 .pantalla-acceso { position: absolute; inset: 0; overflow: hidden; background: var(--noche); color: var(--nieve); font-family: var(--letra-texto); }
 
-/* Fondo: el Illimani desenfocado y más oscuro, nieve (de la carga) y un velo oscuro hacia la derecha */
+/* Fondo: el Illimani desenfocado y más oscuro, nieve (de la carga) y un velo oscuro detrás de la tarjeta */
 .acceso-fondo { position: absolute; inset: -12px; background: var(--noche) url('/img/fondo-illimani.webp') center / cover no-repeat; filter: blur(4px) brightness(.6); }
-.acceso-velo { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(6, 14, 34, 0) 20%, rgba(6, 14, 34, .55) 58%, rgba(6, 14, 34, .85) 100%); }
+.acceso-velo { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 50% 70% at 50% 50%, rgba(6, 14, 34, .7), rgba(6, 14, 34, .25) 80%); }
 .pantalla-acceso .carga-nieve { position: absolute; inset: 0; pointer-events: none; }
-
-/* El Jukumari (reutiliza .carga-juku: aura, sombra, luz de borde y mano que saluda) */
-.carga-juku.acceso-juku { height: 70cqh; top: 50%; translate: 0 -46%; left: max(3cqw, calc(30cqw - 46cqh)); z-index: 2; }
-.carga-juku.acceso-juku .capa { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-/* Su globo de diálogo, junto a la cabeza */
-.carga-juku.acceso-juku .dialogo { left: 86%; top: 4%; width: max-content; max-width: min(24cqw, 44cqh); font-size: clamp(13px, 2.1cqh, 19px); }
 
 /* Tarjeta (.hud) */
 .acceso-tarjeta {
-  position: absolute; z-index: 3; top: 50%; right: max(3cqw, calc(22cqw - 22cqh)); translate: 0 -50%;
+  position: absolute; z-index: 3; top: 50%; left: 50%; translate: -50% -50%;
   width: clamp(320px, 34cqw, 480px); max-height: calc(100cqh - 4cqh); overflow-y: auto; overscroll-behavior: contain;
   padding: clamp(18px, 3.4cqh, 36px) clamp(18px, 2.6cqw, 36px); border-radius: 24px; box-sizing: border-box;
   display: flex; flex-direction: column; gap: clamp(10px, 1.8cqh, 18px);
@@ -47,11 +41,9 @@
 .acceso-tarjeta .error:empty { display: none; }
 .acceso-tarjeta .nota { margin: 0; font-size: 12px; line-height: 1.45; color: #A9B4CC; text-align: center; }
 
-/* Celular horizontal: el Jukumari más chico; la tarjeta con scroll interno */
+/* Celular horizontal: la tarjeta con scroll interno */
 @media (max-height: 500px) {
-  .carga-juku.acceso-juku { height: 62cqh; left: 2cqw; }
-  .carga-juku.acceso-juku .dialogo { max-width: min(30cqw, 60cqh); font-size: 12px; }
-  .acceso-tarjeta { max-height: calc(100cqh - 16px); right: 2cqw; }
+  .acceso-tarjeta { max-height: calc(100cqh - 16px); }
   .acceso-tarjeta .avatar img { width: 64px; height: 64px; }
 }
 

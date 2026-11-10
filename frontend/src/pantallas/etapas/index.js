@@ -9,11 +9,11 @@ import { LECCIONES } from '../../contenido/lecciones.js';
 
 // Textos de cada etapa (t = cantidad de actividades, pastilla roja)
 const ETAPAS = [
-  { id: 'variable', p: 'Nieve, lluvia o temperatura: cada una cuenta una parte de la historia del agua.', t: 8, j: '¡Empecemos por aquí! Primero aprendemos qué vamos a medir.' },
-  { id: 'region', p: 'En el globo solo brillan los glaciares del mundo. Aprendes a elegir uno.', t: 7, j: 'Termina la lección 1 y te llevo a volar sobre los glaciares.' },
-  { id: 'periodo', p: 'Con pocos años, un año raro puede engañarte. Aprendes a elegir el periodo.', t: 6, j: 'El clima se mide en muchos años, no en una semana.' },
-  { id: 'serie', p: 'Un gráfico con un dato por mes desde 2001. Aprendes a leerlo.', t: 9, j: '¡Aquí verás los datos reales de NASA!' },
-  { id: 'significancia', p: '¿El cambio es real o es casualidad? Contamos cuántas veces bajó y cuántas subió.', t: 8, j: 'El último paso del detective: comprobar con evidencia.' }
+  { id: 'variable', p: 'Nieve, lluvia o temperatura: cada una cuenta una parte de la historia del agua.', t: 8 },
+  { id: 'region', p: 'En el globo solo brillan los glaciares del mundo. Aprendes a elegir uno.', t: 7 },
+  { id: 'periodo', p: 'Con pocos años, un año raro puede engañarte. Aprendes a elegir el periodo.', t: 6 },
+  { id: 'serie', p: 'Un gráfico con un dato por mes desde 2001. Aprendes a leerlo.', t: 9 },
+  { id: 'significancia', p: '¿El cambio es real o es casualidad? Contamos cuántas veces bajó y cuántas subió.', t: 8 }
 ].map((e) => {
   const l = LECCIONES.find((x) => x.id === e.id);
   return { ...e, n: l.nombre, s: l.paso, c: l.conceptos };
@@ -21,8 +21,7 @@ const ETAPAS = [
 ETAPAS.push({
   id: 'casos', n: 'CASOS', s: 'Etapa 2 · Detective', t: 3,
   p: 'Investigas glaciares reales con datos de NASA. Se abre al terminar las 5 lecciones.',
-  c: ['Caso 01: Cordillera Real (con ayuda)', 'Caso 02: la lluvia (poca ayuda)', 'Caso final: sin ayuda'],
-  j: 'Cuando termines el entrenamiento, resolveremos casos juntos.'
+  c: ['Caso 01: Cordillera Real (con ayuda)', 'Caso 02: la lluvia (poca ayuda)', 'Caso final: sin ayuda']
 });
 
 // Geometría del arco (igual que la maqueta): centro, radio del mundo y del arco
@@ -118,7 +117,6 @@ export function montar(contenedor) {
         ${ab
           ? '<button type="button" class="btn-empezar">EMPEZAR</button>'
           : `<div class="bloqueo">${CANDADO}${casos ? 'Termina las 5 lecciones' : `Termina la lección ${sel} para abrirla`}</div>`}
-        <div class="jukumari"><img src="/img/jukumari-cara.webp" alt="El Jukumari, tu guía"><p>${e.j}</p></div>
       </div>`;
     panel.classList.remove('nuevo'); void panel.offsetWidth; panel.classList.add('nuevo');
     panel.querySelector('.btn-empezar')?.addEventListener('click', () => ir(casos ? 'casos' : `leccion/${e.id}`));
