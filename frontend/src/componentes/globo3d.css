@@ -179,7 +179,7 @@
 }
 
 /* Etiqueta arriba a la derecha, donde termina la línea */
-.globo3d-marcador .etiqueta {
+.globo3d-marcador .globo3d-etiqueta {
   position: absolute;
   left: calc(var(--u) * 3.5);
   bottom: calc(var(--u) * 3.5);
@@ -193,16 +193,16 @@
   white-space: nowrap;
   transform-origin: 0 100%;
 }
-.globo3d-marcador .etiqueta strong {
+.globo3d-marcador .globo3d-etiqueta strong {
   font: 400 max(10px, calc(var(--u) * 1.5)) / 1.15 var(--letra-titulo);
   letter-spacing: .08em;
   color: #fff;
 }
-.globo3d-marcador .etiqueta span {
+.globo3d-marcador .globo3d-etiqueta span {
   font: 500 max(9px, calc(var(--u) * 1.2)) / 1.2 var(--letra-texto);
   color: #A9B4CC;
 }
-.globo3d-marcador .etiqueta.aparece { animation: etiqueta-aparece .35s ease-out both; }
+.globo3d-marcador .globo3d-etiqueta.aparece { animation: etiqueta-aparece .35s ease-out both; }
 @keyframes etiqueta-aparece {
   from { transform: scale(.8); opacity: 0; }
   to   { transform: scale(1);  opacity: 1; }
@@ -241,6 +241,6 @@
   .globo3d-halo,
   .globo3d-satelite,
   .globo3d-haz polygon,
-  .globo3d-marcador .etiqueta.aparece { animation: none; }
+  .globo3d-marcador .globo3d-etiqueta.aparece { animation: none; }
   .globo3d-marcador .pulso { display: none; }
 }

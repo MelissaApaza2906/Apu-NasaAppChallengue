@@ -22,19 +22,21 @@ const POR_DEFECTO = {
   lat: -15,                 // centrado en Sudamérica
   lon: -65,
   altura: null,             // metros; null = se calcula para que el planeta mida `tamano`
-  tamano: 0.70,             // diámetro del planeta / lado menor del contenedor
+  tamano: 0.95,             // diámetro del planeta / lado menor del contenedor (maqueta: lo llena)
   rotar: true,
   velocidad: 0.04,          // radianes por segundo (≈ una vuelta cada 2,6 min)
   alturaMinimaGiro: 5_000_000, // cerca del suelo no gira (después de irA)
   esperaTrasArrastre: 4000, // ms hasta que vuelve a girar
-  picos: [],                // [{ n: nombre, h: altura en m, lat, lon }]; el marcador empieza en el primero
+  picos: [],                // [{ n: nombre, h: altura en m (6438 o '6 438'), lat, lon }]; empieza en el primero
   marcador: { lat: -16.2, lon: -68.2 }, // si no hay picos: Cordillera Real, sin etiqueta
   alturaPico: 2_500_000,    // metros sobre el pico al elegirlo
   duracionVuelo: 1.6        // segundos
 };
 
-// "6438" → "6 438" (espacio fino que no se corta)
-const conMiles = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+// La altura puede venir como número (6438) o como texto ya formateado ('6 438')
+const alturaNumero = (h) => (typeof h === 'number' ? h : Number(String(h ?? '').replace(/\D/g, '')) || 0);
+// 6438 → "6 438" (espacio fino que no se corta)
+const conMiles = (h) => String(Math.round(alturaNumero(h))).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
 const SATELITE_SVG = `
   <rect x="0" y="9" width="22" height="14" fill="#2F6FD6" stroke="#CFE3FF"/>
@@ -153,10 +155,10 @@ export function crearGlobo(contenedor, opciones = {}) {
       <span class="pulso" aria-hidden="true"></span>
       <span class="punto" aria-hidden="true"></span>
       <span class="linea" aria-hidden="true"></span>
-      <div class="etiqueta"><strong></strong><span></span></div>
+      <div class="globo3d-etiqueta"><strong></strong><span></span></div>
     </div>`;
   const marcador = capa.querySelector('.globo3d-marcador');
-  const etiqueta = capa.querySelector('.etiqueta');
+  const etiqueta = capa.querySelector('.globo3d-etiqueta');
   const satelite = capa.querySelector('.globo3d-satelite');
   const haz = capa.querySelector('.globo3d-haz polygon');
   const degradado = capa.querySelector('linearGradient');
@@ -341,7 +343,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     const p = picos[i];
     const lugar = p ?? op.marcador;
     picoActual = p ? i : -1;
-    posMarcador = Cesium.Cartesian3.fromDegrees(lugar.lon, lugar.lat, p?.h ?? 0);
+    posMarcador = Cesium.Cartesian3.fromDegrees(lugar.lon, lugar.lat, alturaNumero(p?.h));
     etiqueta.hidden = !p;
     capa.querySelector('.linea').hidden = !p;
     if (p) {

@@ -1,4 +1,102 @@
-/* Estilos solo de la pantalla etapas. Usa las variables de src/estilos/variables.css */
-.pantalla-etapas {
-  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqh;
+/* Pantalla 3 · Etapas de aprendizaje. Copia fiel de la maqueta (ApuEntrenamiento). */
+.pantalla-etapas { position: absolute; inset: 0; overflow: hidden; background: var(--noche); color: var(--nieve); font-family: var(--letra-texto); }
+
+/* Fondo del Illimani desenfocado + velo + nieve */
+.etapas-fondo { position: absolute; inset: -3%; background: var(--noche) url('/img/fondo-illimani.webp') 70% center / cover no-repeat; filter: blur(5px) brightness(.58) saturate(.95); }
+.etapas-velo { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(6, 14, 34, .35), rgba(6, 14, 34, .4) 45%, rgba(6, 14, 34, .75)); }
+.etapas-nieve { position: absolute; inset: 0; pointer-events: none; }
+.etapas-nieve span { position: absolute; top: -3cqh; border-radius: 50%; background: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, .8); animation-name: etapasCae; animation-timing-function: linear; animation-iteration-count: infinite; will-change: transform; }
+@keyframes etapasCae { to { transform: translate(var(--dx), 108cqh); } }
+
+/* Esquinas rojas del visor */
+.pantalla-etapas .esq { position: absolute; width: 4.4cqh; height: 4.4cqh; border: 2px solid var(--rojo-apu); pointer-events: none; animation: etapasEsq 2.8s ease-in-out infinite; }
+@keyframes etapasEsq { 0%, 100% { opacity: .65; } 50% { opacity: 1; filter: drop-shadow(0 0 6px rgba(209, 32, 33, .9)); } }
+
+.pantalla-etapas .vidrio { background: rgba(11, 25, 46, .78); border: 1px solid rgba(68, 101, 152, .75); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+
+/* Órbita del arco y el mundo */
+.etapas-orbita { position: absolute; border-radius: 50%; border: 1.5px solid rgba(242, 244, 248, .55); pointer-events: none; }
+.etapas-mundo { position: absolute; border-radius: 50%; overflow: hidden; border: 2px solid rgba(91, 160, 255, .7); box-shadow: 0 0 6cqh rgba(64, 150, 255, .45), inset 0 0 4cqh rgba(0, 0, 0, .6); background: radial-gradient(circle at 50% 50%, #0C1C44, #060E22 70%); }
+.etapas-mundo canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* Texto sobre el mundo */
+.etapas-titulo { position: absolute; left: 3.4cqh; top: 50%; transform: translateY(-50%); width: min(30cqw, 52cqh); pointer-events: none; text-shadow: 0 .3cqh 1.6cqh rgba(0, 0, 0, .8); }
+.etapas-titulo .eyebrow { font: 400 clamp(9px, 1.7cqh, 15px) var(--letra-titulo); letter-spacing: .32em; color: #D7DEEA; }
+.etapas-titulo h1 { margin: .6cqh 0 1.6cqh; font: 400 clamp(18px, 5.2cqh, 50px) / 1.05 var(--letra-titulo); letter-spacing: .04em; }
+.etapas-titulo .linea { height: 1px; background: rgba(242, 244, 248, .7); margin-bottom: 1.4cqh; }
+.etapas-titulo .sub { display: block; font-size: clamp(11px, 2cqh, 18px); color: #E6EBF3; }
+.etapas-titulo .avance { display: flex; align-items: baseline; gap: 1.2cqh; margin-top: 1.4cqh; }
+.etapas-titulo .avance b { font: 400 clamp(22px, 7cqh, 66px) / 1 var(--letra-titulo); }
+.etapas-titulo .avance span { font-size: clamp(10px, 1.8cqh, 16px); color: #D7DEEA; }
+
+/* Las 6 etapas en arco */
+.etapa {
+  --bola: clamp(44px, 11cqh, 104px);
+  position: absolute; display: flex; align-items: center; gap: 2cqh; padding: 0; border: none; background: transparent;
+  color: var(--nieve); cursor: pointer; font: inherit; text-align: left;
+  transform: translate(calc(var(--bola) / -2), -50%);
+  animation: etapasEntra .7s cubic-bezier(.2, .9, .3, 1) both;
 }
+@keyframes etapasEntra { from { opacity: 0; scale: .6; } to { opacity: 1; scale: 1; } }
+.etapa:focus-visible { outline: none; }
+.etapa:focus-visible .bola { outline: 3px solid var(--rojo-apu); outline-offset: 4px; }
+.etapa .bola { position: relative; flex: none; width: var(--bola); height: var(--bola); border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: transform .2s, box-shadow .2s, background .2s; border: 1.5px solid rgba(242, 244, 248, .85); background: rgba(11, 25, 46, .82); }
+.etapa:hover .bola { transform: scale(1.07); }
+.etapa .bola.bloqueada { border-color: rgba(242, 244, 248, .4); color: #A9B4CC; }
+.etapa .bola.bloqueada svg { width: 40%; height: 40%; }
+.etapa .bola.hecha { border-color: var(--dato-nieve); }
+.etapa .bola.actual { border: 2.5px solid var(--rojo-apu); background: rgba(209, 32, 33, .16); animation: etapasLatido 2.2s ease-in-out infinite; }
+.etapa .bola.elegida { background: rgba(31, 65, 108, .95); box-shadow: 0 0 0 .6cqh rgba(242, 244, 248, .25); }
+.etapa .bola.actual.elegida { background: rgba(209, 32, 33, .28); }
+@keyframes etapasLatido { 0%, 100% { box-shadow: 0 0 0 0 rgba(209, 32, 33, .6), 0 0 2cqh rgba(209, 32, 33, .45); } 50% { box-shadow: 0 0 0 1.4cqh rgba(209, 32, 33, 0), 0 0 2cqh rgba(209, 32, 33, .45); } }
+.etapa .num { font: 400 clamp(14px, 3.6cqh, 34px) var(--letra-titulo); }
+.etapa .pildora { position: absolute; top: -1.2cqh; right: -1.2cqh; min-width: 3.4cqh; height: 3.4cqh; padding: 0 .9cqh; border-radius: 999px; background: var(--rojo-apu); color: var(--nieve); font: 600 clamp(9px, 1.6cqh, 14px) / 3.4cqh var(--letra-dato); text-align: center; box-shadow: 0 0 1cqh rgba(209, 32, 33, .6); }
+.etapa .textos { display: flex; flex-direction: column; gap: .4cqh; min-width: 0; }
+.etapa .nombre { font: 400 clamp(10px, 2cqh, 19px) var(--letra-titulo); letter-spacing: .16em; white-space: nowrap; }
+.etapa .bloqueada + .textos .nombre { color: #C9D2E3; }
+.etapa.elegida .nombre { text-decoration: underline; text-decoration-color: var(--rojo-apu); text-underline-offset: .6cqh; text-decoration-thickness: 2px; }
+.etapa .paso { font-size: clamp(9px, 1.5cqh, 13px); color: #A9B4CC; white-space: nowrap; }
+
+/* Barra superior */
+.etapas-volver { position: absolute; left: 3.4cqh; top: 3cqh; z-index: 3; width: clamp(44px, 6.4cqh, 58px); height: clamp(44px, 6.4cqh, 58px); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--nieve); cursor: pointer; }
+.etapas-volver svg { width: 42%; height: 42%; }
+.etapas-volver:hover { background: rgba(31, 65, 108, .9); }
+.etapas-volver:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
+.etapas-logo { position: absolute; right: 3.4cqh; top: 2.4cqh; z-index: 3; height: clamp(40px, 10cqh, 92px); width: auto; }
+
+/* Panel de la etapa elegida */
+.etapas-panel { position: absolute; right: 3.4cqh; top: 15cqh; bottom: 4cqh; width: clamp(240px, 28cqw, 420px); padding: 2.6cqh; border-radius: 2.4cqh; display: flex; flex-direction: column; gap: 1.6cqh; overflow-y: auto; }
+.etapas-panel.nuevo { animation: etapasPanel .45s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes etapasPanel { from { opacity: 0; translate: 3cqh 0; } to { opacity: 1; translate: 0 0; } }
+.etapas-panel .etiqueta { font: 400 clamp(8px, 1.4cqh, 13px) var(--letra-titulo); letter-spacing: .28em; display: flex; align-items: center; gap: .6em; }
+.etapas-panel .barras { color: var(--rojo-apu); font-style: italic; letter-spacing: -.08em; }
+.etapas-panel h2 { margin: 0; font: 400 clamp(15px, 3.4cqh, 30px) / 1.2 var(--letra-titulo); letter-spacing: .04em; }
+.etapas-panel .pregunta { margin: 0; font-size: clamp(11px, 2cqh, 17px); line-height: 1.5; color: #E6EBF3; }
+.etapas-panel .conceptos { display: flex; flex-direction: column; gap: .9cqh; }
+.etapas-panel .rotulo { font: 500 clamp(9px, 1.4cqh, 12px) var(--letra-dato); letter-spacing: .14em; color: #A9B4CC; }
+.etapas-panel .concepto { display: flex; align-items: center; gap: 1.2cqh; padding: 1cqh 1.4cqh; border-radius: 1.4cqh; background: rgba(31, 65, 108, .55); font-size: clamp(11px, 1.8cqh, 15px); }
+.etapas-panel .concepto .punto { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--nieve); box-shadow: 0 0 6px var(--dato-nieve); }
+.etapas-panel .chips { display: flex; gap: .8cqh; flex-wrap: wrap; }
+.etapas-panel .chips span { padding: .6cqh 1.4cqh; border-radius: 999px; border: 1px solid rgba(242, 244, 248, .5); font-size: clamp(10px, 1.6cqh, 13px); }
+.etapas-panel .pie { margin-top: auto; display: flex; flex-direction: column; gap: 1.4cqh; }
+
+/* Botón EMPEZAR: cápsula con cuña roja y brillo que barre */
+.btn-empezar {
+  position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
+  height: clamp(44px, 7cqh, 64px); padding: 0 15% 0 4%; border: 2px solid rgba(242, 244, 248, .92); border-radius: 999px;
+  background: rgba(11, 25, 46, .72); color: var(--nieve); cursor: pointer;
+  font: 400 clamp(10px, min(1.1cqw, 2cqh), 16px) / 1.2 var(--letra-titulo); letter-spacing: .16em; transition: transform .15s, box-shadow .2s;
+}
+.btn-empezar::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 15%; background: var(--rojo-apu); clip-path: polygon(55% 0, 100% 0, 100% 100%, 0 100%); transition: width .2s; }
+.btn-empezar::before { content: ''; position: absolute; top: 0; bottom: 0; left: -40%; width: 28%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .22), transparent); animation: etapasBarrido 3.6s ease-in-out infinite; pointer-events: none; }
+@keyframes etapasBarrido { 0% { left: -40%; } 55%, 100% { left: 120%; } }
+.btn-empezar:hover::after { width: 20%; }
+.btn-empezar:hover { box-shadow: 0 0 24px rgba(209, 32, 33, .45); }
+.btn-empezar:active { transform: scale(.98); }
+.btn-empezar:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
+
+.etapas-panel .bloqueo { display: flex; align-items: center; justify-content: center; gap: 1cqh; min-height: clamp(44px, 7cqh, 64px); padding: 0 2cqh; border-radius: 999px; border: 1.5px dashed rgba(169, 180, 204, .6); color: #A9B4CC; font-size: clamp(10px, 1.7cqh, 14px); text-align: center; }
+.etapas-panel .bloqueo svg { width: 2.4cqh; height: 2.4cqh; flex: none; }
+.etapas-panel .jukumari { display: flex; align-items: flex-end; gap: 1.2cqh; }
+.etapas-panel .jukumari img { width: clamp(40px, 7.4cqh, 70px); height: clamp(40px, 7.4cqh, 70px); flex: none; border-radius: 50%; border: 2.5px solid var(--rojo-apu); object-fit: cover; }
+.etapas-panel .jukumari p { margin: 0; padding: 1cqh 1.4cqh; border-radius: 1.6cqh 1.6cqh 1.6cqh .4cqh; background: rgba(242, 244, 248, .95); color: var(--noche); font-size: clamp(10px, 1.7cqh, 14px); line-height: 1.4; font-weight: 500; }
