@@ -6,10 +6,23 @@
 .acceso-velo { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 50% 70% at 50% 50%, rgba(6, 14, 34, .7), rgba(6, 14, 34, .25) 80%); }
 .pantalla-acceso .carga-nieve { position: absolute; inset: 0; pointer-events: none; }
 
+/* Volver al planeta: botón redondo arriba a la izquierda (como el de etapas) y, al lado, el logo */
+.pantalla-acceso .hud {
+  background: linear-gradient(160deg, rgba(14, 30, 72, .88), rgba(8, 18, 48, .88));
+  border: 1px solid rgba(91, 160, 255, .45);
+  box-shadow: 0 0 3cqh rgba(31, 95, 200, .25), inset 0 0 2cqh rgba(31, 95, 200, .12);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.acceso-volver { position: absolute; z-index: 4; left: 3.4cqh; top: 3cqh; width: 52px; height: 52px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--nieve); cursor: pointer; }
+.acceso-volver svg { width: 42%; height: 42%; }
+.acceso-volver:hover { background: rgba(31, 65, 108, .9); }
+.acceso-volver:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
+.acceso-logo-arriba { position: absolute; z-index: 4; left: calc(3.4cqh + 52px + 14px); top: calc(3cqh + 26px); translate: 0 -50%; height: clamp(36px, 7cqh, 64px); width: auto; }
+
 /* Tarjeta (.hud) */
 .acceso-tarjeta {
   position: absolute; z-index: 3; top: 50%; left: 50%; translate: -50% -50%;
-  width: clamp(320px, 34cqw, 480px); max-height: calc(100cqh - 4cqh); overflow-y: auto; overscroll-behavior: contain;
+  width: clamp(380px, 36cqw, 540px); /* que "EMPEZAR MI ENTRENAMIENTO" quepa en una línea */ max-height: calc(100cqh - 4cqh); overflow-y: auto; overscroll-behavior: contain;
   padding: clamp(18px, 3.4cqh, 36px) clamp(18px, 2.6cqw, 36px); border-radius: 24px; box-sizing: border-box;
   display: flex; flex-direction: column; gap: clamp(10px, 1.8cqh, 18px);
   background: linear-gradient(160deg, rgba(14, 30, 72, .9), rgba(8, 18, 48, .92));
@@ -36,14 +49,17 @@
 .acceso-tarjeta .avatar[aria-checked="true"] span { color: #FF8A8A; font-weight: 700; }
 .acceso-tarjeta .avatar:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
 
-.acceso-tarjeta .btn-apu { flex: none; font-size: clamp(11px, 1.2cqw, 16px); }
+/* "EMPEZAR MI ENTRENAMIENTO" en una sola línea. Desactivado: tenue y sin cuña roja (botones.css);
+   activo: con la cuña roja y el brillo de siempre */
+.acceso-tarjeta .btn-apu { flex: none; padding: 0 calc(var(--alto) * .75 + 6px) 0 12px; white-space: nowrap; font-size: clamp(11px, 1.6cqh, 15px); letter-spacing: .12em; } /* a la derecha, solo lo que mide la cuña */
+.acceso-tarjeta .btn-apu:disabled { opacity: .5; }
 .acceso-tarjeta .error { margin: -.6cqh 0 0; min-height: 1.2em; color: #FF8A8A; font-size: 14px; }
 .acceso-tarjeta .error:empty { display: none; }
 .acceso-tarjeta .nota { margin: 0; font-size: 12px; line-height: 1.45; color: #A9B4CC; text-align: center; }
 
 /* Celular horizontal: la tarjeta con scroll interno */
 @media (max-height: 500px) {
-  .acceso-tarjeta { max-height: calc(100cqh - 16px); }
+  .acceso-tarjeta { max-height: calc(100cqh - 16px); padding-inline: 16px; }
   .acceso-tarjeta .avatar img { width: 64px; height: 64px; }
 }
 

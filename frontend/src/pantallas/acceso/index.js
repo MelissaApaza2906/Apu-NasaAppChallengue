@@ -2,6 +2,7 @@
 // Aparece solo cuando una ruta necesita perfil (etapas, lecciones, casos, insignias). La sesión ya
 // existe (anónima, se crea sola al iniciar la app): aquí no hay correo ni contraseña.
 // Al terminar, vuelve a la ruta pedida (o al menú). El Jukumari que saluda aquí es el asistente de la app.
+// Arriba a la izquierda, "‹" (o Esc) vuelve al planeta (#/menu) sin registrarse.
 import '../carga/carga.css'; // la nieve de la pantalla de carga
 import './acceso.css';
 import { ir } from '../../router.js';
@@ -10,6 +11,13 @@ import { guardarPerfil, leerProgreso } from '../../servicios/progreso.js';
 import { AVATARES } from '../../contenido/avatares.js';
 
 const APODO_VALIDO = /^[\p{L}\p{N} _-]{2,20}$/u;
+const FRASE_VOLVER = '¡Cuando quieras entrenar, aquí estaré!';
+let quitarAlSalir = null; // el Esc de esta pantalla
+
+export function desmontar() {
+  quitarAlSalir?.();
+  quitarAlSalir = null;
+}
 
 export function montar(contenedor, params = []) {
   const destino = params.filter(Boolean).join('/') || 'menu';
@@ -19,6 +27,11 @@ export function montar(contenedor, params = []) {
     <div class="acceso-fondo" aria-hidden="true"></div>
     <div class="carga-nieve" aria-hidden="true"></div>
     <div class="acceso-velo" aria-hidden="true"></div>
+
+    <button type="button" class="acceso-volver hud" aria-label="Volver al planeta" title="Volver al planeta">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"/></svg>
+    </button>
+    <img class="acceso-logo-arriba" src="/img/logo-apu.png" alt="APU">
 
     <form class="acceso-tarjeta" novalidate aria-labelledby="acceso-titulo">
       <img src="/img/logo-apu.png" alt="APU" class="logo">
@@ -51,7 +64,23 @@ export function montar(contenedor, params = []) {
   let avatar = null; // por defecto, ninguno elegido
   const apodo = () => form.apodo.value.trim();
   const listo = () => APODO_VALIDO.test(apodo()) && Boolean(avatar);
-  const actualizarBoton = () => { boton.disabled = !listo(); };
+  const actualizarBoton = () => {
+    boton.disabled = !listo();
+    boton.title = boton.disabled ? 'Escribe tu apodo y elige un avatar' : '';
+  };
+  actualizarBoton();
+
+  // Volver al planeta (botón o Esc): siempre al menú, no a la ruta pedida. Al llegar, el Jukumari
+  // asistente lo dice (después de que cambió de pantalla, para que no se pierda la frase)
+  function volver() {
+    window.addEventListener('hashchange', () => setTimeout(() => window.dispatchEvent(
+      new CustomEvent('apu:jukumari', { detail: { texto: FRASE_VOLVER, abrir: true } }))), { once: true });
+    ir('menu');
+  }
+  raiz.querySelector('.acceso-volver').addEventListener('click', volver);
+  const conTeclado = (e) => { if (e.key === 'Escape') volver(); };
+  document.addEventListener('keydown', conTeclado);
+  quitarAlSalir = () => document.removeEventListener('keydown', conTeclado);
 
   // Avatares: grupo de opciones (un solo elegido); con el teclado, flechas para moverse
   function elegir(id, enfocar) {
