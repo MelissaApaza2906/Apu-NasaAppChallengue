@@ -1,6 +1,6 @@
 // Puente entre el menú y la montaña 3D de Jhoel (componentes/montanas3d.js).
 //
-//   const m = await abrirMontana({ raiz, glaciar, region, globo, alCambiarVariable });
+//   const m = await abrirMontana({ raiz, glaciar, region, globo, alCambiarVariable }); // region: <id>.json del glaciar
 //   m.cerrar();
 //
 // Al tocar "Ver montaña en 3D" se muestra:
@@ -15,7 +15,7 @@ import { crearMontanas3d } from '../../componentes/montanas3d.js';
 const PERIODOS = [[2001, 2005, 2021, 2025], [2006, 2010, 2016, 2020]];
 const ANIOS = [2001, 2025];
 const PASO_PLAY = 1200; // ms por año al reproducir
-const SIN_DATOS = 'El análisis de 25 años de este glaciar todavía no está en APU. Por ahora, los datos son de la Cordillera Real.';
+const SIN_DATOS = 'El análisis de 25 años de este glaciar todavía no está en APU.';
 const VARIABLES = {
   nieve: {
     pestana: '❄ Nieve', titulo: 'Nieve de la cordillera', cambio: 'Índice de nieve',
@@ -37,6 +37,13 @@ const fmt = (v, d) => v.toFixed(d).replace('.', ',');
 export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVariable }) {
   const $ = (s) => raiz.querySelector(s);
   const conDatos = Boolean(glaciar?.datos) || glaciar?.tipo === 'pico';
+  // Los textos de VARIABLES están escritos para la Cordillera Real; para otro glaciar, su nombre.
+  // La escala fija del índice de nieve (1,2–3,0) es solo de la Cordillera Real; los demás, la de sus datos.
+  const esCordilleraReal = () => (region?.id ?? glaciar?.id) === 'cordillera-real';
+  const delLugar = (texto) => (esCordilleraReal() || !region?.nombre ? texto
+    : texto.replace('la Cordillera Real', region.nombre).replace('Cordillera Real', region.nombre));
+  // Lluvia en revisión (variables.lluvia.revisar): solo se muestra la nieve
+  const lluviaEnRevision = () => Boolean(region?.variables?.lluvia?.revisar);
   const estado = { variable: 'nieve', periodo: 0, anio: null, clima: null };
   const limpiar = [];
 
@@ -135,9 +142,9 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
   function pintarVariable() {
     const V = VARIABLES[estado.variable];
     q('.titulo-texto').textContent = V.titulo;
-    q('.intro').textContent = V.intro;
+    q('.intro').textContent = delLugar(V.intro);
     panel.querySelectorAll('[role="tab"]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.v === estado.variable)));
-    if (!region) { q('.tarjetas').innerHTML = '<p class="nota">Cargando los datos…</p>'; return; }
+    if (!region) { q('.tarjetas').innerHTML = '<p class="nota">No se pudieron cargar los datos de NASA de este glaciar.</p>'; return; }
     const v = region.variables[estado.variable];
     const anios = v.anios, valores = v.anual, n = valores.length;
     const ultimo = anios[n - 1];
@@ -152,7 +159,7 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     q('#mp-periodo').value = String(estado.periodo);
     const per = periodo(PERIODOS[estado.periodo]);
     const cambio = (promedio(per[2], per[3]) - promedio(per[0], per[1])) / promedio(per[0], per[1]) * 100;
-    q('.cambio-valor').textContent = `${cambio < 0 ? '↓ −' : '↑ +'}${fmt(Math.abs(cambio), 0)} %`;
+    q('.cambio-valor').textContent = `${cambio < 0 ? '↓ −' : '↑ +'}${fmt(Math.abs(cambio), Math.abs(cambio) < 1 ? 1 : 0)} %`; // menos de 1 %: con un decimal (no "−0 %")
     q('.cambio-etiqueta').textContent = V.cambio;
     q('.cambio').classList.toggle('duda', !real); // sin tendencia real: amarillo, no rojo
     const falta = PERIODOS[estado.periodo][3];
@@ -169,20 +176,22 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     ].map(([ic, et, val, cl]) => `<div class="tarjeta${cl}"><span class="icono" aria-hidden="true">${ic}</span><span class="texto"><span>${et}</span><b>${val}</b></span></div>`).join('');
 
     // Gráfico: valores anuales + línea de tendencia (pendiente real por década) + año marcado
-    const [min, max] = V.escala ?? [Math.min(...valores) * 0.95, Math.max(...valores) * 1.05];
-    const X = (i) => 12 + i * (284 / (n - 1));
+    const escala = esCordilleraReal() ? V.escala : null;
+    const [min, max] = escala ?? [Math.min(...valores) * 0.95, Math.max(...valores) * 1.05];
+    // Eje x por año (si falta un año, como 2020 en Groenlandia, queda su hueco)
+    const X = (i) => 12 + (anios[i] - anios[0]) * (284 / Math.max(1, ultimo - anios[0]));
     const Y = (x) => 96 - (x - min) / (max - min) * 84;
     const linea = valores.map((x, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(x).toFixed(1)}`).join(' ');
     const pend = v.tendencia_por_decada / 10;
     const med = [...valores].sort((a, b) => a - b)[Math.floor(n / 2)];
     const mitad = (n - 1) / 2;
     q('.titulo-graf').textContent = V.grafico;
-    q('.fuente-graf').textContent = V.fuente;
+    q('.fuente-graf').textContent = delLugar(V.fuente);
     q('.rango').textContent = `${anios[0]}–${ultimo}`;
     const iMarca = estado.anio === null ? -1 : anios.indexOf(estado.anio);
     const svg = q('.grafico svg');
     const que = lluvia ? 'Lluvia por año' : 'Índice de nieve';
-    svg.setAttribute('aria-label', `${que} de la Cordillera Real de ${anios[0]} a ${ultimo}: empieza en ${fmt(valores[0], V.decimales)} y termina en ${fmt(valores[n - 1], V.decimales)}, ${real ? 'con tendencia a la baja' : 'sin una tendencia segura todavía'}.`
+    svg.setAttribute('aria-label', `${que} de ${esCordilleraReal() ? 'la Cordillera Real' : region.nombre} de ${anios[0]} a ${ultimo}: empieza en ${fmt(valores[0], V.decimales)} y termina en ${fmt(valores[n - 1], V.decimales)}, ${real ? 'con tendencia a la baja' : 'sin una tendencia segura todavía'}.`
       + (iMarca >= 0 ? ` Año marcado: ${estado.anio}, ${fmt(valores[iMarca], V.decimales)}${V.unidad}.` : ''));
     const marca = () => {
       if (iMarca < 0) return '';
@@ -271,7 +280,7 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     const valor = q('.clima-valor');
     valor.hidden = !estado.clima;
     if (!estado.clima) return;
-    if (!region) { valor.textContent = 'Cargando los datos…'; return; }
+    if (!region) { valor.textContent = 'No se pudieron cargar los datos.'; return; }
     const v = region.variables[estado.clima];
     const i = v.meses.indexOf(q('.clima-mes').value);
     if (i < 0) { valor.textContent = 'Ese mes no tiene dato.'; return; }
@@ -279,7 +288,18 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     valor.textContent = `${nombreMes(v.meses[i])} · ${estado.clima === 'lluvia' ? `${Math.round(x)} mm` : `índice de nieve ${fmt(x, 2)}`}`;
   }
 
+  function aplicarRevision() {
+    const oculta = lluviaEnRevision();
+    const pestanaLluvia = panel.querySelector('[role="tab"][data-v="lluvia"]');
+    const climaLluvia = panel.querySelector('.clima [data-clima="lluvia"]');
+    if (pestanaLluvia) pestanaLluvia.hidden = oculta;
+    if (climaLluvia) climaLluvia.hidden = oculta;
+    if (oculta && estado.variable === 'lluvia') { estado.variable = 'nieve'; alCambiarVariable?.('nieve'); }
+    if (oculta && estado.clima === 'lluvia') estado.clima = null;
+  }
+
   if (conDatos) {
+    aplicarRevision();
     panel.querySelectorAll('[role="tab"]').forEach((b) => b.addEventListener('click', () => {
       estado.variable = b.dataset.v;
       pintarVariable();
@@ -297,14 +317,6 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
   }
 
   return {
-    // Cuando llegan los datos (si se abrió antes de que terminaran de cargar)
-    ponerRegion(r) {
-      region = r;
-      if (!conDatos) return;
-      llenarMeses(estado.clima ?? 'nieve');
-      pintarVariable();
-      pintarClima();
-    },
     cerrar() {
       limpiar.forEach((fn) => fn());
       try { jhoel?.salir(); } catch (e) { console.error(e); }

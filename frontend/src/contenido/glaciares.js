@@ -2,7 +2,8 @@
 // caja: rectángulo de búsqueda (grados). diaComparar: el mismo día de cada año
 // para comparar entre años; elegimos el final de la época seca o del verano,
 // cuando queda la nieve que dura todo el año.
-// datos: solo la Cordillera Real tiene el análisis de 25 años (backend/). Los demás: null.
+// datos: el análisis de nieve (y lluvia) de NASA de cada glaciar (backend/ → frontend/public/datos/).
+// La Península Antártica todavía no tiene: null.
 // foto: portada de la pestaña (Wikimedia Commons, licencia libre; créditos en docs/creditos-fotos.md).
 // La historia de cada glaciar (pestaña del menú) está en HISTORIAS, más abajo; historiaDe(g) la une.
 export const GLACIARES = [
@@ -15,55 +16,55 @@ export const GLACIARES = [
   {
     id: 'cordillera-blanca', nombre: 'Cordillera Blanca', pais: 'Perú',
     lat: -9.3, lon: -77.5, caja: { oeste: -77.9, sur: -10.0, este: -77.1, norte: -8.6 },
-    diaComparar: '07-15', datos: null,
+    diaComparar: '07-15', datos: 'datos/cordillera-blanca.json',
     foto: { src: '/img/glaciares/cordillera-blanca.webp', autor: 'Maurice Chédel', licencia: 'Dominio público', url: 'https://commons.wikimedia.org/wiki/File:Nevado_Huascaran.jpg' }
   },
   {
     id: 'campos-de-hielo', nombre: 'Campos de Hielo Patagónicos', pais: 'Chile y Argentina',
     lat: -49.0, lon: -73.5, caja: { oeste: -74.2, sur: -51.5, este: -72.8, norte: -46.5 },
-    diaComparar: '03-01', datos: null,
+    diaComparar: '03-01', datos: 'datos/patagonia.json',
     foto: { src: '/img/glaciares/campos-de-hielo.webp', autor: 'Prissantenbär', licencia: 'Dominio público', url: 'https://commons.wikimedia.org/wiki/File:Fitz_Roy_2.jpg' }
   },
   {
     id: 'alaska', nombre: 'Alaska', pais: 'EE. UU.',
     lat: 61.0, lon: -147.0, caja: { oeste: -150.0, sur: 60.0, este: -142.0, norte: 62.0 },
-    diaComparar: '09-01', datos: null,
+    diaComparar: '09-01', datos: 'datos/alaska.json',
     foto: { src: '/img/glaciares/alaska.webp', autor: 'USDA Forest Service, Alaska Region', licencia: 'CC BY 2.0', url: 'https://commons.wikimedia.org/wiki/File:Mount_Marcus_Baker_and_College_Fiord.jpg' }
   },
   {
     id: 'groenlandia', nombre: 'Groenlandia', pais: 'Groenlandia',
-    lat: 72.0, lon: -40.0, caja: { oeste: -50.0, sur: 68.0, este: -30.0, norte: 76.0 },
-    diaComparar: '09-01', datos: null,
+    lat: 69.15, lon: -49.5, caja: { oeste: -50.0, sur: 68.0, este: -30.0, norte: 76.0 },
+    diaComparar: '09-01', datos: 'datos/groenlandia.json',
     foto: { src: '/img/glaciares/groenlandia.webp', autor: 'NASA ICE', licencia: 'CC BY 2.0', url: 'https://commons.wikimedia.org/wiki/File:Mt._Gunnbj%C3%B8rn,_Greenland.jpg' }
   },
   {
     id: 'vatnajokull', nombre: 'Vatnajökull', pais: 'Islandia',
     lat: 64.4, lon: -16.8, caja: { oeste: -18.5, sur: 63.9, este: -15.2, norte: 64.9 },
-    diaComparar: '09-01', datos: null,
+    diaComparar: '09-01', datos: 'datos/vatnajokull.json',
     foto: { src: '/img/glaciares/vatnajokull.webp', autor: 'Kristinn Stefánsson', licencia: 'CC BY-SA 3.0', url: 'https://commons.wikimedia.org/wiki/File:Hvannadalshn%C3%BAkur_in_%C3%96r%C3%A6faj%C3%B6kull_seen_from_Skaftafell.jpg' }
   },
   {
     id: 'alpes', nombre: 'Alpes', pais: 'Suiza',
     lat: 46.5, lon: 8.0, caja: { oeste: 6.5, sur: 45.6, este: 10.5, norte: 47.0 },
-    diaComparar: '09-01', datos: null,
+    diaComparar: '09-01', datos: 'datos/alpes.json',
     foto: { src: '/img/glaciares/alpes.webp', autor: 'Mike Peel', licencia: 'CC BY-SA 4.0', url: 'https://commons.wikimedia.org/wiki/File:Aletsch_Glacier.jpg' }
   },
   {
     id: 'kilimanjaro', nombre: 'Kilimanjaro', pais: 'Tanzania',
     lat: -3.07, lon: 37.35, caja: { oeste: 37.2, sur: -3.2, este: 37.5, norte: -2.95 },
-    diaComparar: '09-15', datos: null,
+    diaComparar: '09-15', datos: 'datos/kilimanjaro.json',
     foto: { src: '/img/glaciares/kilimanjaro.webp', autor: 'Matt Kieffer', licencia: 'CC BY-SA 2.0', url: 'https://commons.wikimedia.org/wiki/File:Kilimanjaro_(2965011512).jpg' }
   },
   {
     id: 'karakoram', nombre: 'Karakórum', pais: 'Pakistán',
     lat: 35.8, lon: 76.5, caja: { oeste: 74.5, sur: 35.0, este: 77.8, norte: 36.6 },
-    diaComparar: '09-15', datos: null,
+    diaComparar: '09-15', datos: 'datos/karakorum.json',
     foto: { src: '/img/glaciares/karakoram.webp', autor: 'Zacharie Grossen', licencia: 'CC BY-SA 4.0', url: 'https://commons.wikimedia.org/wiki/File:Chogori.jpg' }
   },
   {
     id: 'himalaya', nombre: 'Himalaya', pais: 'Nepal y China',
     lat: 28.0, lon: 86.9, caja: { oeste: 85.5, sur: 27.3, este: 88.3, norte: 28.7 },
-    diaComparar: '10-01', datos: null,
+    diaComparar: '10-01', datos: 'datos/himalaya.json',
     foto: { src: '/img/glaciares/himalaya.webp', autor: 'Luca Galuzzi', licencia: 'CC BY-SA 2.5', url: 'https://commons.wikimedia.org/wiki/File:Everest_North_Face_toward_Base_Camp_Tibet_Luca_Galuzzi_2006.jpg' }
   },
   {

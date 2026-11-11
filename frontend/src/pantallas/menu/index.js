@@ -62,7 +62,6 @@ let quitarAlSalir = null; // listeners y temporizadores que hay que quitar al sa
 export function montar(contenedor) {
   vivo = true;
   let elegido = null;  // glaciar abierto en la pestaña (null: ninguno)
-  let region = null;   // cordillera-real.json (para la vista de la montaña)
   const sinMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   const raiz = document.createElement('section');
@@ -290,6 +289,13 @@ export function montar(contenedor) {
     if (montana || abriendo || !elegido) return;
     abriendo = true;
     try {
+      // Datos de NASA de este glaciar ('datos/<id>.json' en contenido/glaciares.js); si no hay o no
+      // cargan, la vista de la montaña lo dice
+      const idDatos = /datos\/([a-z0-9-]+)\.json$/.exec(elegido.datos ?? '')?.[1];
+      const region = idDatos
+        ? await cargarRegion(idDatos).catch((e) => { console.warn(`APU: no se pudieron leer los datos de ${elegido.nombre}.`, e); return null; })
+        : null;
+      if (!vivo) return;
       montana = await abrirMontana({ raiz, glaciar: elegido, region, globo });
     } finally {
       abriendo = false;
@@ -337,13 +343,6 @@ export function montar(contenedor) {
     boton.innerHTML = `<img src="${a.cara}" alt="" width="36" height="36">`;
     boton.title = `Mi expediente (${a.nombre})`;
   }).catch(() => {});
-
-  // Datos de NASA de la Cordillera Real (los usa la vista de la montaña)
-  cargarRegion('cordillera-real').then((datos) => {
-    if (!vivo) return;
-    region = datos;
-    montana?.ponerRegion(datos);
-  }).catch((e) => console.warn('APU: no se pudieron leer los datos de la Cordillera Real.', e));
 }
 
 export function desmontar() {
