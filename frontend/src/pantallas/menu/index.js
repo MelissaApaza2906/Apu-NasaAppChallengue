@@ -1,6 +1,6 @@
 // Pantalla: menú del planeta · Responsable: Melissa
 // El planeta es para explorar: grande, centrado y siempre entero, con un pin por glaciar.
-// Al tocar un pin, el planeta lo deja al frente y se corre a la izquierda, y se abre la pestaña
+// Al tocar un pin, la cámara baja a ~350 km sobre el glaciar (el globo ocupa todo el espacio libre), y se abre la pestaña
 // de historia (portada, línea de tiempo, dato grande y "VER MONTAÑA EN 3D", que abre
 // montanas-puente.js). El Jukumari es el asistente de toda la app (componentes/jukumari-asistente.js):
 // el menú le avisa con 'apu:contexto' cuándo se abre la historia de un glaciar o la montaña.
@@ -232,6 +232,8 @@ export function montar(contenedor) {
     cerrarMontana();
     elegido = g;
     raiz.classList.add('con-pestana');
+    // Con el globo 3D, la cámara baja al glaciar y el globo ocupa todo el espacio libre (menu.css)
+    raiz.classList.toggle('con-zoom', Boolean(globo?.viewer));
     pestana.hidden = false;
     pestana.classList.toggle('principal', Boolean(g.principal));
     $('.pestana-caso').hidden = !g.principal;
@@ -293,9 +295,9 @@ export function montar(contenedor) {
     if (!elegido) return;
     elegido = null;
     cancelAnimationFrame(cuenta);
-    raiz.classList.remove('con-pestana');
+    raiz.classList.remove('con-pestana', 'con-zoom');
     pestana.hidden = true;
-    globo?.verPlaneta?.(); // el planeta vuelve al centro y sigue girando
+    globo?.verPlaneta?.(); // la cámara vuelve al planeta completo, que sigue girando
     avisarAsistente('menu');
   }
   $('.pestana-cerrar').addEventListener('click', cerrarPestana);

@@ -87,6 +87,15 @@
 }
 /* Sin recorte: el planeta siempre cabe entero en su caja (el zoom no lo deja pasar del 100 %) */
 
+/* De cerca (zoom máximo a un glaciar): el suelo llena toda la caja. Sin flotar (se verían los bordes)
+   y, con fundido, sin halo, anillo, satélite decorativo ni su haz. Pines y etiqueta se quedan. */
+.globo3d.acercado .globo3d-flotante { animation: none; }
+.globo3d-anillo, .globo3d-satelite { transition: opacity .4s; }
+.globo3d.acercado .globo3d-halo,
+.globo3d.acercado .globo3d-anillo,
+.globo3d.acercado .globo3d-haz { opacity: 0; }
+.globo3d.acercado .globo3d-satelite { opacity: 0 !important; } /* JS le pone opacidad en cada cuadro */
+
 /* ---------- Capa de la maqueta: haz, satélite, marcador y etiqueta ---------- */
 .globo3d-capa {
   position: absolute;

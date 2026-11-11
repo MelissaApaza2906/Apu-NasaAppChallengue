@@ -5,8 +5,9 @@
 //     picos: [{ n, h, lat, lon }, …],    // picos de la Cordillera Real
 //     alElegir: (glaciar) => { … }       // aviso cuando se elige un glaciar (toque o elegirGlaciar)
 //   });
-//   globo.elegirGlaciar('kilimanjaro');  // gira (1,6 s) hasta dejarlo al frente, el planeta llena su caja; pausa la rotación
-//   globo.elegirPico(0);                 // lo mismo con un pico de la Cordillera Real
+//   globo.elegirGlaciar('kilimanjaro');  // zoom máximo (2 s): ~350 km encima, mirando abajo, con la foto
+//                                        // MODIS de 250 m; .acercado oculta órbita/satélite/halo (ver CERCA)
+//   globo.elegirPico(0);                 // gira (1,6 s) hasta dejar el pico al frente; el planeta llena su caja
 //   globo.verPlaneta();                  // vuelve al tamaño del diseño y sigue girando
 //   await globo.mostrarCapa('hoy');      // 'hoy' (foto de ayer con nubes reales y el sol real) o null
 //   globo.destruir();                    // al salir de la pantalla
@@ -41,6 +42,39 @@ const CAPAS_DATOS = {
   }
 };
 const CREDITO_BASE = 'Imágenes: NASA GIBS / Blue Marble';
+
+// ---------------------------------------------------------------
+// Zoom máximo al elegir un glaciar: la cámara baja a ~350 km, justo encima, mirando recto hacia abajo
+// (sin inclinar: el 3D de la montaña es de Jhoel). Mientras la pestaña está abierta, el zoom queda
+// entre 150 y 6 000 km y se puede arrastrar un poco (ARRASTRE_MAX grados alrededor del glaciar).
+// ---------------------------------------------------------------
+const CERCA = {
+  altura: 350_000,
+  zoomMin: 150_000,
+  zoomMax: 6_000_000,
+  duracion: 2,                  // segundos del vuelo
+  arrastreMax: 2.5,             // grados (~280 km)
+  alturaFoto: 2_000_000,        // debajo de esto, la foto MODIS de 250 m encima del Blue Marble
+  fundido: 0.6                  // segundos que tarda la foto en aparecer o irse
+};
+// De cerca, sin pixelado: MODIS Terra en color real (GoogleMapsCompatible_Level9 → nivel máximo 9)
+// de un día despejado de la época seca de 2026. Se probó el 15 de agosto y, si había nubes sobre el
+// glaciar, del 16 al 20 (revisado tesela por tesela). Excepciones: Kilimanjaro, nublado del 15 al 20
+// → el 14; la Península Antártica está de noche en agosto (sin imagen) → su verano, enero.
+const FOTO_CERCA = {
+  'cordillera-real': '2026-08-15',
+  'cordillera-blanca': '2026-08-15',
+  'campos-de-hielo': '2026-08-20',
+  alaska: '2026-08-19',
+  groenlandia: '2026-08-15',
+  vatnajokull: '2026-08-19',
+  alpes: '2026-08-19',
+  kilimanjaro: '2026-08-14',
+  karakoram: '2026-08-19',
+  himalaya: '2026-08-20',
+  'peninsula-antartica': '2026-01-17'
+};
+const FOTO_CERCA_DEFECTO = '2026-08-15';
 
 const POR_DEFECTO = {
   lat: -15,                 // centrado en Sudamérica
@@ -113,6 +147,9 @@ export function crearGlobo(contenedor, opciones = {}) {
 
   let viewer = null;
   let destruido = false;
+  let acercado = null;    // { lat, lon } del glaciar mientras se ve de cerca (pestaña abierta)
+  let solActivo = false;  // la capa "hoy" usa el sol real
+  let cerca = null;       // { capa, fecha }: la foto MODIS de cerca que se ve (o está entrando)
   const limpiezas = [];   // funciones que deshacen listeners
 
   // ---------------------------------------------------------------
@@ -278,14 +315,21 @@ export function crearGlobo(contenedor, opciones = {}) {
   // Con la capa "hoy", el sol de verdad (posición real a esta hora); si no, la luz del diseño
   const sol = new Cesium.SunLight({ intensity: 2.2 });
   function usarSol(si) {
+    solActivo = si;
     if (si) viewer.clock.currentTime = Cesium.JulianDate.now();
-    escena.light = si ? sol : luz;
+    escena.light = si && !acercado ? sol : luz;
     escena.requestRender();
   }
   const orientarLuz = () => {
-    if (escena.light !== luz) return;
     const c = viewer.camera;
     const d = luz.direction;
+    // De cerca: luz de frente (desde la cámara), para que la foto del glaciar se vea pareja
+    if (acercado) {
+      escena.light = luz;
+      Cesium.Cartesian3.clone(c.directionWC, d);
+      return;
+    }
+    if (escena.light !== luz) return;
     Cesium.Cartesian3.multiplyByScalar(c.directionWC, LUZ.adelante, d);
     Cesium.Cartesian3.add(d, Cesium.Cartesian3.multiplyByScalar(c.rightWC, LUZ.derecha, auxLuz), d);
     Cesium.Cartesian3.add(d, Cesium.Cartesian3.multiplyByScalar(c.upWC, -LUZ.abajo, auxLuz), d);
@@ -307,6 +351,7 @@ export function crearGlobo(contenedor, opciones = {}) {
   let cargandoCapa = false;
 
   function escribirCredito() {
+    if (cerca) { credito.textContent = `Imagen: MODIS Terra · ${fechaBonita(cerca.fecha)}`; return; }
     const d = infoCapa && CAPAS_DATOS[infoCapa.nombre];
     credito.textContent = d
       ? `${CREDITO_BASE} · ${d.titulo} · ${fechaBonita(infoCapa.fecha)}${infoCapa.sinImagen ? ' · sin imagen de NASA para esta fecha' : ''}`
@@ -341,7 +386,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     // Los huecos entre las pasadas del satélite vienen en negro: transparentes (se ve lo de abajo)
     c.colorToAlpha = Cesium.Color.BLACK;
     c.colorToAlphaThreshold = 0.06;
-    viewer.imageryLayers.raiseToTop(luces);
+    ordenarCapas();
     return c;
   }
 
@@ -416,6 +461,11 @@ export function crearGlobo(contenedor, opciones = {}) {
   control.enableLook = false;
   control.enableTranslate = false;
   const topeAlejar = () => {
+    if (acercado) { // de cerca: entre 150 y 6 000 km
+      control.minimumZoomDistance = CERCA.zoomMin;
+      control.maximumZoomDistance = CERCA.zoomMax;
+      return;
+    }
     control.minimumZoomDistance = alturaEncuadre(op.tamanoMaximo);
     control.maximumZoomDistance = Math.max(alturaEncuadre(), control.minimumZoomDistance + 1);
   };
@@ -437,7 +487,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     if (!viewer) return;
     viewer.resize(); // que Cesium actualice el frustum antes de calcular
     topeAlejar();
-    if (!encuadreAuto) return;
+    if (!encuadreAuto || volando) return; // en pleno vuelo, el ajuste se hace al llegar (verPlaneta)
     const p = viewer.camera.positionCartographic;
     encuadrar(p.longitude, p.latitude);
     escena.requestRender();
@@ -504,13 +554,84 @@ export function crearGlobo(contenedor, opciones = {}) {
       // Ángulo positivo: la cámara va al oeste y la Tierra se ve girar hacia el este
       viewer.camera.rotate(Cesium.Cartesian3.UNIT_Z, op.velocidad * dt);
     }
+    if (acercado && !volando) limitarArrastre();
+    revisarFotoCerca(dt);
     orientarLuz();
   }));
+
+  // De cerca se puede arrastrar un poco: la cámara no se aleja más de CERCA.arrastreMax grados del glaciar
+  function limitarArrastre() {
+    const c = viewer.camera;
+    const p = c.positionCartographic;
+    const dLat = Cesium.Math.toDegrees(p.latitude) - acercado.lat;
+    const dLon = ((Cesium.Math.toDegrees(p.longitude) - acercado.lon + 540) % 360) - 180;
+    const k = Math.cos(Cesium.Math.toRadians(acercado.lat));
+    const d = Math.hypot(dLat, dLon * k);
+    if (d <= CERCA.arrastreMax) return;
+    const f = CERCA.arrastreMax / d;
+    c.setView({
+      destination: Cesium.Cartesian3.fromDegrees(acercado.lon + dLon * f, acercado.lat + dLat * f, p.height),
+      orientation: { heading: c.heading, pitch: c.pitch, roll: c.roll }
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // De cerca, sin pixelado: con la cámara a menos de 2 000 km, encima del Blue Marble (hasta 8 niveles)
+  // va la foto MODIS Terra de 250 m (9 niveles) del día despejado del glaciar. Entra y sale con un
+  // fundido de 0,6 s; el crédito dice "Imagen: MODIS Terra · <fecha>".
+  // ---------------------------------------------------------------
+  const fotosSaliendo = [];
+  const fechaCerca = () =>
+    FOTO_CERCA[objetivo?.tipo === 'glaciar' ? objetivo.ref.id : principal?.id] ?? FOTO_CERCA_DEFECTO;
+  // Orden de abajo hacia arriba: Blue Marble, capa "hoy", foto de cerca y luces de las ciudades
+  function ordenarCapas() {
+    if (cerca) viewer.imageryLayers.raiseToTop(cerca.capa);
+    viewer.imageryLayers.raiseToTop(luces);
+  }
+  function revisarFotoCerca(dt) {
+    const bajo = viewer.camera.positionCartographic.height < CERCA.alturaFoto;
+    // De cerca, la atmósfera sobre el suelo y la niebla de Cesium dejan un velo blanco sobre la foto
+    if (globo.showGroundAtmosphere === bajo) {
+      globo.showGroundAtmosphere = !bajo;
+      escena.fog.enabled = !bajo;
+    }
+    const quiere = bajo ? fechaCerca() : null;
+    if ((cerca?.fecha ?? null) !== quiere) {
+      if (cerca) fotosSaliendo.push(cerca.capa);
+      cerca = null;
+      if (quiere) {
+        const c = viewer.imageryLayers.addImageryProvider(proveedor(CAPAS.fotoTerra, quiere));
+        c.alpha = 0;
+        c.colorToAlpha = Cesium.Color.BLACK; // franjas sin pasada del satélite: se ve el Blue Marble
+        c.colorToAlphaThreshold = 0.06;
+        cerca = { capa: c, fecha: quiere };
+        ordenarCapas();
+      }
+      escribirCredito();
+    }
+    const paso = sinMovimiento.matches ? 1 : dt / CERCA.fundido;
+    let falta = false;
+    if (cerca && cerca.capa.alpha < 1) {
+      cerca.capa.alpha = Math.min(1, cerca.capa.alpha + paso);
+      falta = true;
+    }
+    for (let i = fotosSaliendo.length - 1; i >= 0; i--) {
+      const c = fotosSaliendo[i];
+      c.alpha = Math.max(0, c.alpha - paso);
+      falta = true;
+      if (c.alpha === 0) {
+        viewer.imageryLayers.remove(c, true);
+        fotosSaliendo.splice(i, 1);
+      }
+    }
+    if (falta) escena.requestRender(); // el fundido sigue aunque la escena esté quieta
+  }
 
   // Anillo de luz: mismo diámetro que el planeta, centrado (la cámara mira al centro de la Tierra).
   // El planeta siempre cabe entero en su caja (el zoom no lo deja pasar del 100 %): sin recorte.
   let diametroAnillo = 0;
   const actualizarAnillo = () => {
+    if (acercado) return; // de cerca el anillo se desvanece (CSS) con el tamaño que tenía
     const e = estado();
     anillo.hidden = false;
     if (Math.abs(e.diametroPx - diametroAnillo) >= 1) {
@@ -707,17 +828,52 @@ export function crearGlobo(contenedor, opciones = {}) {
   // ---------------------------------------------------------------
   // API pública
   // ---------------------------------------------------------------
-  function volar(destino, duracion, alTerminar) {
+  // extra: más opciones de flyTo (orientation, easingFunction)
+  function volar(destino, duracion, alTerminar, extra = {}) {
     volando = true;
     actualizarModo();
-    const fin = () => { volando = false; alTerminar?.(); actualizarModo(); };
+    let terminado = false;
+    const fin = () => {
+      if (terminado) return;
+      terminado = true;
+      volando = false;
+      alTerminar?.();
+      actualizarModo();
+    };
     viewer.camera.flyTo({
+      ...extra,
       destination: destino,
       duration: sinMovimiento.matches ? 0 : duracion,
       complete: fin,
       cancel: fin
     });
   }
+
+  // Mirando recto hacia abajo (sin inclinar), con el norte arriba; vuelo con aceleración suave
+  const VUELO_CERCA = {
+    orientation: { heading: 0, pitch: -Cesium.Math.PI_OVER_TWO, roll: 0 },
+    easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT
+  };
+
+  // Zoom máximo a un glaciar: ~350 km encima, sin órbita, satélite ni halo (CSS .acercado)
+  function acercar(lon, lat) {
+    enfocado = true;
+    encuadreAuto = false;
+    acercado = { lat, lon };
+    raiz.classList.add('acercado');
+    topeAlejar();
+    volar(Cesium.Cartesian3.fromDegrees(lon, lat, CERCA.altura), CERCA.duracion, null, VUELO_CERCA);
+  }
+
+  function dejarCerca() {
+    if (!acercado) return false;
+    acercado = null;
+    raiz.classList.remove('acercado');
+    topeAlejar();
+    escena.light = solActivo ? sol : luz;
+    return true;
+  }
+
 
   // Dejar un lugar al frente: el planeta gira (1,6 s) hasta tenerlo en el centro y crece hasta
   // llenar su caja (100 %, siempre entero). La rotación se pausa hasta "ver planeta".
@@ -731,17 +887,18 @@ export function crearGlobo(contenedor, opciones = {}) {
   function irA(lat, lon, alturaM = alturaEncuadre()) {
     if (!viewer) return;
     encuadreAuto = false;
+    if (acercado) acercado = { lat, lon }; // de cerca, el arrastre se limita alrededor del nuevo punto
     const h = Math.min(control.maximumZoomDistance, Math.max(control.minimumZoomDistance, alturaM));
     volar(Cesium.Cartesian3.fromDegrees(lon, lat, h), 2.5);
   }
 
-  // Deja el glaciar al frente (id de contenido/glaciares.js) y avisa con alElegir
+  // Zoom máximo al glaciar (id de contenido/glaciares.js) y avisa con alElegir
   function elegirGlaciar(id) {
     const g = glaciares.find((x) => x.id === id);
     if (!g) return;
     if (viewer) {
       ponerObjetivo(objetivoGlaciar(g));
-      mirarA(g.lon, g.lat);
+      acercar(g.lon, g.lat);
     }
     op.alElegir?.(g);
   }
@@ -755,12 +912,22 @@ export function crearGlobo(contenedor, opciones = {}) {
   }
 
   // Vuelve al planeta del tamaño del diseño y reanuda la rotación
+  // (desde cerca: vuelve con el mismo vuelo suave de 2 s y reaparecen órbita, satélite y halo)
   function verPlaneta() {
     if (!viewer) return;
+    const deCerca = dejarCerca();
     encuadreAuto = true;
     enfocado = false;
     const lon = objetivo?.lon ?? op.lon;
-    volar(Cesium.Cartesian3.fromDegrees(lon, op.lat, alturaEncuadre()), op.duracionVuelo);
+    // El contenedor vuelve a su tamaño mientras vuela: al llegar, se corrige la distancia
+    const ajustar = () => setTimeout(() => {
+      if (!viewer || !encuadreAuto || volando) return;
+      const p = viewer.camera.positionCartographic;
+      const h = alturaEncuadre();
+      if (Math.abs(p.height - h) / h > 0.005) volar(Cesium.Cartesian3.fromRadians(p.longitude, p.latitude, h), 0.5);
+    });
+    volar(Cesium.Cartesian3.fromDegrees(lon, op.lat, alturaEncuadre()),
+      deCerca ? CERCA.duracion : op.duracionVuelo, ajustar, deCerca ? VUELO_CERCA : {});
   }
 
   function destruir() {
@@ -787,7 +954,11 @@ export function crearGlobo(contenedor, opciones = {}) {
       pinesVisibles: pines.filter((p) => p.visible).map((p) => p.g.id),
       satelite: { t: +tSatelite.toFixed(2), detras: satelite.classList.contains('detras') },
       capa: infoCapa ? { ...infoCapa, capas: capasDatos.length, cargando: cargandoCapa } : null, fpsCelular: fpsMedidos,
-      volando, girando: debeGirar()
+      volando, girando: debeGirar(),
+      acercado: Boolean(acercado), alturaKm: Math.round(viewer.camera.positionCartographic.height / 1000),
+      zoomKm: [control.minimumZoomDistance / 1000, control.maximumZoomDistance / 1000].map(Math.round),
+      fotoCerca: cerca ? { fecha: cerca.fecha, alpha: +cerca.capa.alpha.toFixed(2) } : null,
+      credito: credito.textContent
     };
   }
 

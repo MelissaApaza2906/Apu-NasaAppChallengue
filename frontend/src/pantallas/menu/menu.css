@@ -51,13 +51,17 @@
 @keyframes menuAbajo { from { opacity: 0; translate: 0 3cqh; } to { opacity: 1; translate: 0 0; } } /* la usa el recuadro de la montaña */
 
 /* ---------- Órbita y planeta (se corren a la izquierda al abrir la pestaña) ---------- */
-.menu-orbita, .menu-planeta { position: absolute; transition: left .6s cubic-bezier(.2, .8, .2, 1), top .6s cubic-bezier(.2, .8, .2, 1), width .6s cubic-bezier(.2, .8, .2, 1), height .6s cubic-bezier(.2, .8, .2, 1); }
+.menu-orbita, .menu-planeta { position: absolute; transition: left .6s cubic-bezier(.2, .8, .2, 1), top .6s cubic-bezier(.2, .8, .2, 1), width .6s cubic-bezier(.2, .8, .2, 1), height .6s cubic-bezier(.2, .8, .2, 1), opacity .4s; }
 .menu-orbita { left: calc(var(--planeta-izq) - var(--diam) * .175); top: var(--planeta-arriba); width: calc(var(--diam) * 1.35); height: var(--diam); pointer-events: none; overflow: visible; }
 .menu-planeta { left: var(--planeta-izq); top: var(--planeta-arriba); width: var(--diam); height: var(--diam); }
 .menu-planeta.maqueta { animation: menuFlota 7s ease-in-out infinite, menuBrillo 4s ease-in-out infinite; }
 @keyframes menuFlota { 0%, 100% { translate: 0 0; } 50% { translate: 0 -.8cqh; } }
 @keyframes menuBrillo { 0%, 100% { filter: drop-shadow(0 0 2.4cqh rgba(64, 150, 255, .55)); } 50% { filter: drop-shadow(0 0 4.4cqh rgba(64, 150, 255, .85)); } }
 .menu-planeta .tierra { width: 100%; height: 100%; display: block; }
+/* Zoom máximo a un glaciar (globo3d.js baja a ~350 km): el globo ocupa TODO el espacio libre, de la
+   barra de botones a la pestaña y de arriba abajo, sin forma de círculo; la órbita punteada se va */
+.pantalla-menu.con-zoom .menu-planeta { left: var(--riel-der); top: 0; width: calc(100cqw - var(--riel-der) - var(--borde-der)); height: 100cqh; }
+.pantalla-menu.con-zoom .menu-orbita { opacity: 0; }
 
 /* ---------- Logo, estado y aviso ---------- */
 .menu-logo { position: absolute; left: 2.6cqh; top: 2.4cqh; display: flex; align-items: center; gap: 2cqh; }
