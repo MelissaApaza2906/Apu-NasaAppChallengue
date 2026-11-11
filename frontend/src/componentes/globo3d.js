@@ -794,6 +794,8 @@ export function crearGlobo(contenedor, opciones = {}) {
   return {
     irA, elegirGlaciar, elegirPico, verPlaneta, mostrarCapa, destruir, estado,
     // El Cesium.Viewer del globo, para reutilizarlo (no crear otro visor). null si pasó a imagen.
-    get viewer() { return viewer; }
+    get viewer() { return viewer; },
+    // Capa HTML encima del canvas (flota con el planeta): ahí van pines extra (componentes/en-vivo.js)
+    get capa() { return viewer ? capa : null; }
   };
 }

@@ -16,7 +16,7 @@ export const PANTALLAS = {
   menu: {
     saludo: 'Este es nuestro planeta, visto desde el espacio. ¡Toca un glaciar para conocer su historia!',
     queHago: 'Gira el planeta con el dedo y toca un pin. El rojo es la Cordillera Real de Bolivia, nuestro caso. Después puedes ver su montaña en 3D.',
-    conceptos: ['glaciar', 'glaciarTropical', 'satelite', 'orbita', 'blueMarble', 'gibs'],
+    conceptos: ['glaciar', 'glaciarTropical', 'satelite', 'orbita', 'terra', 'eonet', 'blueMarble', 'gibs'],
     consejos: [
       'Los pines oscuros con un copo son glaciares del mundo.',
       'La línea punteada es la órbita del satélite: da vueltas a la Tierra tomando fotos.',
@@ -89,6 +89,8 @@ export const GLOSARIO = {
   gpm: { titulo: 'GPM IMERG', simple: 'Son datos de lluvia de la misión GPM de NASA. Junta lo que miden muchos satélites para saber cuánta lluvia cayó.', mas: 'Se mide en milímetros: 1 mm de lluvia es como cubrir el suelo con una capa de agua de 1 milímetro.' },
   blueMarble: { titulo: 'Blue Marble', simple: 'Es la foto de la Tierra completa que hizo NASA juntando muchas imágenes sin nubes. Es el planeta que ves en APU.', mas: '«Blue Marble» significa «canica azul».' },
   gibs: { titulo: 'NASA GIBS', simple: 'Es el servicio de NASA que envía las imágenes de satélite por partes, según cuánto te acerques.', mas: 'Gracias a GIBS, el globo de APU muestra imágenes reales sin descargarlas todas.' },
+  terra: { titulo: 'Terra', simple: 'Terra es un satélite de NASA lanzado en 1999. Lleva la cámara MODIS, con la que medimos la nieve.', mas: 'Da una vuelta a la Tierra cada 99 minutos, a unos 700 km de altura. En el menú lo ves volar en vivo.' },
+  eonet: { titulo: 'NASA EONET', simple: 'Es el servicio de NASA que avisa de eventos naturales en el mundo: icebergs, volcanes, tormentas e incendios.', mas: 'En el globo, los rombos celestes son icebergs y los triángulos naranjas, volcanes activos.' },
   nubesHoy: { titulo: 'Nubes de hoy', simple: 'Son fotos reales de ayer tomadas por varios satélites (MODIS y VIIRS). Por eso a veces faltan franjas: el satélite aún no pasó por ahí.', mas: 'Juntamos varios satélites para tapar esos huecos.' },
 
   // Investigar con datos

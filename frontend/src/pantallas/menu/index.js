@@ -17,6 +17,7 @@ import { GLACIARES, historiaDe } from '../../contenido/glaciares.js';
 import { abrirMontana } from './montanas-puente.js';
 import { leerProgreso } from '../../servicios/progreso.js';
 import { avatarPorId } from '../../contenido/avatares.js';
+import { crearEnVivo } from '../../componentes/en-vivo.js';
 
 const AVISO_CAPA = 'No se pudo cargar la capa de NASA. El planeta sigue con la imagen normal.';
 const EN_PREPARACION = 'En preparación';
@@ -56,6 +57,7 @@ const numeroEs = (n, d = decimalesDe(n)) => {
 const escapar = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 let globo = null;
+let enVivo = null;    // satélite Terra y eventos de NASA EONET (componentes/en-vivo.js)
 let vivo = false;
 let quitarAlSalir = null; // listeners y temporizadores que hay que quitar al salir del menú
 
@@ -95,6 +97,8 @@ export function montar(contenedor) {
         <button type="button" class="boton-capas hud" aria-label="Capas de datos de NASA" title="Capas de datos de NASA" aria-haspopup="menu" aria-expanded="false" aria-controls="menu-capas">${ICONO_CAPAS}</button>
         <div class="menu-capas hud" id="menu-capas" role="menu" aria-label="Capas de datos de NASA" hidden>
           ${CAPAS_MENU.map((c) => `<button type="button" role="menuitemradio" data-capa="${c.capa ?? ''}" aria-checked="${c.capa === null}">${c.n}</button>`).join('')}
+          <span class="separador" role="separator"></span>
+          <button type="button" role="menuitemcheckbox" data-eventos aria-checked="true">Eventos en vivo</button>
         </div>
       </div>
       <p class="menu-cargando" role="status" hidden>${AVISO_NUBES}</p>
@@ -154,6 +158,13 @@ export function montar(contenedor) {
   }
   botonCapas.addEventListener('click', () => abrirCapas(menuCapas.hidden));
   menuCapas.addEventListener('click', (e) => {
+    const ev = e.target.closest('[role="menuitemcheckbox"]');
+    if (ev) { // "Eventos en vivo": se prende o se apaga; el menú sigue abierto
+      const si = ev.getAttribute('aria-checked') !== 'true';
+      ev.setAttribute('aria-checked', String(si));
+      enVivo?.eventos(si);
+      return;
+    }
     const b = e.target.closest('[role="menuitemradio"]'); if (!b) return;
     menuCapas.querySelectorAll('[data-capa]').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
     pedirCapa(b.dataset.capa || null);
@@ -183,6 +194,13 @@ export function montar(contenedor) {
   // Planeta: globo 3D de Cesium o, si no está, el planeta de la maqueta
   // ---------------------------------------------------------------
   const ranura = $('.menu-planeta');
+  // En vivo: satélite Terra (chip abajo a la derecha) y eventos de NASA EONET (pines en el globo)
+  const ponerEnVivo = () => {
+    if (!vivo || enVivo) return;
+    enVivo = crearEnVivo({ globo, pantalla: raiz });
+    enVivo.eventos($('[data-eventos]').getAttribute('aria-checked') === 'true');
+    if (import.meta.env.DEV) window.__enVivo = enVivo; // para las pruebas en el navegador
+  };
   import('../../componentes/globo3d.js')
     .then((m) => {
       if (!vivo) return;
@@ -195,11 +213,13 @@ export function montar(contenedor) {
         alElegir: (g) => { if (vivo) abrirPestana(g); } // al tocar su pin
       });
       if (import.meta.env.DEV) window.__globo = globo; // para las pruebas en el navegador
+      ponerEnVivo();
     })
     .catch((e) => {
       console.info('APU: se usa el planeta de la maqueta.', e.message);
       if (!vivo) return;
       ranura.classList.add('maqueta');
+      ponerEnVivo(); // sin globo 3D queda el chip de Terra (sin pines)
       ranura.innerHTML = '<img class="tierra" src="/img/planeta.webp" alt="La Tierra vista desde el espacio, centrada en Sudamérica, con Perú, Bolivia y Chile">';
     });
 
@@ -302,6 +322,7 @@ export function montar(contenedor) {
     }
     if (!vivo) { montana?.cerrar(); montana = null; return; }
     $('.menu-volver').hidden = false;
+    enVivo?.mostrar(false);
     $('.menu-volver').focus();
     avisarAsistente('montana');
   });
@@ -310,6 +331,7 @@ export function montar(contenedor) {
     montana.cerrar();
     montana = null;
     $('.menu-volver').hidden = true;
+    enVivo?.mostrar(true);
     avisarAsistente(elegido ? 'glaciar' : 'menu');
   }
   $('.menu-volver').addEventListener('click', () => { cerrarMontana(); $('.pestana-ver').focus(); });
@@ -349,6 +371,8 @@ export function desmontar() {
   vivo = false;
   quitarAlSalir?.();
   quitarAlSalir = null;
+  enVivo?.destruir();
+  enVivo = null;
   globo?.destruir?.();
   globo = null;
 }

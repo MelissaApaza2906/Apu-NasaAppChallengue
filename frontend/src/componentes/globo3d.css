@@ -199,6 +199,34 @@
   to   { transform: scale(2.4); opacity: 0; }
 }
 
+/* ---------- Eventos de la Tierra en vivo (NASA EONET, componentes/en-vivo.js) ---------- */
+/* Forma de 16 px (rombo celeste = iceberg, triángulo naranja = volcán) en un botón de 44 px */
+.globo3d-eventos { position: absolute; inset: 0; }
+.globo3d-eventos[hidden] { display: none; }
+.globo3d-evento {
+  position: absolute;
+  left: -22px;
+  top: -22px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  will-change: transform;
+}
+.globo3d-evento.oculto { visibility: hidden; }
+.globo3d-evento svg { width: 16px; height: 16px; display: block; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .6)); transition: transform .15s; }
+.globo3d-evento:hover svg,
+.globo3d-evento.elegido svg { transform: scale(1.3); }
+.globo3d-evento:focus-visible { outline: none; }
+.globo3d-evento:focus-visible svg { outline: 3px solid #8FDBFF; outline-offset: 2px; border-radius: 2px; }
+
 /* Línea fina de la selección a la etiqueta (sube a 45° hacia la derecha) */
 .globo3d-seleccion .linea {
   position: absolute;

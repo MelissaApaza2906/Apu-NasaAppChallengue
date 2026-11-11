@@ -97,6 +97,32 @@
 .menu-capas button[aria-checked="true"] { border-color: var(--rojo-apu); background: rgba(209, 32, 33, .16); }
 .menu-capas button:hover { background: rgba(31, 65, 108, .9); }
 .menu-capas button:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
+.menu-capas .separador { height: 1px; margin: 2px 8px; background: rgba(242, 244, 248, .25); }
+/* "Eventos en vivo": casilla que se prende o se apaga */
+.menu-capas [role="menuitemcheckbox"] { gap: 10px; }
+.menu-capas [role="menuitemcheckbox"]::before { content: ''; flex: none; width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid rgba(242, 244, 248, .8); box-sizing: border-box; }
+.menu-capas [role="menuitemcheckbox"][aria-checked="true"]::before { border-color: var(--rojo-apu); background: var(--rojo-apu) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5 6.5 11.5 12.5 5' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% no-repeat; }
+
+/* ---------- En vivo (componentes/en-vivo.js): chip de Terra y tarjeta de evento, abajo a la derecha ---------- */
+.envivo-chip, .envivo-tarjeta { position: absolute; z-index: 4; right: calc(var(--margen) + var(--borde-der)); transition: right .6s cubic-bezier(.2, .8, .2, 1); color: var(--nieve); }
+.envivo-chip { bottom: calc(1.4cqh + 20px); min-height: 32px; max-width: calc(100cqw - var(--riel-der) - var(--margen) - var(--borde-der)); padding: 5px 12px; border-radius: 999px; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; cursor: pointer; font: 600 12px / 1.3 var(--letra-texto); text-align: right; }
+.envivo-chip .envivo-texto { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.envivo-chip small { font: 500 11px / 1.2 var(--letra-texto); color: #A9B4CC; }
+.envivo-chip[hidden], .envivo-chip small[hidden], .envivo-tarjeta[hidden] { display: none; }
+.envivo-chip:hover { box-shadow: 0 0 1.6cqh rgba(242, 244, 248, .35); }
+.envivo-chip:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
+.envivo-tarjeta { bottom: calc(1.4cqh + 64px); width: min(260px, calc(100cqw - var(--riel-der) - var(--margen) - var(--borde-der))); padding: 12px 14px; border-radius: 14px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.35; animation: menuAbajo .3s ease-out both; }
+.envivo-tarjeta h3 { margin: 0; padding-right: 36px; font: 700 15px / 1.25 var(--letra-texto); }
+.envivo-tarjeta p { margin: 0; color: #D7DEEA; }
+.envivo-tipo { display: flex; align-items: center; gap: 6px; padding-right: 36px; font: 600 12px var(--letra-texto); letter-spacing: .04em; text-transform: uppercase; }
+.envivo-tipo svg { width: 14px; height: 14px; }
+.envivo-tipo.iceberg { color: #8FDBFF; }
+.envivo-tipo.volcan { color: #FF8A3D; }
+.envivo-tarjeta .envivo-fuente, .envivo-tarjeta .envivo-respaldo { font: 500 11.5px var(--letra-dato); color: #A9B4CC; }
+.envivo-cerrar { position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: none; border-radius: 50%; background: transparent; color: var(--nieve); cursor: pointer; }
+.envivo-cerrar svg { width: 18px; height: 18px; }
+.envivo-cerrar:hover { background: rgba(31, 65, 108, .9); }
+.envivo-cerrar:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: -3px; }
 
 /* Crédito de NASA: una línea, abajo a la derecha */
 .menu-credito { position: absolute; z-index: 2; right: var(--margen); bottom: 1.4cqh; margin: 0; white-space: nowrap; font: 500 11px / 1.2 var(--letra-texto); color: #D7DEEA; opacity: .6; pointer-events: none; transition: right .6s cubic-bezier(.2, .8, .2, 1); }
@@ -253,7 +279,8 @@
 
 /* ---------- Menos movimiento: sin animaciones ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .menu-orbita, .menu-planeta, .menu-credito, .menu-arriba-der { transition: none; }
+  .menu-orbita, .menu-planeta, .menu-credito, .menu-arriba-der, .envivo-chip, .envivo-tarjeta { transition: none; }
+  .envivo-tarjeta { animation: none; }
   .menu-estrellas span, .menu-planeta.maqueta, .entra-der, .entra-izq,
   .menu-pestana.entra,
   .pestana-linea::before, .pestana-linea li, .linea-graf,

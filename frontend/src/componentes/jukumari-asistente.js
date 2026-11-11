@@ -261,8 +261,11 @@ export function montarAsistente(dondeEvitar = document.getElementById('app')) {
     ponerContexto(['glaciar', 'montana', 'menu'].includes(e.detail) ? e.detail : 'menu');
   });
   window.addEventListener('apu:jukumari', (e) => {
-    fraseExtra = String(e.detail ?? '');
+    // detail: 'frase' o { texto: 'frase', abrir: true } (abre el panel para decirla)
+    const d = e.detail;
+    fraseExtra = String((typeof d === 'object' && d ? d.texto : d) ?? '');
     if (abierto) pintarPanel();
+    else if (d?.abrir && !raiz.hidden) abrir();
     const nube = $('.asistente-nube');
     if (!sinMovimiento.matches) { nube.classList.remove('late'); void nube.offsetWidth; nube.classList.add('late'); }
   });

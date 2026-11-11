@@ -1,0 +1,117 @@
+{
+ "guardado": "2026-11-11T18:28:12.272Z",
+ "eventos": [
+  {
+   "id": "EONET_2736",
+   "titulo": "Iceberg B22A",
+   "tipo": "iceberg",
+   "lat": -69.59,
+   "lon": 163.59,
+   "fecha": "2026-11-06T00:00:00Z"
+  },
+  {
+   "id": "EONET_6051",
+   "titulo": "Iceberg C39",
+   "tipo": "iceberg",
+   "lat": -65.58,
+   "lon": 55.55,
+   "fecha": "2026-10-30T00:00:00Z"
+  },
+  {
+   "id": "EONET_25990",
+   "titulo": "Iceberg B22K",
+   "tipo": "iceberg",
+   "lat": -69.76,
+   "lon": 163.35,
+   "fecha": "2026-10-30T00:00:00Z"
+  },
+  {
+   "id": "EONET_25268",
+   "titulo": "Iceberg B52",
+   "tipo": "iceberg",
+   "lat": -74.4,
+   "lon": -130.24,
+   "fecha": "2026-10-09T00:00:00Z"
+  },
+  {
+   "id": "EONET_6510",
+   "titulo": "Iceberg D33C",
+   "tipo": "iceberg",
+   "lat": -61.95,
+   "lon": -54.38,
+   "fecha": "2026-09-24T00:00:00Z"
+  },
+  {
+   "id": "EONET_12716",
+   "titulo": "Iceberg A85",
+   "tipo": "iceberg",
+   "lat": -56.46,
+   "lon": -45.13,
+   "fecha": "2026-11-06T00:00:00Z"
+  },
+  {
+   "id": "EONET_5359",
+   "titulo": "Iceberg A76C",
+   "tipo": "iceberg",
+   "lat": -56.87,
+   "lon": -23.74,
+   "fecha": "2026-10-22T00:00:00Z"
+  },
+  {
+   "id": "EONET_6288",
+   "titulo": "Iceberg D32",
+   "tipo": "iceberg",
+   "lat": -56.65,
+   "lon": -39.35,
+   "fecha": "2026-10-22T00:00:00Z"
+  },
+  {
+   "id": "EONET_6320",
+   "titulo": "Iceberg A81",
+   "tipo": "iceberg",
+   "lat": -55.81,
+   "lon": -35.52,
+   "fecha": "2026-11-06T00:00:00Z"
+  },
+  {
+   "id": "EONET_6424",
+   "titulo": "Iceberg D33B",
+   "tipo": "iceberg",
+   "lat": -55.87,
+   "lon": -42.25,
+   "fecha": "2026-10-30T00:00:00Z"
+  },
+  {
+   "id": "EONET_6474",
+   "titulo": "Iceberg D35",
+   "tipo": "iceberg",
+   "lat": -60.15,
+   "lon": -44.72,
+   "fecha": "2026-11-06T00:00:00Z"
+  },
+  {
+   "id": "EONET_6523",
+   "titulo": "Iceberg A83",
+   "tipo": "iceberg",
+   "lat": -59.61,
+   "lon": -49.52,
+   "fecha": "2026-10-30T00:00:00Z"
+  },
+  {
+   "id": "EONET_10212",
+   "titulo": "Iceberg B22F",
+   "tipo": "iceberg",
+   "lat": -67.65,
+   "lon": -174.86,
+   "fecha": "2026-10-01T00:00:00Z"
+  },
+  {
+   "id": "EONET_12618",
+   "titulo": "Iceberg A84",
+   "tipo": "iceberg",
+   "lat": -69.02,
+   "lon": -89.73,
+   "fecha": "2026-11-06T00:00:00Z"
+  }
+ ]
+}
