@@ -71,6 +71,22 @@ for m, v in zip(meses, valores):
     por_anio.setdefault(int(m[:4]), []).append(v)
 anios = [a for a in sorted(por_anio) if len(por_anio[a]) == 12]
 anual = [sum(por_anio[a]) if ES_LLUVIA else mean(por_anio[a]) for a in anios]
+meses_del_anio = list(range(1, 13))
+# Nieve en zonas polares: en la noche polar el satélite no ve nada y faltan meses todos los años.
+# En ese caso usamos solo los meses que existen en (casi) todos los años, igual para cada año.
+if not ES_LLUVIA and len(anios) < 10:
+    cuenta = {}
+    for m in meses:
+        cuenta[int(m[5:])] = cuenta.get(int(m[5:]), 0) + 1
+    total = len(por_anio)
+    meses_del_anio = sorted(k for k, c in cuenta.items() if c >= total - 1)
+    por_anio2 = {}
+    for m, v in zip(meses, valores):
+        if int(m[5:]) in meses_del_anio:
+            por_anio2.setdefault(int(m[:4]), []).append(v)
+    anios = [a for a in sorted(por_anio2) if len(por_anio2[a]) == len(meses_del_anio)]
+    anual = [mean(por_anio2[a]) for a in anios]
+    print(f"Aviso: faltan meses (noche polar). Se usan solo los meses {meses_del_anio} de cada año.")
 n = len(anual)
 if n < 10:
     print(f"OJO: solo hay {n} años completos. Con menos de 10 el resultado es poco confiable.")
@@ -115,6 +131,7 @@ resultado = {
     "anomalias": anomalias,
     "anios": anios,
     "anual": [round(x, 3) for x in anual],
+    "meses_del_anio": meses_del_anio,
     "tendencia_por_decada": round(sen * 10, 2),
     "subio": subio,
     "bajo": bajo,
