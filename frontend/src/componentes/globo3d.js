@@ -26,7 +26,7 @@ import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import './globo3d.css';
 import { CESIUM_TOKEN, EXAGERACION } from '../servicios/config.js';
-import { CAPAS, proveedor, nasaResponde, hayImagen, haceDias, fechaBonita } from '../servicios/nasa-gibs.js';
+import { CAPAS, proveedor, nasaResponde, primeraFechaConImagen, haceDias, diasAntes, fechaBonita } from '../servicios/nasa-gibs.js';
 
 // Capas que se pueden poner encima del Blue Marble con mostrarCapa(nombre, fecha).
 // El planeta es para explorar: los datos por año (nieve, lluvia) van en la vista de la montaña.
@@ -34,11 +34,12 @@ import { CAPAS, proveedor, nasaResponde, hayImagen, haceDias, fechaBonita } from
 // —las de nubes son mapas de colores—, así que el planeta va sin nubes.)
 const CAPAS_DATOS = {
   // La Tierra de hoy: fotos en color real de ayer (con sus nubes), con el sol en su posición real.
-  // De abajo hacia arriba: MODIS Terra, MODIS Aqua, VIIRS SNPP y VIIRS NOAA-20; cada una tapa las
+  // De abajo hacia arriba: MODIS Terra, MODIS Aqua y VIIRS NOAA-20; cada una tapa las
   // franjas sin imagen de las otras y donde no hay ninguna se ve el Blue Marble.
+  // (Sin VIIRS SNPP: GIBS dejó de publicarla el 2 nov 2026; CAPAS.fotoSnpp sigue en nasa-gibs.js.)
   hoy: {
-    capas: [CAPAS.fotoTerra, CAPAS.fotoAqua, CAPAS.fotoSnpp, CAPAS.fotoNoaa20],
-    titulo: 'Nubes: MODIS Terra/Aqua y VIIRS', fechaDefecto: async () => haceDias(1), alpha: 1, sol: true
+    capas: [CAPAS.fotoTerra, CAPAS.fotoAqua, CAPAS.fotoNoaa20],
+    titulo: 'Nubes: MODIS Terra/Aqua y VIIRS NOAA-20', fechaDefecto: async () => haceDias(1), alpha: 1, sol: true
   }
 };
 const CREDITO_BASE = 'Imágenes: NASA GIBS / Blue Marble';
@@ -361,16 +362,22 @@ export function crearGlobo(contenedor, opciones = {}) {
   // Capa "Hoy" encima del Blue Marble: las fotos de ayer de 4 satélites apiladas (las nubes reales)
   // ---------------------------------------------------------------
   let capasDatos = [];    // ImageryLayer de Cesium (de abajo hacia arriba)
-  let infoCapa = null;    // { nombre, fecha, sinImagen }
+  let infoCapa = null;    // { nombre, fecha (la más reciente usada), fechas (todas las usadas), pedida, sinImagen }
+  const DIAS_ATRAS = 3;   // si un satélite no tiene imagen en la fecha pedida, prueba hasta 3 días antes
   let pedidoCapa = 0;     // si llega otro pedido mientras esperamos a NASA, el anterior se descarta
   let cargandoCapa = false;
 
   function escribirCredito() {
     if (cerca) { credito.textContent = `Imagen: MODIS Terra · ${fechaBonita(cerca.fecha)}`; return; }
     const d = infoCapa && CAPAS_DATOS[infoCapa.nombre];
-    credito.textContent = d
-      ? `${CREDITO_BASE} · ${d.titulo} · ${fechaBonita(infoCapa.fecha)}${infoCapa.sinImagen ? ' · sin imagen de NASA para esta fecha' : ''}`
-      : CREDITO_BASE;
+    if (!d) { credito.textContent = CREDITO_BASE; return; }
+    // La fecha real de las fotos que se ven; si los satélites quedaron en días distintos, todas
+    const cuando = infoCapa.sinImagen
+      ? `sin imagen de NASA del ${fechaBonita(diasAntes(infoCapa.pedida, DIAS_ATRAS))} al ${fechaBonita(infoCapa.pedida)}`
+      : infoCapa.fechas.length > 1
+        ? infoCapa.fechas.map(fechaCorta).join(' y ')
+        : fechaBonita(infoCapa.fecha);
+    credito.textContent = `${CREDITO_BASE} · ${d.titulo} · ${cuando}`;
   }
 
   // "Cargando nubes de NASA…": avisa al menú (op.alCargarCapa) mientras faltan teselas
@@ -410,8 +417,10 @@ export function crearGlobo(contenedor, opciones = {}) {
   const nivelNecesario = () => Math.max(0, Math.ceil(Math.log2((Math.PI * estado().diametroPx) / 256)));
 
   // nombre: 'hoy' | null. fecha: 'AAAA-MM-DD' (por defecto, ayer).
-  // Apila las capas de esa fecha que tienen imagen (las que no, se saltan). Devuelve
-  // { ok, nombre, fecha, capas, sinImagen } o { ok: false, motivo: 'sin-respuesta' | 'sin-detalle' }.
+  // Cada satélite usa la fecha pedida o, si NASA aún no la tiene (404 o tesela vacía), el día anterior,
+  // hasta DIAS_ATRAS días antes; los que no tienen ninguna se saltan. Devuelve
+  // { ok, nombre, fecha (la más reciente usada), fechas, pedida, capas, sinImagen }
+  // o { ok: false, motivo: 'sin-respuesta' | 'sin-detalle' }.
   // Si NASA no responde, el globo queda como estaba.
   async function mostrarCapa(nombre, fecha) {
     const yo = ++pedidoCapa;
@@ -431,19 +440,29 @@ export function crearGlobo(contenedor, opciones = {}) {
     if (yo !== pedidoCapa || !viewer) return { ok: false, motivo: 'reemplazado' };
     if (!f) return { ok: false, motivo: 'sin-respuesta' };
     avisarCarga(true);
-    const hay = await Promise.all(d.capas.map((c) => hayImagen(c, f)));
+    const candidatas = Array.from({ length: DIAS_ATRAS + 1 }, (_, n) => diasAntes(f, n)); // f, f-1, f-2, f-3
+    const usadas = await Promise.all(d.capas.map((c) => primeraFechaConImagen(c, candidatas)));
     if (yo !== pedidoCapa || !viewer) return { ok: false, motivo: 'reemplazado' };
-    if (hay.every((h) => h === 'error')) { avisarCarga(false); return { ok: false, motivo: 'sin-respuesta' }; }
+    if (usadas.every((u) => u === 'error')) { avisarCarga(false); return { ok: false, motivo: 'sin-respuesta' }; }
 
     quitarCapaDatos();
-    const conImagen = d.capas.filter((_, i) => hay[i] === 'si');
-    capasDatos = conImagen.map((c) => ponerCapa(c, f, d.alpha ?? 0.85));
-    infoCapa = { nombre, fecha: f, sinImagen: !conImagen.length };
+    // Las de días anteriores van debajo: donde se tapan, gana la foto más reciente
+    const conImagen = d.capas
+      .map((c, i) => ({ c, fecha: usadas[i] }))
+      .filter((x) => x.fecha && x.fecha !== 'error')
+      .sort((a, b) => a.fecha.localeCompare(b.fecha));
+    capasDatos = conImagen.map((x) => ponerCapa(x.c, x.fecha, d.alpha ?? 0.85));
+    const fechas = [...new Set(conImagen.map((x) => x.fecha))].sort().reverse(); // de la más reciente a la más vieja
+    const fechaReal = fechas[0] ?? f;
+    infoCapa = { nombre, fecha: fechaReal, fechas, pedida: f, sinImagen: !conImagen.length };
     if (conImagen.length) { cargaDesde = performance.now() + 300; avisarCarga(true); }
     usarSol(Boolean(d.sol));
     escribirCredito();
     escena.requestRender();
-    return { ok: true, nombre, fecha: f, capas: conImagen.map((c) => c.layer), sinImagen: !conImagen.length };
+    return {
+      ok: true, nombre, fecha: fechaReal, fechas, pedida: f,
+      capas: conImagen.map((x) => ({ capa: x.c.layer, fecha: x.fecha })), sinImagen: !conImagen.length
+    };
   }
   if (op.capa) mostrarCapa(op.capa);
 

@@ -52,6 +52,13 @@ export function haceDias(n) {
   return d.toISOString().slice(0, 10);
 }
 
+// La fecha 'AAAA-MM-DD' de n días antes de otra: diasAntes('2026-03-01', 1) → '2026-02-28'
+export function diasAntes(iso, n) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
 // "2025-08-15" -> "15 de agosto de 2025"
 export function fechaBonita(iso) {
   const [a, m, d] = iso.split('-').map(Number);
