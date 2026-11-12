@@ -36,6 +36,12 @@
 .mp-pestanas button:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
 .menu-panel .ver-barras:disabled { opacity: .5; cursor: not-allowed; }
 
+/* Masa de hielo (GRACE): tarjeta grande a todo el ancho, con el dato oficial de NASA debajo */
+.mp-datos .tarjeta.grande { grid-column: 1 / -1; padding: 1.8cqh; }
+.mp-datos .tarjeta.grande .icono { font-size: max(18px, 5cqh); }
+.mp-datos .tarjeta.grande .texto b { font-size: clamp(18px, 4.2cqh, 38px); }
+.mp-datos .tarjeta.grande .texto .oficial { margin-top: .4cqh; color: #D7DEEA; }
+
 @media (prefers-reduced-motion: reduce) {
   .mp-barra .relleno, .mp-recuadro { animation: none; }
 }

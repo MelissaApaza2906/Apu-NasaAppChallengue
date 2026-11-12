@@ -3,7 +3,7 @@
 // para comparar entre años; elegimos el final de la época seca o del verano,
 // cuando queda la nieve que dura todo el año.
 // datos: el análisis de nieve (y lluvia) de NASA de cada glaciar (backend/ → frontend/public/datos/).
-// La Península Antártica todavía no tiene: null.
+// La Antártida no tiene nieve: su archivo trae la masa de hielo de GRACE (variables.masa).
 // foto: portada de la pestaña (Wikimedia Commons, licencia libre; créditos en docs/creditos-fotos.md).
 // La historia de cada glaciar (pestaña del menú) está en HISTORIAS, más abajo; historiaDe(g) la une.
 export const GLACIARES = [
@@ -70,7 +70,7 @@ export const GLACIARES = [
   {
     id: 'peninsula-antartica', nombre: 'Península Antártica', pais: 'Antártida',
     lat: -65.0, lon: -62.0, caja: { oeste: -66.0, sur: -68.0, este: -57.0, norte: -62.0 },
-    diaComparar: '03-01', datos: null,
+    diaComparar: '03-01', datos: 'datos/antartida.json',
     foto: { src: '/img/glaciares/peninsula-antartica.webp', autor: 'Christian Stangl', licencia: 'CC BY-SA 2.0', url: 'https://commons.wikimedia.org/wiki/File:Mount_Vinson_from_NW_at_Vinson_Plateau_by_Christian_Stangl_(flickr).jpg' }
   }
 ];

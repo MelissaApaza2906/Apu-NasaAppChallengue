@@ -91,6 +91,8 @@ export const GLOSARIO = {
   gibs: { titulo: 'NASA GIBS', simple: 'Es el servicio de NASA que envía las imágenes de satélite por partes, según cuánto te acerques.', mas: 'Gracias a GIBS, el globo de APU muestra imágenes reales sin descargarlas todas.' },
   terra: { titulo: 'Terra', simple: 'Terra es un satélite de NASA lanzado en 1999. Lleva la cámara MODIS, con la que medimos la nieve.', mas: 'Da una vuelta a la Tierra cada 99 minutos, a unos 700 km de altura. En el menú lo ves volar en vivo.' },
   eonet: { titulo: 'NASA EONET', simple: 'Es el servicio de NASA que avisa de eventos naturales en el mundo: icebergs, volcanes, tormentas e incendios.', mas: 'En el globo, los rombos celestes son icebergs y los triángulos naranjas, volcanes activos.' },
+  grace: { titulo: 'GRACE', simple: 'GRACE y GRACE-FO son satélites gemelos de NASA que pesan el hielo: miden cómo cambia la gravedad cuando el hielo se pierde.' },
+  gigatonelada: { titulo: 'Gigatonelada', simple: 'Mil millones de toneladas. Una gigatonelada de hielo llenaría unas 400 000 piscinas olímpicas.' },
   nubesHoy: { titulo: 'Nubes de hoy', simple: 'Son fotos reales de ayer tomadas por varios satélites (MODIS y VIIRS). Por eso a veces faltan franjas: el satélite aún no pasó por ahí.', mas: 'Juntamos varios satélites para tapar esos huecos.' },
 
   // Investigar con datos

@@ -30,13 +30,24 @@ const VARIABLES = {
     color: '#4F8DFF', area: '#4F8DFF', decimales: 0, unidad: ' mm', escala: null
   }
 };
+// Regiones sin nieve con masa de hielo (variables.masa, GRACE): una sola pestaña, sin máquina del
+// tiempo ni Nevada/Lluvia.
+const MASA = {
+  pestana: 'Hielo', titulo: 'Masa de hielo (GRACE)', unidad: 'gigatoneladas (mil millones de toneladas)',
+  grafico: 'Cambio de la masa de hielo, cada mes', color: '#8FDBFF', area: '#5BA0FF'
+};
+const HUECO_MESES = 6; // más meses seguidos sin dato que esto: el gráfico corta la línea y marca el hueco
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const nombreMes = (m) => `${MESES[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`; // '2018-01' → 'Enero 2018'
 const fmt = (v, d) => v.toFixed(d).replace('.', ',');
+const conSigno = (v, d = 0) => `${v < 0 ? '−' : ''}${fmt(Math.abs(v), d)}`; // signo menos tipográfico
+const numMes = (m) => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7)) - 1; // '2002-04' → meses corridos
+const mesDe = (t) => `${Math.floor(t / 12)}-${String(t % 12 + 1).padStart(2, '0')}`;
 
 export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVariable }) {
   const $ = (s) => raiz.querySelector(s);
   const conDatos = Boolean(glaciar?.datos) || glaciar?.tipo === 'pico';
+  const esMasa = Boolean(region?.variables?.masa && !region?.variables?.nieve);
   // Los textos de VARIABLES están escritos para la Cordillera Real; para otro glaciar, su nombre.
   // La escala fija del índice de nieve (1,2–3,0) es solo de la Cordillera Real; los demás, la de sus datos.
   const esCordilleraReal = () => (region?.id ?? glaciar?.id) === 'cordillera-real';
@@ -79,7 +90,25 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
   const panel = document.createElement('aside');
   panel.className = 'menu-panel hud mp-datos';
   panel.setAttribute('aria-label', 'Datos de NASA');
-  panel.innerHTML = conDatos ? `
+  panel.innerHTML = esMasa ? `
+    <div class="mp-pestanas" role="tablist" aria-label="Variable">
+      <button type="button" role="tab" data-v="masa" aria-selected="true">${MASA.pestana}</button>
+    </div>
+    <div>
+      <h2><span class="barras" aria-hidden="true">//</span><span class="titulo-texto">${MASA.titulo}</span></h2>
+      <p class="intro"></p>
+    </div>
+    <div class="linea" aria-hidden="true"></div>
+    <div class="con-datos">
+      <div class="tarjetas"></div>
+      <figure class="grafico">
+        <figcaption><span class="titulo-graf"></span> · <span class="rango"></span></figcaption>
+        <svg role="img" viewBox="0 0 300 110"></svg>
+        <span class="nota">Unidad: ${MASA.unidad}</span>
+        <span class="nota nota-hueco"></span>
+        <span class="nota fuente-graf"></span>
+      </figure>
+    </div>` : conDatos ? `
     <div class="mp-pestanas" role="tablist" aria-label="Variable">
       ${Object.entries(VARIABLES).map(([k, v]) => `<button type="button" role="tab" data-v="${k}" aria-selected="${k === 'nieve'}">${v.pestana}</button>`).join('')}
     </div>
@@ -132,7 +161,7 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     <button type="button" class="play" aria-pressed="false" aria-label="Reproducir los años">▶</button>
     <input type="range" class="anio" min="${ANIOS[0]}" max="${ANIOS[1]}" step="1" value="${ANIOS[0]}" aria-label="Año">
     <output class="anio-valor" aria-live="polite"></output>`;
-  if (conDatos) { raiz.append(fechas); raiz.classList.add('con-fechas'); }
+  if (conDatos && !esMasa) { raiz.append(fechas); raiz.classList.add('con-fechas'); }
 
   const q = (s) => panel.querySelector(s);
 
@@ -219,6 +248,71 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
   }
 
   // ---------------------------------------------------------------
+  // Masa de hielo (GRACE): valores mensuales, con el hueco entre GRACE y GRACE-FO
+  // ---------------------------------------------------------------
+  function pintarMasa() {
+    const v = region.variables.masa;
+    const t = v.meses.map(numMes), y = v.valores, n = y.length;
+    const real = v.veredicto === 'real';
+    const porAnio = v.tendencia_por_decada / 10;
+    const oficial = v.tendencia_oficial_nasa;
+    q('.intro').textContent = `Cuánto hielo ganó o perdió ${region.nombre} cada mes desde ${nombreMes(v.meses[0]).toLowerCase()}, pesado por los satélites GRACE y GRACE-FO de NASA.`;
+
+    // Tarjetas: la grande (tendencia por año + dato oficial de NASA) y el veredicto con p
+    const textoP = v.p < 0.01 ? 'p < 0,01' : `p = ${fmt(v.p, 2)}`;
+    q('.tarjetas').innerHTML = `
+      <div class="tarjeta grande${real ? ' alerta' : ' duda'}"><span class="icono" aria-hidden="true">${porAnio < 0 ? '↘' : '↗'}</span><span class="texto">
+        <span>Cambio del hielo</span><b>${conSigno(porAnio)} Gt por año</b>
+        ${oficial ? `<span class="oficial">Dato oficial de NASA: ${conSigno(oficial.valor)} ± ${fmt(oficial.error, 0)} Gt/año</span>` : ''}
+      </span></div>
+      <div class="tarjeta${real ? ' alerta' : ' duda'}"><span class="icono" aria-hidden="true">${real ? '✓' : '?'}</span><span class="texto"><span>Tendencia</span><b>${real ? 'Real' : 'Todavía no se sabe'} · ${textoP}</b></span></div>`;
+
+    // Gráfico mensual: la línea se corta donde faltan más de HUECO_MESES meses seguidos
+    const min = Math.min(...y), max = Math.max(...y), pad = (max - min) * 0.06 || 1;
+    const X = (tt) => 12 + (tt - t[0]) * (284 / Math.max(1, t[n - 1] - t[0]));
+    const Y = (x) => 96 - (x - (min - pad)) / (max - min + 2 * pad) * 84;
+    const tramos = [[0]];
+    const huecos = [];
+    for (let i = 1; i < n; i++) {
+      if (t[i] - t[i - 1] > HUECO_MESES) { huecos.push([i - 1, i]); tramos.push([i]); } else tramos[tramos.length - 1].push(i);
+    }
+    const camino = (ix) => ix.map((i, k) => `${k ? 'L' : 'M'}${X(t[i]).toFixed(1)} ${Y(y[i]).toFixed(1)}`).join(' ');
+    const areas = tramos.map((ix) => `<path d="${camino(ix)} L${X(t[ix[ix.length - 1]]).toFixed(1)} 96 L${X(t[ix[0]]).toFixed(1)} 96 Z" fill="url(#mpAreaMasa)"/>`).join('');
+    const lineas = tramos.map((ix) => `<path class="linea-graf" d="${camino(ix)}" fill="none" stroke="${MASA.color}" stroke-width="1.6" stroke-linejoin="round"/>`).join('');
+    const marcasHueco = huecos.map(([a, b]) => {
+      const x1 = X(t[a]) + 1, x2 = X(t[b]) - 1;
+      return `<rect x="${x1.toFixed(1)}" y="10" width="${Math.max(1, x2 - x1).toFixed(1)}" height="86" fill="rgba(242,244,248,.07)" stroke="rgba(242,244,248,.45)" stroke-dasharray="2 2"/>
+        <text x="${((x1 + x2) / 2).toFixed(1)}" y="20" fill="#D7DEEA" font-size="8" text-anchor="middle" font-family="Inter, sans-serif">sin datos</text>`;
+    }).join('');
+    // Tendencia: pendiente del JSON (por mes), pasando por la mediana de los datos
+    const pend = v.tendencia_por_decada / 120;
+    const tMed = [...t].sort((a, b) => a - b)[Math.floor(n / 2)];
+    const yMed = [...y].sort((a, b) => a - b)[Math.floor(n / 2)];
+    const yT = (tt) => Y(yMed + pend * (tt - tMed));
+    const desdeHueco = huecos.map(([a, b]) => `${nombreMes(mesDe(t[a] + 1)).toLowerCase()} y ${nombreMes(mesDe(t[b] - 1)).toLowerCase()}`);
+
+    q('.titulo-graf').textContent = MASA.grafico;
+    q('.rango').textContent = `${v.meses[0].slice(0, 4)}–${v.meses[n - 1].slice(0, 4)}`;
+    q('.nota-hueco').textContent = v.nota ?? '';
+    q('.fuente-graf').textContent = `Línea amarilla: tendencia · Fuente: ${v.fuente}`;
+    if (v.cita) q('.fuente-graf').title = v.cita;
+    const svg = q('.grafico svg');
+    svg.setAttribute('aria-label', `Masa de hielo de ${region.nombre}, cada mes de ${nombreMes(v.meses[0]).toLowerCase()} a ${nombreMes(v.meses[n - 1]).toLowerCase()}: empieza en ${conSigno(y[0])} y termina en ${conSigno(y[n - 1])} gigatoneladas, ${real ? 'con tendencia a la baja' : 'sin una tendencia segura todavía'}.`
+      + (desdeHueco.length ? ` Sin datos entre ${desdeHueco.join(', y entre ')}.` : ''));
+    svg.innerHTML = `
+      <defs><linearGradient id="mpAreaMasa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${MASA.area}" stop-opacity=".45"/><stop offset="1" stop-color="${MASA.area}" stop-opacity="0"/></linearGradient></defs>
+      <line x1="12" y1="96" x2="296" y2="96" stroke="rgba(242,244,248,.4)"/>
+      <line x1="12" y1="10" x2="12" y2="96" stroke="rgba(242,244,248,.4)"/>
+      ${areas}${marcasHueco}${lineas}
+      <path d="M12 ${yT(t[0]).toFixed(1)} L296 ${yT(t[n - 1]).toFixed(1)}" fill="none" stroke="#F9C80E" stroke-width="2.2" stroke-dasharray="5 4" stroke-linecap="round"/>
+      <circle cx="296" cy="${Y(y[n - 1]).toFixed(1)}" r="4.2" fill="#0B192E" stroke="#D12021" stroke-width="2.2"/>
+      <text x="16" y="${(Y(y[0]) - 5).toFixed(1)}" fill="#F2F4F8" font-size="10" font-weight="700" font-family="Inter, sans-serif">${conSigno(y[0])} Gt</text>
+      <text x="292" y="${(Y(y[n - 1]) - 9).toFixed(1)}" fill="#F2F4F8" font-size="10" font-weight="700" text-anchor="end" font-family="Inter, sans-serif">${conSigno(y[n - 1])} Gt</text>
+      <text x="12" y="108" fill="#A9B4CC" font-size="9" font-family="Inter, sans-serif">${v.meses[0].slice(0, 4)}</text>
+      <text x="296" y="108" fill="#A9B4CC" font-size="9" text-anchor="end" font-family="Inter, sans-serif">${v.meses[n - 1].slice(0, 4)}</text>`;
+  }
+
+  // ---------------------------------------------------------------
   // Máquina del tiempo: el año elegido, con su valor real, marcado en el gráfico
   // ---------------------------------------------------------------
   const deslizador = fechas.querySelector('.anio');
@@ -298,7 +392,9 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     if (oculta && estado.clima === 'lluvia') estado.clima = null;
   }
 
-  if (conDatos) {
+  if (esMasa) {
+    pintarMasa();
+  } else if (conDatos) {
     aplicarRevision();
     panel.querySelectorAll('[role="tab"]').forEach((b) => b.addEventListener('click', () => {
       estado.variable = b.dataset.v;
