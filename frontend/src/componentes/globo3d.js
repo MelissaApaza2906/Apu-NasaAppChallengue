@@ -1046,6 +1046,6 @@ export function crearGlobo(contenedor, opciones = {}) {
     // Capa HTML encima del canvas (flota con el planeta): ahí van pines extra (componentes/en-vivo.js)
     get capa() { return viewer ? capa : null; }
   };
-  window.__globo = api;
+  if (import.meta.env.DEV) window.__globo = api;
   return api;
 }
