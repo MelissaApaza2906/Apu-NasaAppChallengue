@@ -4,6 +4,7 @@
 // Contexto (qué pantalla es): sale de la ruta (#/menu, #/acceso/…, #/etapas…) y, dentro del menú,
 // de los avisos del menú:
 //   window.dispatchEvent(new CustomEvent('apu:contexto', { detail: 'glaciar' | 'montana' | 'menu' }))
+//   (o detail: { contexto: 'montana', masa: true } si la región abierta tiene masa de hielo: suma conceptosMasa)
 //   window.dispatchEvent(new CustomEvent('apu:jukumari', { detail: 'frase del glaciar elegido' }))
 // En la carga no se muestra (tiene su Jukumari grande).
 //
@@ -28,6 +29,7 @@ const escapar = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<':
 export function montarAsistente(dondeEvitar = document.getElementById('app')) {
   let contexto = 'carga';
   let fraseExtra = '';      // frase del glaciar elegido (aviso del menú)
+  let conMasa = false;      // la montaña abierta tiene masa de hielo (GRACE): suma conceptosMasa
   let iConsejo = 0;
   let abierto = false;
   let quienAbrio = null;
@@ -72,7 +74,7 @@ export function montarAsistente(dondeEvitar = document.getElementById('app')) {
   function pintarPanel() {
     const p = PANTALLAS[contexto];
     const saludo = fraseExtra || p?.saludo;
-    const conceptos = (p?.conceptos ?? []).filter((c) => GLOSARIO[c]);
+    const conceptos = [...(p?.conceptos ?? []), ...(conMasa ? p?.conceptosMasa ?? [] : [])].filter((c) => GLOSARIO[c]);
     cuerpo.innerHTML = `
       ${saludo ? `<p class="asistente-globo">${escapar(saludo)}</p>` : ''}
       ${CON_PISTA.has(contexto) ? '<div class="asistente-pista" data-pista></div>' : ''}
@@ -258,7 +260,13 @@ export function montarAsistente(dondeEvitar = document.getElementById('app')) {
   window.addEventListener('hashchange', () => { cerrar(false); ponerContexto(contextoDeRuta()); });
   window.addEventListener('apu:contexto', (e) => {
     if (contextoDeRuta() !== 'menu') return;
-    ponerContexto(['glaciar', 'montana', 'menu'].includes(e.detail) ? e.detail : 'menu');
+    const d = typeof e.detail === 'object' && e.detail ? e.detail : { contexto: e.detail };
+    const nuevo = ['glaciar', 'montana', 'menu'].includes(d.contexto) ? d.contexto : 'menu';
+    const masa = nuevo === 'montana' && Boolean(d.masa);
+    const cambioMasa = masa !== conMasa;
+    conMasa = masa;
+    ponerContexto(nuevo);
+    if (cambioMasa && abierto) pintarPanel();
   });
   window.addEventListener('apu:jukumari', (e) => {
     // detail: 'frase' o { texto: 'frase', abrir: true } (abre el panel para decirla)

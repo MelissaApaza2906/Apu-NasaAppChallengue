@@ -310,6 +310,7 @@ export function montar(contenedor) {
   $('.pestana-ver').addEventListener('click', async () => {
     if (montana || abriendo || !elegido) return;
     abriendo = true;
+    let conMasa = false;
     try {
       // Datos de NASA de este glaciar ('datos/<id>.json' en contenido/glaciares.js); si no hay o no
       // cargan, la vista de la montaña lo dice
@@ -318,6 +319,7 @@ export function montar(contenedor) {
         ? await cargarRegion(idDatos).catch((e) => { console.warn(`APU: no se pudieron leer los datos de ${elegido.nombre}.`, e); return null; })
         : null;
       if (!vivo) return;
+      conMasa = Boolean(region?.variables?.masa);
       montana = await abrirMontana({ raiz, glaciar: elegido, region, globo });
     } finally {
       abriendo = false;
@@ -326,7 +328,7 @@ export function montar(contenedor) {
     $('.menu-volver').hidden = false;
     enVivo?.mostrar(false);
     $('.menu-volver').focus();
-    avisarAsistente('montana');
+    avisarAsistente(conMasa ? { contexto: 'montana', masa: true } : 'montana');
   });
   function cerrarMontana() {
     if (!montana) return;

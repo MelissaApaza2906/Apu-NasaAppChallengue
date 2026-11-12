@@ -33,6 +33,7 @@ export const PANTALLAS = {
     saludo: 'Yo conozco estas cumbres. Tú investiga los datos: ¿la nieve está cambiando?',
     queHago: 'Mira el panel de la derecha: el gráfico muestra 25 años de nieve medidos por satélite. Usa la máquina del tiempo para comparar años.',
     conceptos: ['ndsi', 'modis', 'gpm', 'serieTiempo', 'tendencia', 'valorP', 'promedio'],
+    conceptosMasa: ['grace', 'gigatonelada'], // solo si la región abierta tiene variables.masa (Antártida)
     consejos: [
       'Cambia entre Nieve y Lluvia arriba del panel.',
       'Con la nieve, la tendencia es real (p = 0,03). Con la lluvia, todavía no se sabe (p = 0,47).',
