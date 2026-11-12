@@ -432,18 +432,44 @@ export function crearGlobo(contenedor, opciones = {}) {
   viewer.resolutionScale = 1;
 
   // Cada vez que el canvas cambia de tamaño, el planeta vuelve a medir op.tamano
-  // (salvo que el usuario ya haya elegido su distancia con zoom o eligiendo un lugar)
-  const observador = new ResizeObserver(() => {
-    if (!viewer) return;
-    viewer.resize(); // que Cesium actualice el frustum antes de calcular
+  // (salvo que el usuario ya haya elegido su distancia con zoom o eligiendo un lugar).
+  // Batching por rAF: aunque haya muchos ticks del observer (transición CSS de 0.6 s,
+  // arrastre de ventana…) solo hacemos un viewer.resize() + requestRender() por frame.
+  let resizePendiente = 0;
+  function aplicarResize() {
+    resizePendiente = 0;
+    if (!viewer || viewer.isDestroyed()) return;
+    viewer.resize();
     topeAlejar();
-    if (!encuadreAuto) return;
-    const p = viewer.camera.positionCartographic;
-    encuadrar(p.longitude, p.latitude);
+    if (encuadreAuto) {
+      const p = viewer.camera.positionCartographic;
+      encuadrar(p.longitude, p.latitude);
+    }
     escena.requestRender();
-  });
+  }
+  function forzarResize() {
+    if (resizePendiente) cancelAnimationFrame(resizePendiente);
+    resizePendiente = requestAnimationFrame(aplicarResize);
+  }
+  const observador = new ResizeObserver(forzarResize);
   observador.observe(lienzo);
-  limpiezas.push(() => observador.disconnect());
+  limpiezas.push(() => { if (resizePendiente) cancelAnimationFrame(resizePendiente); observador.disconnect(); });
+
+  // Cambios de devicePixelRatio: zoom del navegador o mover la ventana a otro monitor.
+  // El ResizeObserver no se entera porque el tamaño CSS del contenedor no cambia.
+  // matchMedia solo dispara una vez por su umbral, así que re-registramos con el nuevo dpr.
+  let mqDpr = null;
+  function engancharDpr() {
+    if (mqDpr) mqDpr.removeEventListener('change', alCambiarDpr);
+    mqDpr = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    mqDpr.addEventListener('change', alCambiarDpr);
+  }
+  function alCambiarDpr() {
+    forzarResize();
+    engancharDpr();
+  }
+  engancharDpr();
+  limpiezas.push(() => { if (mqDpr) mqDpr.removeEventListener('change', alCambiarDpr); });
 
   // ---------------------------------------------------------------
   // Rotación, vuelos y modo de dibujo
@@ -791,9 +817,11 @@ export function crearGlobo(contenedor, opciones = {}) {
     };
   }
 
-  return {
-    irA, elegirGlaciar, elegirPico, verPlaneta, mostrarCapa, destruir, estado,
+  const api = {
+    irA, elegirGlaciar, elegirPico, verPlaneta, mostrarCapa, destruir, estado, forzarResize,
     // El Cesium.Viewer del globo, para reutilizarlo (no crear otro visor). null si pasó a imagen.
     get viewer() { return viewer; }
   };
+  window.__globo = api;
+  return api;
 }
