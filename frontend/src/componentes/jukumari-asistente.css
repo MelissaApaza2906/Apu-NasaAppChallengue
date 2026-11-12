@@ -1,8 +1,22 @@
-/* El Jukumari asistente: abajo a la izquierda en todas las pantallas (menos la carga).
+/* El Jukumari asistente: posición fija abajo a la izquierda, bajo la barra de navegación lateral,
+   en TODAS las pantallas (menos la carga) y en los dos modos del menú (globo y montaña).
+   Variables públicas en :root para que el resto del layout (marco de la montaña, etc.) pueda
+   reservarle sitio sin volver a medir en JS.
    JS lo corre (--mover-x / --mover-y) si chocaría con un botón, el riel o un panel. */
+:root {
+  --mascota-alto: clamp(110px, 22cqh, 230px);
+  --mascota-ancho: calc(var(--mascota-alto) * 900 / 1371); /* aspect-ratio del cuerpo (.carga-juku) */
+  --mascota-margen-x: max(12px, 1.2vw);
+}
+/* Minimizada: carita de 56 px → el marco de la montaña ocupa más terreno */
+body:has(.asistente.minimizado) { --mascota-alto: 56px; --mascota-ancho: 56px; }
+
 .asistente {
-  --alto-juku: clamp(110px, 22cqh, 230px);
-  position: fixed; z-index: 40; left: max(1.2vw, env(safe-area-inset-left)); bottom: max(2vh, env(safe-area-inset-bottom));
+  --alto-juku: var(--mascota-alto); /* alias legacy para .carga-juku.asistente-juku */
+  position: fixed; z-index: 40;
+  left: max(var(--mascota-margen-x), env(safe-area-inset-left));
+  bottom: max(2vh, env(safe-area-inset-bottom));
+  width: var(--mascota-ancho);
   transform: translate(var(--mover-x, 0px), var(--mover-y, 0px)); transition: transform .35s cubic-bezier(.2, .8, .2, 1);
   color: var(--nieve); font-family: var(--letra-texto);
 }

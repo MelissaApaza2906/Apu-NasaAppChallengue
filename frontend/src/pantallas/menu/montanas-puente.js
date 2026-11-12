@@ -71,6 +71,8 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
       <div class="mp-barra" role="progressbar" aria-label="Vista 3D en proceso"><div class="relleno"></div></div>
     </div>`;
   raiz.append(recuadro);
+  // TODO: migrar a body.modo-montana (prompt 3). Hoy montanas3d.js ya pone body.modo-montana;
+  // mantenemos raiz.con-montana hasta que el CSS cuelgue solo de body.modo-montana.
   raiz.classList.add('con-montana');
 
   // Lo de Jhoel: si devuelve { salir() }, su vista ocupa el recuadro
@@ -413,17 +415,21 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
   }
 
   return {
-    cerrar() {
+    async cerrar() {
       limpiar.forEach((fn) => fn());
-      try { jhoel?.salir(); } catch (e) { console.error(e); }
+      // Orden crítico para que .menu-planeta transicione ANTES de que el viewer
+      // haga el resize dentro de jhoel.salir():
+      //   a) quitar clases de raíz (destapa la pestaña y restaura la geometría del planeta)
+      //   b) esperar a que la vista de montaña restaure el viewer y la cámara
+      //   c) desmontar HTML del puente
+      raiz.classList.remove('con-montana', 'con-datos-montana', 'con-fechas');
       if (globo?.viewer && !globo.viewer.isDestroyed()) {
         globo.viewer.useDefaultRenderLoop = true;
-        globo.viewer.scene.requestRender();
       }
+      try { await jhoel?.salir(); } catch (e) { console.error(e); }
       recuadro.remove();
       panel.remove();
       fechas.remove();
-      raiz.classList.remove('con-montana', 'con-datos-montana', 'con-fechas');
       alCambiarVariable?.('nieve');
     }
   };

@@ -45,3 +45,197 @@
 @media (prefers-reduced-motion: reduce) {
   .mp-barra .relleno, .mp-recuadro { animation: none; }
 }
+
+/* ============================================================
+   body.modo-montana · El visor Cesium llena el marco.
+   El halo, el anillo, el satélite, el haz, los pines, la órbita
+   y el crédito del modo globo quedan fuera: no aplican aquí.
+   ============================================================ */
+/* Variables locales del modo montaña. Se publican en .pantalla-menu para que estén en el
+   mismo scope que --riel-der, --panel-izq, --ancho-panel, --carrusel-arriba (menu.css:4-18).
+   Así los var() dentro de los calc() se resuelven con el mismo contenedor de referencia. */
+.pantalla-menu.con-montana,
+body.modo-montana .pantalla-menu {
+  --mp-margen: clamp(12px, 1.8cqh, 20px);
+  --alto-cabecera: 11.4cqh;
+  --mp-izq: calc(max(var(--riel-der), var(--mascota-margen-x) + var(--mascota-ancho)) + var(--mp-margen));
+  --mp-ancho: calc(var(--panel-izq) - var(--mp-izq) - var(--mp-margen));
+  --mp-alto:  calc(100cqh - var(--alto-cabecera) - var(--carrusel-arriba) - var(--mp-margen));
+}
+
+/* El contenedor del viewer deja de ser un disco y pasa a rectángulo con borde redondeado.
+   Doble selector (body.modo-montana + .con-montana) y !important para ganarle al layout
+   del modo globo (.menu-planeta { left: var(--planeta-izq); width: var(--diam); … } en
+   menu.css:56). Transición de 0.6 s de menu.css:54 anima el morph sin saltos. */
+body.modo-montana .menu-planeta,
+.pantalla-menu.con-montana .menu-planeta {
+  left: var(--mp-izq) !important;
+  top: var(--alto-cabecera) !important;
+  width: var(--mp-ancho) !important;
+  height: var(--mp-alto) !important;
+  border-radius: 2.2cqh;
+  overflow: hidden;
+  background: #0B192E;
+}
+
+/* "Volver al planeta": flota dentro del visor, arriba a la izquierda, semi-transparente */
+body.modo-montana .menu-volver,
+.pantalla-menu.con-montana .menu-volver {
+  position: fixed;
+  z-index: 7;
+  left: calc(var(--mp-izq) + 12px) !important;
+  top: calc(var(--alto-cabecera) + 10px) !important;
+  bottom: auto !important;
+  background: rgba(8, 18, 48, .55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-color: rgba(242, 244, 248, .55);
+}
+
+/* El panel de diálogo de la mascota: crece hacia arriba y a la derecha sobre la columna;
+   cap de ancho para no cubrir el visor. z-index 40 heredado de .asistente > canvas. */
+body.modo-montana .asistente-panel,
+.pantalla-menu.con-montana .asistente-panel {
+  max-width: calc(var(--mp-izq) + var(--mascota-ancho));
+}
+
+/* El planeta deja de "flotar" (sube/baja 1.2cqh cada 5s): no tiene sentido en la vista de montaña */
+body.modo-montana .globo3d-flotante { animation: none; }
+
+/* Fuera: toda la decoración circular del modo globo */
+body.modo-montana .globo3d-halo,
+body.modo-montana .globo3d-anillo,
+body.modo-montana .globo3d-capa,
+body.modo-montana .globo3d-credito,
+body.modo-montana .menu-orbita { display: none; }
+
+/* El recuadro del puente ya es solo una capa lógica encima (recibe el .con-3d sin pintar) */
+body.modo-montana .mp-recuadro.con-3d {
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: mpFadeIn .3s ease-out both;
+}
+
+@keyframes mpFadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+@media (prefers-reduced-motion: reduce) {
+  body.modo-montana .menu-planeta { transition: none; }
+  body.modo-montana .mp-recuadro.con-3d { animation: none; }
+}
+
+/* ============================================================
+   Controles de cámara del visor (botonera flotante dentro del marco).
+   Mismo estilo de los botones redondos del riel lateral.
+   ============================================================ */
+.montanas3d-controles {
+  position: absolute;
+  z-index: 8;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.montanas3d-boton {
+  width: var(--boton-riel, 44px);
+  height: var(--boton-riel, 44px);
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(242, 244, 248, .75);
+  background: rgba(8, 18, 48, .55);
+  color: var(--nieve, #F2F4F8);
+  cursor: pointer;
+  font: 700 18px/1 var(--letra-texto);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background .15s, box-shadow .15s, transform .15s;
+}
+.montanas3d-boton:hover { background: rgba(31, 65, 108, .9); box-shadow: 0 0 1.6cqh rgba(242, 244, 248, .3); }
+.montanas3d-boton:focus-visible { outline: 3px solid var(--rojo-apu, #D12021); outline-offset: 3px; }
+.montanas3d-boton[data-ctrl="norte"] { transform: rotate(var(--rot, 0deg)); }
+.montanas3d-boton[data-ctrl="rotar"].activo { background: rgba(209, 32, 33, .25); border-color: var(--rojo-apu, #D12021); }
+
+/* Móvil horizontal estrecho: fila arriba del visor */
+@media (max-width: 768px) {
+  .montanas3d-controles {
+    flex-direction: row;
+    right: 8px;
+    left: 8px;
+    bottom: auto;
+    top: 8px;
+    justify-content: flex-end;
+  }
+}
+
+/* ============================================================
+   HUD del visor: leyenda MODIS + toggle "Imagen del día" + atribución.
+   Esquina inferior izquierda, sin chocar con la botonera (abajo-derecha).
+   ============================================================ */
+.montanas3d-hud {
+  position: absolute;
+  z-index: 8;
+  left: 12px;
+  bottom: 12px;
+  max-width: min(280px, 46%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(91, 160, 255, .45);
+  background: rgba(8, 18, 48, .55);
+  color: var(--nieve, #F2F4F8);
+  font: 500 12px/1.3 var(--letra-texto);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: auto;
+}
+.hud-leyenda { display: flex; flex-direction: column; gap: 4px; }
+.hud-titulo { font: 600 12px/1 var(--letra-texto); letter-spacing: .04em; color: #CFE3FF; }
+.hud-escala {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(to right, #0B2554 0%, #1F4FB8 25%, #4F8DFF 55%, #8FDBFF 80%, #FFFFFF 100%);
+  border: 1px solid rgba(242, 244, 248, .35);
+}
+.hud-rango { display: flex; justify-content: space-between; font: 500 10px var(--letra-dato); color: #A9B4CC; }
+.hud-toggle {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(91, 160, 255, .55);
+  background: rgba(8, 18, 48, .7);
+  color: var(--nieve, #F2F4F8);
+  cursor: pointer;
+  font: 600 12px var(--letra-texto);
+  transition: background .15s, border-color .15s;
+}
+.hud-toggle:hover { background: rgba(31, 65, 108, .9); }
+.hud-toggle.activo { background: rgba(209, 32, 33, .22); border-color: var(--rojo-apu, #D12021); }
+.hud-toggle:focus-visible { outline: 3px solid var(--rojo-apu, #D12021); outline-offset: 2px; }
+.hud-credito { margin: 0; font: 500 10px/1.25 var(--letra-dato); color: #A9B4CC; letter-spacing: .02em; }
+
+/* Defensiva: la etiqueta DOM de selección del globo (país · coords) no debe aparecer en montaña.
+   Ya la oculta .globo3d-capa { display: none } del prompt 5; este selector lo refuerza. */
+body.modo-montana .globo3d-etiqueta,
+body.modo-montana .globo3d-seleccion { display: none !important; }
+
+/* Móvil horizontal estrecho: HUD queda arriba a la izquierda, debajo de "Volver al planeta" */
+@media (max-width: 768px) {
+  .montanas3d-hud {
+    top: calc(var(--alto-cabecera, 11.4cqh) + 56px);
+    bottom: auto;
+    left: 8px;
+    max-width: 50%;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+}
