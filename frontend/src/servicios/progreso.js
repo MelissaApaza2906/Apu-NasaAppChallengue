@@ -43,9 +43,9 @@ async function guardar(cambios) {
     await setDoc(ref, {
       apodo: String(datos.apodo || 'Detective').slice(0, 20),
       avatar: String(datos.avatar || '').slice(0, 20), // id de contenido/avatares.js
-      lecciones: datos.lecciones.slice(0, 5),
+      lecciones: datos.lecciones.slice(0, 9),   // mismos topes que firebase/firestore.rules
       casos: datos.casos.slice(0, 3),
-      insignias: datos.insignias.slice(0, 4),
+      insignias: datos.insignias.slice(0, 15),
       actualizado: serverTimestamp()
     });
   } catch (e) {
@@ -78,7 +78,7 @@ export async function completarCaso(id) {
 }
 // Guarda la insignia en el campo insignias, sin duplicarla. Devuelve true si es nueva
 // (así quien la da sabe si debe mostrar el aviso de componentes/nueva-insignia.js).
-// En el navegador quedan todas; en Firestore solo las 4 primeras (las reglas no cambian).
+// En el navegador quedan todas; en Firestore hasta 15 (firebase/firestore.rules).
 export async function ganarInsignia(id) {
   const p = leerLocal();
   if (p.insignias.includes(id)) return false;
@@ -91,7 +91,7 @@ const CLAVE_GLACIARES = 'apu-glaciares-vistos';
 export function glaciaresVistos() {
   try { const v = JSON.parse(localStorage.getItem(CLAVE_GLACIARES) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
 }
-export async function verGlaciar(id, meta = 7) {
+export async function verGlaciar(id, meta = 11) {
   const vistos = [...new Set([...glaciaresVistos(), id])];
   try { localStorage.setItem(CLAVE_GLACIARES, JSON.stringify(vistos)); } catch { /* modo privado */ }
   return vistos.length >= meta ? ganarInsignia('caminante') : false;

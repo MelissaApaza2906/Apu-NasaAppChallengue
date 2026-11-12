@@ -12,9 +12,9 @@ service cloud.firestore {
         && request.resource.data.apodo.size() <= 20
         && (!('avatar' in request.resource.data)
             || (request.resource.data.avatar is string && request.resource.data.avatar.size() <= 20))
-        && request.resource.data.lecciones is list && request.resource.data.lecciones.size() <= 5
+        && request.resource.data.lecciones is list && request.resource.data.lecciones.size() <= 9
         && request.resource.data.casos is list && request.resource.data.casos.size() <= 3
-        && request.resource.data.insignias is list && request.resource.data.insignias.size() <= 4;
+        && request.resource.data.insignias is list && request.resource.data.insignias.size() <= 15;
     }
     // Todo lo demás: cerrado.
     match /{document=**} {

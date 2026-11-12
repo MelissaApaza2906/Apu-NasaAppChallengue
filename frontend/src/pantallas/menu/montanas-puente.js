@@ -11,6 +11,7 @@
 //   · debajo del panel, la máquina del tiempo (marca el año en el gráfico con su valor real).
 // Aquí no hay código de 3D: eso es de Jhoel.
 import { crearMontanas3d } from '../../componentes/montanas3d.js';
+import { darInsignia } from '../../componentes/nueva-insignia.js';
 
 const PERIODOS = [[2001, 2005, 2021, 2025], [2006, 2010, 2016, 2020]];
 const ANIOS = [2001, 2025];
@@ -83,7 +84,10 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
   } catch (e) {
     console.info('APU: la montaña 3D todavía no está lista.', e?.message ?? e);
   }
-  if (jhoel) recuadro.classList.add('con-3d'); // sin texto ni barra: se ve la vista de Jhoel
+  if (jhoel) {
+    recuadro.classList.add('con-3d'); // sin texto ni barra: se ve la vista de Jhoel
+    darInsignia('explorador'); // insignia "Explorador": la montaña en 3D se abrió de verdad
+  }
   else if (globo?.viewer) globo.viewer.useDefaultRenderLoop = false; // el planeta está tapado: no se dibuja
 
   // ---------------------------------------------------------------

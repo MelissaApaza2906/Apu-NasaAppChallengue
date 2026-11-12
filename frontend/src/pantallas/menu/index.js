@@ -15,7 +15,8 @@ import { ir } from '../../router.js';
 import { cargarRegion } from '../../servicios/datos.js';
 import { GLACIARES, historiaDe } from '../../contenido/glaciares.js';
 import { abrirMontana } from './montanas-puente.js';
-import { leerProgreso } from '../../servicios/progreso.js';
+import { leerProgreso, verGlaciar } from '../../servicios/progreso.js';
+import { darInsignia } from '../../componentes/nueva-insignia.js';
 import { avatarPorId } from '../../contenido/avatares.js';
 import { crearEnVivo } from '../../componentes/en-vivo.js';
 
@@ -185,6 +186,7 @@ export function montar(contenedor) {
     if (!globo?.mostrarCapa) { aviso.hidden = !capa; return; } // planeta de la maqueta: no hay capas
     globo.mostrarCapa(capa).then((r) => {
       if (vivo && !r.ok && r.motivo !== 'reemplazado') aviso.hidden = false;
+      if (vivo && r.ok && capa) darInsignia('capas'); // insignia "Capas": la 1.ª capa de NASA que se ve
     });
   }
   // "Cargando nubes de NASA…" mientras llegan las teselas de la capa Hoy (lo avisa el globo)
@@ -210,7 +212,11 @@ export function montar(contenedor) {
         credito: $('.menu-credito'),
         alCargarCapa: cargandoNubes,
         tamano: 0.96, // el planeta llena el 96 % de su caja (.menu-planeta, sin contar el halo)
-        alElegir: (g) => { if (vivo) abrirPestana(g); } // al tocar su pin
+        alElegir: (g) => { // al tocar su pin
+          if (!vivo) return;
+          abrirPestana(g);
+          darInsignia('caminante', () => verGlaciar(g.id)); // insignia "Caminante": los 11 glaciares
+        }
       });
       if (import.meta.env.DEV) window.__globo = globo; // para las pruebas en el navegador
       ponerEnVivo();

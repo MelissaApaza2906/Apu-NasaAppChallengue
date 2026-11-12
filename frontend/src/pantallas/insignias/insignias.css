@@ -80,6 +80,11 @@
 .expediente-acciones { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
 .expediente-acciones .btn-apu { --alto: var(--toque-minimo); font-size: 12px; }
 
+/* Pantallas bajas (celular horizontal): la nube del Jukumari taparía la fila de Casos */
+@media (max-height: 500px) {
+  body:has(.pantalla-insignias) .asistente-nube { display: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .expediente-ventana[open], .pantalla-insignias .barra .relleno { animation: none; transition: none; }
 }

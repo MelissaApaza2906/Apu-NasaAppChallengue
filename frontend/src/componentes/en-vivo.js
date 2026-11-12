@@ -14,6 +14,7 @@
 import * as Cesium from 'cesium';
 import { twoline2satrec, propagate, gstime, eciToGeodetic } from 'satellite.js';
 import { leerTerra, leerEventos, lugarAproximado, fechaLarga } from '../servicios/en-vivo.js';
+import { darInsignia } from './nueva-insignia.js';
 
 const CADA_EVENTOS = 30 * 60 * 1000;
 const ESTELA_S = 10 * 60;          // estela: últimos 10 minutos
@@ -160,6 +161,7 @@ export function crearEnVivo({ globo, pantalla }) {
   chip.addEventListener('click', () => {
     if (terra) globo?.irA?.(terra.lat, terra.lon);
     window.dispatchEvent(new CustomEvent('apu:jukumari', { detail: { texto: FRASE_TERRA, abrir: true } }));
+    darInsignia('ojo-terra'); // insignia "Ojo de Terra"
   });
 
   // ---------------------------------------------------------------

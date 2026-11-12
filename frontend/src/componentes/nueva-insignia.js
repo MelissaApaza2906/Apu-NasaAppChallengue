@@ -7,11 +7,23 @@
 // Devuelve una promesa que se cumple al cerrarse, con 'ver' o 'seguir'.
 import './nueva-insignia.css';
 import { ir } from '../router.js';
-import { leerProgreso } from '../servicios/progreso.js';
+import { leerProgreso, ganarInsignia } from '../servicios/progreso.js';
 import { avatarPorId } from '../contenido/avatares.js';
 import { insigniaPorId } from '../contenido/insignias.js';
 
 const escapar = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+// Da la insignia y, solo si es nueva, abre el aviso. No lanza: un fallo aquí no rompe la pantalla.
+//   darInsignia('capas');                               // ganarInsignia('capas')
+//   darInsignia('caminante', () => verGlaciar(g.id));   // otra forma de ganarla (devuelve true si es nueva)
+export async function darInsignia(id, ganar = () => ganarInsignia(id)) {
+  try {
+    if (await ganar()) return await mostrarNuevaInsignia(id);
+  } catch (e) {
+    console.warn(`APU: no se pudo dar la insignia ${id}.`, e);
+  }
+  return null;
+}
 
 export async function mostrarNuevaInsignia(id) {
   const ins = insigniaPorId(id);

@@ -25,7 +25,7 @@ export const INSIGNIAS = [
   { id: 'explorador', nombre: 'Explorador', familia: 'especiales', img: img('montanas-oro'), como: 'Abre la montaña en 3D de un glaciar.' },
   { id: 'capas', nombre: 'Capas', familia: 'especiales', img: img('capas-oro'), como: 'Mira el planeta con una capa de datos de NASA.' },
   { id: 'ojo-terra', nombre: 'Ojo de Terra', familia: 'especiales', img: img('satelite-oro'), como: 'Sigue al satélite Terra en vivo.' },
-  { id: 'caminante', nombre: 'Caminante', familia: 'especiales', img: img('globo'), como: 'Visita 7 de los 11 glaciares del planeta.', meta: 7, total: 11 }
+  { id: 'caminante', nombre: 'Caminante', familia: 'especiales', img: img('globo'), como: 'Visita los 11 glaciares del planeta.', meta: 11, total: 11 }
 ];
 
 export const insigniaPorId = (id) => INSIGNIAS.find((i) => i.id === id) ?? null;
