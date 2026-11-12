@@ -25,6 +25,8 @@ export async function leerProgreso() {
     const snap = await getDoc(ref);
     const nube = snap.exists() ? snap.data() : {};
     const datos = { ...VACIO, ...local, ...nube };
+    // Las listas se unen: en la nube caben menos (reglas de Firestore) y no deben pisar lo del navegador
+    for (const k of ['lecciones', 'casos', 'insignias']) datos[k] = [...new Set([...(local[k] ?? []), ...(nube[k] ?? [])])];
     escribirLocal(datos);
     return datos;
   } catch {
@@ -74,13 +76,29 @@ export async function completarCaso(id) {
   const p = leerLocal();
   return guardar({ casos: [...new Set([...p.casos, id])] });
 }
+// Guarda la insignia en el campo insignias, sin duplicarla. Devuelve true si es nueva
+// (así quien la da sabe si debe mostrar el aviso de componentes/nueva-insignia.js).
+// En el navegador quedan todas; en Firestore solo las 4 primeras (las reglas no cambian).
 export async function ganarInsignia(id) {
   const p = leerLocal();
-  return guardar({ insignias: [...new Set([...p.insignias, id])] });
+  if (p.insignias.includes(id)) return false;
+  await guardar({ insignias: [...p.insignias, id] });
+  return true;
+}
+
+// "Caminante": glaciares visitados, solo en el navegador. Al llegar a la meta, gana la insignia.
+const CLAVE_GLACIARES = 'apu-glaciares-vistos';
+export function glaciaresVistos() {
+  try { const v = JSON.parse(localStorage.getItem(CLAVE_GLACIARES) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+export async function verGlaciar(id, meta = 7) {
+  const vistos = [...new Set([...glaciaresVistos(), id])];
+  try { localStorage.setItem(CLAVE_GLACIARES, JSON.stringify(vistos)); } catch { /* modo privado */ }
+  return vistos.length >= meta ? ganarInsignia('caminante') : false;
 }
 
 export async function borrarDatosUsuario() {
-  try { localStorage.removeItem(CLAVE_LOCAL); } catch {}
+  try { localStorage.removeItem(CLAVE_LOCAL); localStorage.removeItem(CLAVE_GLACIARES); } catch {}
   const ref = refUsuario();
   if (ref) await deleteDoc(ref);
 }

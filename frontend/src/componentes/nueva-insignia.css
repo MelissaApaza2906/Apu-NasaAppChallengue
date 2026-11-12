@@ -1,0 +1,33 @@
+/* Aviso "¡Nueva insignia!" (componentes/nueva-insignia.js). Mismo visor que .hud / .vidrio,
+   etiqueta y título como .etapas-panel, botones .btn-apu. Solo cambia dónde va cada cosa. */
+.nueva-insignia {
+  width: min(760px, calc(100cqw - 32px)); max-height: calc(100cqh - 4cqh); box-sizing: border-box; margin: auto; overflow-y: auto;
+  padding: clamp(16px, 3.4cqh, 32px); border-radius: 2.4cqh;
+  display: flex; align-items: center; gap: clamp(12px, 3cqw, 32px);
+  background: linear-gradient(160deg, rgba(14, 30, 72, .88), rgba(8, 18, 48, .88));
+  border: 1px solid rgba(91, 160, 255, .45);
+  box-shadow: 0 0 3cqh rgba(31, 95, 200, .25), inset 0 0 2cqh rgba(31, 95, 200, .12);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  color: var(--nieve); font-family: var(--letra-texto);
+}
+.nueva-insignia:not([open]) { display: none; }
+.nueva-insignia::backdrop { background: rgba(6, 14, 34, .72); }
+.nueva-insignia[open] { animation: nuevaInsigniaEntra .45s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes nuevaInsigniaEntra { from { opacity: 0; scale: .6; } to { opacity: 1; scale: 1; } } /* = etapasEntra */
+
+/* Avatar de cuerpo entero y, delante, la insignia */
+.nueva-insignia-figuras { position: relative; flex: none; height: clamp(150px, 46cqh, 360px); aspect-ratio: 3 / 4; display: flex; align-items: flex-end; justify-content: center; }
+.nueva-insignia-avatar { height: 100%; width: auto; object-fit: contain; border-radius: 1.4cqh; filter: drop-shadow(0 0 1.6cqh rgba(143, 219, 255, .55)); }
+.nueva-insignia-medalla { position: absolute; right: -4%; bottom: 4%; width: 46%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 0 2.2cqh rgba(209, 32, 33, .55)); }
+.nueva-insignia-medalla img { width: 100%; height: 100%; object-fit: contain; }
+.nueva-insignia-medalla .hexagono { width: 78%; height: 78%; display: flex; align-items: center; justify-content: center; clip-path: polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0 50%); background: rgba(31, 65, 108, .95); font: 400 clamp(20px, 6cqh, 52px) var(--letra-titulo); }
+
+.nueva-insignia-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1.6cqh; }
+.nueva-insignia .etiqueta { font: 400 clamp(8px, 1.4cqh, 13px) var(--letra-titulo); letter-spacing: .28em; display: flex; align-items: center; gap: .6em; }
+.nueva-insignia .barras { color: var(--rojo-apu); font-style: italic; letter-spacing: -.08em; }
+.nueva-insignia h2 { margin: 0; font: 400 clamp(15px, min(3.4cqh, 2cqw), 30px) / 1.2 var(--letra-titulo); letter-spacing: .04em; overflow-wrap: anywhere; }
+.nueva-insignia p { margin: 0; font-size: clamp(13px, 2.2cqh, 18px); line-height: 1.5; color: #E6EBF3; }
+.nueva-insignia-acciones { display: flex; flex-wrap: wrap; gap: 12px; margin-top: .6cqh; }
+.nueva-insignia-acciones .btn-apu { --alto: var(--toque-minimo); font-size: clamp(10px, 1.6cqh, 13px); }
+
+@media (prefers-reduced-motion: reduce) { .nueva-insignia[open] { animation: none; } }
