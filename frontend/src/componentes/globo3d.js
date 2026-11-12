@@ -506,7 +506,11 @@ export function crearGlobo(contenedor, opciones = {}) {
   control.enableTilt = false;
   control.enableLook = false;
   control.enableTranslate = false;
+  // En la vista de montaña (montanas3d.js, body.modo-montana) la cámara, sus topes, las capas y la
+  // niebla son de la montaña: el globo no gira, no encuadra, no limita el arrastre ni pone la foto de cerca.
+  const enMontana = () => document.body.classList.contains('modo-montana');
   const topeAlejar = () => {
+    if (enMontana()) return;
     if (acercado) { // de cerca: entre 150 y 6 000 km
       control.minimumZoomDistance = CERCA.zoomMin;
       control.maximumZoomDistance = CERCA.zoomMax;
@@ -537,8 +541,8 @@ export function crearGlobo(contenedor, opciones = {}) {
     if (!viewer || viewer.isDestroyed()) return;
     viewer.resize();
     topeAlejar();
-    // en pleno vuelo, el ajuste se hace al llegar (verPlaneta)
-    if (encuadreAuto && !volando) {
+    // en pleno vuelo, el ajuste se hace al llegar (verPlaneta); en la montaña, nunca
+    if (encuadreAuto && !volando && !enMontana()) {
       const p = viewer.camera.positionCartographic;
       encuadrar(p.longitude, p.latitude);
     }
@@ -623,6 +627,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     const ahora = performance.now();
     const dt = Math.min((ahora - ultimo) / 1000, 0.1); // evita saltos al volver a la pestaña
     ultimo = ahora;
+    if (enMontana()) { orientarLuz(); return; } // la montaña maneja la cámara y las capas
     if (debeGirar()) {
       // Ángulo positivo: la cámara va al oeste y la Tierra se ve girar hacia el este
       viewer.camera.rotate(Cesium.Cartesian3.UNIT_Z, op.velocidad * dt);

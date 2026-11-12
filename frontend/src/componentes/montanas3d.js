@@ -38,11 +38,20 @@ export const REGIONES = [
     altura: 55_000,
     heading: 10,
     pitch: -28,
+    // Escala real (sin exagerar el relieve) y vista "de frente": cámara a 8 km del pico, del lado del
+    // Altiplano (suroeste), a la altura del Altiplano, mirando casi horizontal.
+    exageracion: 1,
+    frente: { distancia: 8_000, lado: 225, alturaCamara: 4_800, pitch: -5 },
+    // Coordenadas y alturas: Wikipedia (verificadas). Condoriri sin altura.
     picos: [
-      { n: 'Illimani',      h: 6438, lat: -16.638, lon: -67.783 },
-      { n: 'Huayna Potosí', h: 6088, lat: -16.267, lon: -68.153 },
-      { n: 'Chearoco',      h: 6127, lat: -16.333, lon: -68.117 },
-      { n: 'Chachacomani',  h: 6074, lat: -16.183, lon: -68.117 }
+      { n: 'Illimani',      h: 6438, lat: -16.6333, lon: -67.7908 },
+      { n: 'Mururata',      h: 5871, lat: -16.5306, lon: -67.8275 },
+      { n: 'Huayna Potosí', h: 6088, lat: -16.2624, lon: -68.1541 },
+      { n: 'Condoriri',     h: null, lat: -16.1698, lon: -68.2435 },
+      { n: 'Chachacomani',  h: 6074, lat: -15.9872, lon: -68.3831 },
+      { n: 'Chearoco',      h: 6127, lat: -15.9500, lon: -68.4156 },
+      { n: 'Ancohuma',      h: 6427, lat: -15.8533, lon: -68.5408 },
+      { n: 'Illampu',       h: 6368, lat: -15.8167, lon: -68.5433 }
     ]
   },
   {
@@ -249,24 +258,90 @@ function ponerFechaNieve(viewer, fecha) {
 }
 
 // Relieve: reutiliza el del globo si ya lo tiene; si no, lo pide a Cesium ion. Si falla → elipsoide liso.
+// Devuelve una promesa que se cumple cuando ya se sabe ('ok' | 'sin'): la cámara la espera para medir el suelo.
 function ponerRelieve(viewer) {
   const scene = viewer.scene;
   const yo = visita;
-  const listo = (estado) => { if (vista) { vista.relieve = estado; escribirCreditoMontana(); } scene.requestRender(); };
-  if (!(scene.terrainProvider instanceof Cesium.EllipsoidTerrainProvider)) { listo('ok'); return; }
+  const listo = (estado) => { if (vista) { vista.relieve = estado; escribirCreditoMontana(); } scene.requestRender(); return estado; };
+  if (!(scene.terrainProvider instanceof Cesium.EllipsoidTerrainProvider)) return Promise.resolve(listo('ok'));
   listo('cargando');
-  Cesium.CesiumTerrainProvider.fromIonAssetId(1)
+  return Cesium.CesiumTerrainProvider.fromIonAssetId(1)
     .then((p) => {
-      if (yo !== visita || modo !== 'montana') return;
+      if (yo !== visita || modo !== 'montana') return 'sin';
       scene.terrainProvider = p;
-      listo('ok');
+      return listo('ok');
     })
     .catch((e) => {
-      if (yo !== visita || modo !== 'montana') return;
+      if (yo !== visita || modo !== 'montana') return 'sin';
       console.warn('APU: el relieve de Cesium ion no respondió; la montaña sigue sin relieve.', e?.message ?? e);
       scene.terrainProvider = new Cesium.EllipsoidTerrainProvider();
-      listo('sin');
+      return listo('sin');
     });
+}
+
+// ─── Cámara "de frente" a un pico ────────────────────────────────────────────
+// La cámara se pone a `distancia` m del pico, en el rumbo `lado` (225 = suroeste: desde el pico hacia
+// el Altiplano), a `alturaCamara` m sobre el mar (o un poco sobre el suelo si ahí es más alto), mirando
+// hacia el pico con `pitch` grados. Queda "atada" al eje del pico con camera.lookAt: al arrastrar, gira
+// alrededor de ESE pico. Sin `frente` en la región, se calcula una vista parecida a partir de su altura.
+const FRENTE_DEFECTO = { distancia: 8_000, lado: 225, alturaCamara: null, pitch: -5 };
+const R_TIERRA = 6_371_000;
+function puntoDesde(lat, lon, distancia, rumboGrados) {
+  const r = Cesium.Math.toRadians(rumboGrados);
+  const dLat = (distancia * Math.cos(r)) / R_TIERRA;
+  const dLon = (distancia * Math.sin(r)) / (R_TIERRA * Math.cos(Cesium.Math.toRadians(lat)));
+  return { lat: lat + Cesium.Math.toDegrees(dLat), lon: lon + Cesium.Math.toDegrees(dLon) };
+}
+async function alturaSuelo(scene, lat, lon) {
+  if (!(scene.terrainProvider instanceof Cesium.CesiumTerrainProvider)) return null;
+  try {
+    const [c] = await Cesium.sampleTerrainMostDetailed(scene.terrainProvider, [Cesium.Cartographic.fromDegrees(lon, lat)]);
+    return Number.isFinite(c?.height) ? c.height : null;
+  } catch { return null; }
+}
+
+// Vuela (o salta, con reduced-motion) a la órbita { target, hpr } y al llegar ata la cámara al pico
+function irAOrbita(viewer, orbita, duracion) {
+  const camera = viewer.camera;
+  const yo = vista ? ++vista.vuelo : 0;
+  const atar = () => {
+    if (!vista || yo !== vista.vuelo || modo !== 'montana') return;
+    camera.lookAt(orbita.target, orbita.hpr);
+    viewer.scene.requestRender();
+  };
+  camera.cancelFlight();
+  camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+  if (sinMovimiento() || !duracion) { atar(); return; }
+  camera.flyToBoundingSphere(new Cesium.BoundingSphere(orbita.target, 1), {
+    offset: orbita.hpr, duration: duracion, easingFunction: Cesium.EasingFunction.CUBIC_IN_OUT,
+    complete: atar, cancel: () => {}
+  });
+}
+
+// Lleva la cámara al pico i de la región ("de frente"). Marca el pico en el carrusel.
+async function irAPico(viewer, region, i, duracion = 2.5) {
+  const p = region.picos?.[i];
+  if (!p || !vista) return;
+  vista.pico = i;
+  vista.alElegirPico?.(i);
+  const scene = viewer.scene;
+  const f = { ...FRENTE_DEFECTO, ...region.frente };
+  const pedido = ++vista.pedidoPico;
+  await vista.relieveListo; // para medir el suelo hace falta saber si hay relieve
+  if (!vista || pedido !== vista.pedidoPico || modo !== 'montana') return;
+  const cam = puntoDesde(p.lat, p.lon, f.distancia, f.lado);
+  const suelo = await alturaSuelo(scene, cam.lat, cam.lon);
+  if (!vista || pedido !== vista.pedidoPico || modo !== 'montana') return;
+  // Altura de la cámara (metros reales): la del Altiplano o, sin dato, 1 500 m bajo la cima; nunca bajo el suelo
+  const base = f.alturaCamara ?? (p.h ? p.h - 1_500 : (suelo ?? 0) + 1_000);
+  const altura = Math.max(base, (suelo ?? -Infinity) + 150);
+  const ex = leerExageracion(scene) || 1; // el relieve se dibuja × ex: la cámara también
+  const pitch = Cesium.Math.toRadians(f.pitch);
+  // Centro de la órbita: sobre el eje del pico, a la altura que deja la línea de vista con ese pitch
+  const target = Cesium.Cartesian3.fromDegrees(p.lon, p.lat, (altura + f.distancia * Math.tan(pitch)) * ex);
+  const hpr = new Cesium.HeadingPitchRange(Cesium.Math.toRadians((f.lado + 180) % 360), pitch, f.distancia / Math.cos(pitch));
+  vista.orbita = { target, hpr };
+  irAOrbita(viewer, vista.orbita, duracion);
 }
 
 // Compat: Cesium ≥1.116 usa scene.verticalExaggeration; antes, globe.terrainExaggeration (deprecada)
@@ -330,8 +405,8 @@ function tomarInstantanea(viewer) {
 }
 
 // ─── Aplicar modo montaña ────────────────────────────────────────────────────
-function aplicarModoMontana(viewer, region, fecha) {
-  const EXAG = 2;
+function aplicarModoMontana(viewer, region, fecha, glaciar) {
+  const EXAG = region.exageracion ?? 2;
   const DURACION_VUELO = 3;
 
   Cesium.Ion.defaultAccessToken = CESIUM_TOKEN; // crearMontanas3d solo llega aquí con token
@@ -339,10 +414,13 @@ function aplicarModoMontana(viewer, region, fecha) {
   const scene = viewer.scene;
   const globe = scene.globe;
   const capas = scene.imageryLayers;
-  vista = { fecha, relieve: 'cargando', capaNieve: null, capaDia: null, credito: null };
+  vista = {
+    fecha, relieve: 'cargando', capaNieve: null, capaDia: null, credito: null,
+    pico: null, orbita: null, vuelo: 0, pedidoPico: 0, relieveListo: null, alElegirPico: null
+  };
 
-  // Terreno Cesium World Terrain con exageración ×2 (o el elipsoide liso si ion falla)
-  ponerRelieve(viewer);
+  // Terreno Cesium World Terrain (o el elipsoide liso si ion falla); exageración ×2 salvo que la región diga otra
+  vista.relieveListo = ponerRelieve(viewer);
   escribirExageracion(scene, EXAG);
   globe.depthTestAgainstTerrain = true;
   viewer.useDefaultRenderLoop = true;
@@ -375,70 +453,73 @@ function aplicarModoMontana(viewer, region, fecha) {
   vista.capaNieve = capas.addImageryProvider(proveedor(CAPAS.nieveDia, fecha));
   vista.capaNieve.alpha = 0.65;
 
-  // Etiquetas de picos en un DataSource propio (fácil de quitar al salir).
-  // CLAMP_TO_GROUND: Cesium las coloca automáticamente sobre el terreno exagerado.
-  // disableDepthTestDistance: siempre visibles aunque haya relieve delante.
-  // scaleByDistance: se mantienen legibles de cerca y se reducen al alejarse.
+  // Pines de los picos en un DataSource propio (fácil de quitar al salir).
+  // RELATIVE_TO_GROUND con altura 0: el pin queda pegado al terreno (también al exagerado).
+  // disableDepthTestDistance: el relieve de delante nunca los tapa.
+  // Letra grande y poca reducción con la distancia: se leen de cerca y de lejos.
   const fuenteDatos = new Cesium.CustomDataSource('montanas3d-picos');
   viewer.dataSources.add(fuenteDatos);
-  region.picos?.forEach(({ n, h, lat, lon }) => {
+  region.picos?.forEach(({ n, h, lat, lon }, i) => {
     fuenteDatos.entities.add({
-      position: Cesium.Cartesian3.fromDegrees(lon, lat),
+      id: `montanas3d-pico-${i}`,
+      name: n,
+      properties: { picoIndice: i },
+      position: Cesium.Cartesian3.fromDegrees(lon, lat, 0),
       label: {
-        text: `${n}\n${conMiles(h)} m`,
-        font: '600 14px Inter, system-ui, sans-serif',
+        text: h ? `${n}\n${conMiles(h)} m` : n,
+        font: '700 18px Inter, system-ui, sans-serif',
         fillColor: Cesium.Color.WHITE,
         outlineColor: Cesium.Color.fromCssColorString('rgba(11,25,46,0.95)'),
         outlineWidth: 3,
         style: Cesium.LabelStyle.FILL_AND_OUTLINE,
         showBackground: true,
-        backgroundColor: Cesium.Color.fromCssColorString('rgba(8,18,48,0.78)'),
-        backgroundPadding: new Cesium.Cartesian2(10, 6),
+        backgroundColor: Cesium.Color.fromCssColorString('rgba(8,18,48,0.82)'),
+        backgroundPadding: new Cesium.Cartesian2(12, 7),
         verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-        pixelOffset: new Cesium.Cartesian2(0, -12),
-        heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        pixelOffset: new Cesium.Cartesian2(0, -16),
+        heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        scaleByDistance:       new Cesium.NearFarScalar(5_000, 1.0, 200_000, 0.55),
-        translucencyByDistance: new Cesium.NearFarScalar(120_000, 1.0, 400_000, 0.15)
+        scaleByDistance: new Cesium.NearFarScalar(3_000, 1.0, 300_000, 0.75)
       },
       point: {
-        pixelSize: 8,
+        pixelSize: 12,
         color: Cesium.Color.fromCssColorString('#F2F4F8'),
         outlineColor: Cesium.Color.fromCssColorString('#D12021'),
-        outlineWidth: 2,
-        heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        outlineWidth: 3,
+        heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        scaleByDistance: new Cesium.NearFarScalar(5_000, 1.2, 200_000, 0.6)
+        scaleByDistance: new Cesium.NearFarScalar(3_000, 1.2, 300_000, 0.8)
       }
     });
   });
 
-  // Vuelo a la región con ángulo inclinado (instantáneo si prefers-reduced-motion)
+  // Vuelo de entrada: "de frente" al pico más cercano al glaciar elegido; sin picos, la vista de la región
   const destino = Cesium.Cartesian3.fromDegrees(region.lon, region.lat, region.altura);
   const orient = {
     heading: Cesium.Math.toRadians(region.heading),
     pitch:   Cesium.Math.toRadians(region.pitch),
     roll:    0
   };
-  if (sinMovimiento()) {
-    viewer.camera.setView({ destination: destino, orientation: orient });
-    viewer.scene.requestRender();
-  } else {
-    viewer.camera.flyTo({
-      destination: destino,
-      orientation: orient,
-      duration: DURACION_VUELO,
-      easingFunction: Cesium.EasingFunction.CUBIC_IN_OUT
-    });
+  const picoInicial = picoMasCercano(region, glaciar?.lat ?? region.lat, glaciar?.lon ?? region.lon);
+  if (picoInicial == null) {
+    if (sinMovimiento()) {
+      viewer.camera.setView({ destination: destino, orientation: orient });
+      viewer.scene.requestRender();
+    } else {
+      viewer.camera.flyTo({ destination: destino, orientation: orient, duration: DURACION_VUELO, easingFunction: Cesium.EasingFunction.CUBIC_IN_OUT });
+    }
   }
 
   // ── Límites de cámara (se restauran desde la instantánea al salir) ──────────
   const ctrl = scene.screenSpaceCameraController;
   ctrl.enableCollisionDetection = true;
-  ctrl.minimumZoomDistance = 1_500;      // ≈ 1,5 km de distancia mínima al suelo
+  // Distancia mínima al suelo: con picos, 150 m (la vista "de frente" va a la altura del Altiplano, a
+  // pocos cientos de metros del suelo; con 1,5 km Cesium subía la cámara y el pico quedaba abajo)
+  ctrl.minimumZoomDistance = region.picos?.length ? 150 : 1_500;
   ctrl.maximumZoomDistance = 250_000;    // ≈ 250 km máximo
 
-  // ── Correa suave: si el centro de vista se aleja > 150 km, volver ──────────
+  // ── Correa suave: si la cámara se aleja > 150 km de la región, vuelve (al pico actual si lo hay) ──
+  // (Atada a un pico con lookAt casi no puede pasar; queda para las regiones sin picos.)
   const centroRegion = Cesium.Cartesian3.fromDegrees(region.lon, region.lat);
   const LIMITE_LEASH_M = 150_000;
   let devolviendo = false;
@@ -446,8 +527,8 @@ function aplicarModoMontana(viewer, region, fecha) {
     if (devolviendo || modo !== 'montana') return;
     const pc = viewer.camera.positionCartographic;
     const aquí = Cesium.Cartesian3.fromRadians(pc.longitude, pc.latitude);
-    const d = Cesium.Cartesian3.distance(aquí, centroRegion);
-    if (d <= LIMITE_LEASH_M) return;
+    if (Cesium.Cartesian3.distance(aquí, centroRegion) <= LIMITE_LEASH_M) return;
+    if (vista?.pico != null) { irAPico(viewer, region, vista.pico, 1.2); return; }
     devolviendo = true;
     viewer.camera.flyTo({
       destination: Cesium.Cartesian3.fromDegrees(region.lon, region.lat, pc.height),
@@ -458,10 +539,23 @@ function aplicarModoMontana(viewer, region, fecha) {
     });
   });
 
-  // ── Botonera flotante + atajos + rotación de brújula ────────────────────────
+  // ── Botonera flotante + carrusel de picos + atajos + rotación de brújula ─────
   controles = instalarControles(viewer, region, destino, orient);
   const quitarControles = controles.quitar;
   controles.quitar = () => { quitarLeash(); quitarControles(); };
+
+  if (picoInicial != null) irAPico(viewer, region, picoInicial, DURACION_VUELO);
+}
+
+// El pico de la región más cercano a un punto (el glaciar elegido); null si la región no tiene picos
+function picoMasCercano(region, lat, lon) {
+  if (!region.picos?.length) return null;
+  let mejor = 0, dMin = Infinity;
+  region.picos.forEach((p, i) => {
+    const d = (p.lat - lat) ** 2 + ((p.lon - lon) * Math.cos(Cesium.Math.toRadians(lat))) ** 2;
+    if (d < dMin) { dMin = d; mejor = i; }
+  });
+  return mejor;
 }
 
 // ─── Botonera dentro del visor ───────────────────────────────────────────────
@@ -531,7 +625,7 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
   const botones = [
     { id: 'acercar',  txt: '+',  aria: 'Acercar',    tip: 'Acercar (+)' },
     { id: 'alejar',   txt: '−',  aria: 'Alejar',     tip: 'Alejar (−)' },
-    { id: 'reenc',    txt: '⟲',  aria: 'Reencuadrar la región', tip: 'Reencuadrar (R)' },
+    { id: 'reenc',    txt: '⌖',  aria: region.picos?.length ? 'Centrar en el pico' : 'Reencuadrar la región', tip: 'Centrar (R)' },
     { id: 'norte',    txt: '▲',  aria: 'Girar al norte',        tip: 'Norte arriba (N)' },
     { id: 'tilt',     txt: '◢',  aria: 'Alternar vista cenital/oblicua', tip: 'Inclinación (I)' },
     { id: 'rotar',    txt: '↻',  aria: 'Rotar automáticamente', tip: 'Rotación lenta' }
@@ -550,8 +644,38 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
   });
   viewer.container.appendChild(barra);
 
+  // --- Carrusel de picos (arriba a la derecha): tocar uno lleva la cámara a ESE pico ----
+  let carrusel = null;
+  if (region.picos?.length) {
+    carrusel = document.createElement('div');
+    carrusel.className = 'montanas3d-picos';
+    carrusel.setAttribute('role', 'toolbar');
+    carrusel.setAttribute('aria-label', 'Picos de la cordillera');
+    carrusel.innerHTML = region.picos.map((p, i) =>
+      `<button type="button" class="montanas3d-pico" data-pico="${i}" aria-pressed="false">${p.n}</button>`).join('');
+    viewer.container.appendChild(carrusel);
+    carrusel.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-pico]');
+      if (b) irAPico(viewer, region, Number(b.dataset.pico));
+    });
+    vista.alElegirPico = (i) => {
+      carrusel.querySelectorAll('[data-pico]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.pico) === i)));
+      const b = carrusel.querySelector(`[data-pico="${i}"]`);
+      b?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: sinMovimiento() ? 'auto' : 'smooth' });
+      refs.reenc.setAttribute('aria-label', `Centrar en ${region.picos[i].n}`);
+    };
+  }
+
   // --- Acciones -------------------------------------------------------------
   const EASE = Cesium.EasingFunction.CUBIC_IN_OUT;
+  // Gira la órbita alrededor del pico actual (misma distancia), sin soltarlo
+  function girarOrbita(heading, pitch) {
+    const o = vista?.orbita;
+    if (!o) return false;
+    const range = Cesium.Cartesian3.distance(camera.positionWC, o.target);
+    irAOrbita(viewer, { target: o.target, hpr: new Cesium.HeadingPitchRange(heading, pitch, range) }, 0.8);
+    return true;
+  }
   function zoom(factor) {
     // paso proporcional a la altura actual (p. ej. factor = ±0.35)
     const pc = camera.positionCartographic;
@@ -560,7 +684,10 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
     else camera.zoomOut(paso);
     scene.requestRender();
   }
+  // Centrar: vuelve "de frente" al pico actual (sin picos, a la vista inicial de la región)
   function reencuadrar() {
+    if (vista?.pico != null) { irAPico(viewer, region, vista.pico, 1.2); return; }
+    camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
     if (sinMovimiento()) {
       camera.setView({ destination: destinoInicial, orientation: orientInicial });
     } else {
@@ -569,19 +696,22 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
   }
   function norte() {
     const pitch = camera.pitch;
+    if (girarOrbita(0, pitch)) return;
     if (sinMovimiento()) camera.setView({ orientation: { heading: 0, pitch, roll: 0 } });
     else camera.flyTo({
-      destination: camera.position.clone(),
+      destination: camera.positionWC.clone(),
       orientation: { heading: 0, pitch, roll: 0 },
       duration: 0.8, easingFunction: EASE
     });
   }
   function inclinar() {
     const cenital = camera.pitch < -1.0; // ya está casi vertical → volver a oblicuo
-    const pitchNuevo = cenital ? Cesium.Math.toRadians(-30) : Cesium.Math.toRadians(-90);
+    const oblicuo = Cesium.Math.toRadians(region.frente?.pitch ?? -30);
+    const pitchNuevo = cenital ? oblicuo : Cesium.Math.toRadians(-89);
+    if (girarOrbita(camera.heading, pitchNuevo)) return;
     const orient = { heading: camera.heading, pitch: pitchNuevo, roll: 0 };
     if (sinMovimiento()) camera.setView({ orientation: orient });
-    else camera.flyTo({ destination: camera.position.clone(), orientation: orient, duration: 0.8, easingFunction: EASE });
+    else camera.flyTo({ destination: camera.positionWC.clone(), orientation: orient, duration: 0.8, easingFunction: EASE });
   }
 
   // Rotación automática: 1 vuelta en ~120 s, se detiene al tocar el mapa
@@ -608,6 +738,12 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
   const parador = new Cesium.ScreenSpaceEventHandler(scene.canvas);
   parador.setInputAction(() => { if (rotando) alternarRotacion(); }, Cesium.ScreenSpaceEventType.LEFT_DOWN);
   parador.setInputAction(() => { if (rotando) alternarRotacion(); }, Cesium.ScreenSpaceEventType.PINCH_START);
+  // Tocar un pin (punto o etiqueta) → la cámara va "de frente" a ESE pico
+  parador.setInputAction((clic) => {
+    const e = scene.pick(clic.position)?.id;
+    const i = e?.properties?.picoIndice?.getValue?.();
+    if (Number.isInteger(i)) irAPico(viewer, region, i);
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
   // --- Rotación de la flecha de brújula según heading ----------------------
   const quitarBrujula = scene.postRender.addEventListener(() => {
@@ -649,6 +785,10 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
       // (se añadió después del snapshot). Solo ocultamos el HUD.
       barra.remove();
       hud.remove();
+      carrusel?.remove();
+      // Soltar el pico: sin esto la cámara del globo seguiría girando alrededor de él
+      camera.cancelFlight();
+      camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
     }
   };
 }
@@ -805,7 +945,7 @@ export async function crearMontanas3d(viewer, glaciar) {
   instantanea = tomarInstantanea(viewer);
   visita += 1;
   modo = 'montana'; // antes de aplicar: ponerRelieve comprueba el modo al llegar la respuesta de ion
-  aplicarModoMontana(viewer, region, fecha);
+  aplicarModoMontana(viewer, region, fecha, glaciar);
   document.body.classList.add('modo-montana');
 
   apiActiva = {

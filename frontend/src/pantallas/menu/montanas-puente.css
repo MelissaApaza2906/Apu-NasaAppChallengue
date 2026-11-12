@@ -175,6 +175,47 @@ body.modo-montana .mp-recuadro.con-3d {
 }
 
 /* ============================================================
+   Carrusel de picos: arriba, a la derecha de "Volver al planeta". Se desliza si no caben.
+   ============================================================ */
+.montanas3d-picos {
+  position: absolute;
+  z-index: 8;
+  top: 12px;
+  right: 12px;
+  left: 220px;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px;
+}
+.montanas3d-picos::-webkit-scrollbar { display: none; }
+/* A la derecha si caben; si no, se desliza desde el primero (con flex-end los primeros quedarían inalcanzables) */
+.montanas3d-picos > :first-child { margin-left: auto; }
+.montanas3d-pico {
+  flex: none;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(91, 160, 255, .55);
+  background: rgba(8, 18, 48, .7);
+  color: var(--nieve, #F2F4F8);
+  cursor: pointer;
+  font: 600 13px var(--letra-texto);
+  white-space: nowrap;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background .15s, border-color .15s;
+}
+.montanas3d-pico:hover { background: rgba(31, 65, 108, .9); }
+.montanas3d-pico[aria-pressed="true"] { background: rgba(209, 32, 33, .25); border-color: var(--rojo-apu, #D12021); }
+.montanas3d-pico:focus-visible { outline: 3px solid var(--rojo-apu, #D12021); outline-offset: 2px; }
+/* Móvil horizontal estrecho: la botonera va arriba; el carrusel, debajo de ella */
+@media (max-width: 768px) {
+  .montanas3d-picos { top: 60px; left: 8px; right: 8px; }
+}
+
+/* ============================================================
    HUD del visor: leyenda MODIS + toggle "Imagen del día" + atribución.
    Esquina inferior izquierda, sin chocar con la botonera (abajo-derecha).
    ============================================================ */
