@@ -63,6 +63,31 @@
 .pantalla-menu.con-zoom .menu-planeta { left: var(--riel-der); top: 0; width: calc(100cqw - var(--riel-der) - var(--borde-der)); height: 100cqh; }
 .pantalla-menu.con-zoom .menu-orbita { opacity: 0; }
 
+/* Lente circular (globo3d.js, de cerca): diámetro = alto libre − 4cqh (sin pasar del ancho libre).
+   Las unidades cq se resuelven dentro de .globo3d, que es contenedor y, con .con-zoom, mide justo el
+   espacio libre (de la barra de botones a la pestaña, de arriba abajo): la lente queda centrada ahí. */
+.pantalla-menu .globo3d { --lente-diam: min(96cqh, 100cqw - 4cqh); }
+.globo3d-lente { position: absolute; left: 50%; top: 50%; width: var(--lente-diam); aspect-ratio: 1; translate: -50% -50%; pointer-events: none; opacity: 0; transition: opacity .3s; }
+.globo3d.lente .globo3d-lente { opacity: 1; transition: opacity .4s .5s; } /* aparece cuando el contorno ya se abrió */
+/* Viñeta oscura suave en el borde */
+.lente-vineta { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle closest-side, transparent 70%, rgba(4, 10, 26, .28) 86%, rgba(4, 10, 26, .72) 100%); }
+/* Anillo de visor: círculo de 1,5 px, 36 marquitas y 4 marcas en cruz */
+.lente-anillo { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; fill: none; stroke: rgba(143, 219, 255, .6); }
+.lente-anillo circle { stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.lente-anillo .marquita { stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.lente-anillo .cruz { stroke-width: 1.5px; stroke: rgba(143, 219, 255, .9); vector-effect: non-scaling-stroke; }
+/* Textos sobre el anillo: arriba la foto y su fecha, abajo las coordenadas */
+.lente-arriba, .lente-abajo { position: absolute; left: 50%; margin: 0; padding: 2px 8px; translate: -50% -50%; border-radius: 4px; background: rgba(6, 14, 34, .88); font: 500 11px / 1.3 var(--letra-dato), ui-monospace, monospace; letter-spacing: .04em; color: #CFE3FF; white-space: nowrap; }
+.lente-arriba { top: 0; }
+.lente-abajo { top: 100%; }
+/* Pantallas bajas (celular acostado): arriba está "Monitoreo satelital" y abajo el chip de Terra, que
+   taparían los textos; ahí van los dos dentro de la lente, debajo del borde de arriba */
+@media (max-height: 500px) {
+  .lente-arriba, .lente-abajo { translate: -50% 0; background: rgba(6, 14, 34, .7); }
+  .lente-arriba { top: 12px; }
+  .lente-abajo { top: 32px; }
+}
+
 /* ---------- Logo, estado y aviso ---------- */
 .menu-logo { position: absolute; left: 2.6cqh; top: 2.4cqh; display: flex; align-items: center; gap: 2cqh; }
 .logo-btn { padding: 0; border: none; background: transparent; cursor: pointer; border-radius: 1.4cqh; }
@@ -283,7 +308,7 @@
 
 /* ---------- Menos movimiento: sin animaciones ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .menu-orbita, .menu-planeta, .menu-credito, .menu-arriba-der, .envivo-chip, .envivo-tarjeta { transition: none; }
+  .menu-orbita, .menu-planeta, .menu-credito, .menu-arriba-der, .envivo-chip, .envivo-tarjeta, .globo3d-lente, .globo3d.lente .globo3d-lente { transition: none; }
   .envivo-tarjeta { animation: none; }
   .menu-estrellas span, .menu-planeta.maqueta, .entra-der, .entra-izq,
   .menu-pestana.entra,

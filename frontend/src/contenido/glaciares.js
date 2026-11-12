@@ -2,6 +2,10 @@
 // caja: rectángulo de búsqueda (grados). diaComparar: el mismo día de cada año
 // para comparar entre años; elegimos el final de la época seca o del verano,
 // cuando queda la nieve que dura todo el año.
+// diaDespejado: día con menos nubes sobre el glaciar en la foto MODIS Terra en color real de su época
+// seca o verano del último año (la lente del menú la muestra de cerca). Elegido mirando las fotos día
+// por día: Andes tropicales y Kilimanjaro, junio–agosto 2026; hemisferio norte, su verano (junio–agosto
+// 2026); Patagonia y Antártida, enero–marzo 2026.
 // datos: el análisis de nieve (y lluvia) de NASA de cada glaciar (backend/ → frontend/public/datos/).
 // La Antártida no tiene nieve: su archivo trae la masa de hielo de GRACE (variables.masa).
 // foto: portada de la pestaña (Wikimedia Commons, licencia libre; créditos en docs/creditos-fotos.md).
@@ -10,67 +14,67 @@ export const GLACIARES = [
   {
     id: 'cordillera-real', nombre: 'Cordillera Real', pais: 'Bolivia', principal: true,
     lat: -16.2, lon: -68.2, caja: { oeste: -68.7, sur: -16.8, este: -67.6, norte: -15.7 },
-    diaComparar: '08-15', datos: 'datos/cordillera-real.json',
+    diaComparar: '08-15', diaDespejado: '2026-07-29', datos: 'datos/cordillera-real.json',
     foto: { src: '/img/glaciares/cordillera-real.webp', autor: 'EEJCC', licencia: 'CC BY-SA 4.0', url: 'https://commons.wikimedia.org/wiki/File:Illimani_La_Paz.jpg' }
   },
   {
     id: 'cordillera-blanca', nombre: 'Cordillera Blanca', pais: 'Perú',
     lat: -9.3, lon: -77.5, caja: { oeste: -77.9, sur: -10.0, este: -77.1, norte: -8.6 },
-    diaComparar: '07-15', datos: 'datos/cordillera-blanca.json',
+    diaComparar: '07-15', diaDespejado: '2026-08-06', datos: 'datos/cordillera-blanca.json',
     foto: { src: '/img/glaciares/cordillera-blanca.webp', autor: 'Maurice Chédel', licencia: 'Dominio público', url: 'https://commons.wikimedia.org/wiki/File:Nevado_Huascaran.jpg' }
   },
   {
     id: 'campos-de-hielo', nombre: 'Campos de Hielo Patagónicos', pais: 'Chile y Argentina',
     lat: -49.0, lon: -73.5, caja: { oeste: -74.2, sur: -51.5, este: -72.8, norte: -46.5 },
-    diaComparar: '03-01', datos: 'datos/patagonia.json',
+    diaComparar: '03-01', diaDespejado: '2026-03-22', datos: 'datos/patagonia.json',
     foto: { src: '/img/glaciares/campos-de-hielo.webp', autor: 'Prissantenbär', licencia: 'Dominio público', url: 'https://commons.wikimedia.org/wiki/File:Fitz_Roy_2.jpg' }
   },
   {
     id: 'alaska', nombre: 'Alaska', pais: 'EE. UU.',
     lat: 61.0, lon: -147.0, caja: { oeste: -150.0, sur: 60.0, este: -142.0, norte: 62.0 },
-    diaComparar: '09-01', datos: 'datos/alaska.json',
+    diaComparar: '09-01', diaDespejado: '2026-07-25', datos: 'datos/alaska.json',
     foto: { src: '/img/glaciares/alaska.webp', autor: 'USDA Forest Service, Alaska Region', licencia: 'CC BY 2.0', url: 'https://commons.wikimedia.org/wiki/File:Mount_Marcus_Baker_and_College_Fiord.jpg' }
   },
   {
     id: 'groenlandia', nombre: 'Groenlandia', pais: 'Groenlandia',
     lat: 69.15, lon: -49.5, caja: { oeste: -50.0, sur: 68.0, este: -30.0, norte: 76.0 },
-    diaComparar: '09-01', datos: 'datos/groenlandia.json',
+    diaComparar: '09-01', diaDespejado: '2026-07-27', datos: 'datos/groenlandia.json',
     foto: { src: '/img/glaciares/groenlandia.webp', autor: 'NASA ICE', licencia: 'CC BY 2.0', url: 'https://commons.wikimedia.org/wiki/File:Mt._Gunnbj%C3%B8rn,_Greenland.jpg' }
   },
   {
     id: 'vatnajokull', nombre: 'Vatnajökull', pais: 'Islandia',
     lat: 64.4, lon: -16.8, caja: { oeste: -18.5, sur: 63.9, este: -15.2, norte: 64.9 },
-    diaComparar: '09-01', datos: 'datos/vatnajokull.json',
+    diaComparar: '09-01', diaDespejado: '2026-06-21', datos: 'datos/vatnajokull.json',
     foto: { src: '/img/glaciares/vatnajokull.webp', autor: 'Kristinn Stefánsson', licencia: 'CC BY-SA 3.0', url: 'https://commons.wikimedia.org/wiki/File:Hvannadalshn%C3%BAkur_in_%C3%96r%C3%A6faj%C3%B6kull_seen_from_Skaftafell.jpg' }
   },
   {
     id: 'alpes', nombre: 'Alpes', pais: 'Suiza',
     lat: 46.5, lon: 8.0, caja: { oeste: 6.5, sur: 45.6, este: 10.5, norte: 47.0 },
-    diaComparar: '09-01', datos: 'datos/alpes.json',
+    diaComparar: '09-01', diaDespejado: '2026-07-30', datos: 'datos/alpes.json',
     foto: { src: '/img/glaciares/alpes.webp', autor: 'Mike Peel', licencia: 'CC BY-SA 4.0', url: 'https://commons.wikimedia.org/wiki/File:Aletsch_Glacier.jpg' }
   },
   {
     id: 'kilimanjaro', nombre: 'Kilimanjaro', pais: 'Tanzania',
     lat: -3.07, lon: 37.35, caja: { oeste: 37.2, sur: -3.2, este: 37.5, norte: -2.95 },
-    diaComparar: '09-15', datos: 'datos/kilimanjaro.json',
+    diaComparar: '09-15', diaDespejado: '2026-08-14', datos: 'datos/kilimanjaro.json',
     foto: { src: '/img/glaciares/kilimanjaro.webp', autor: 'Matt Kieffer', licencia: 'CC BY-SA 2.0', url: 'https://commons.wikimedia.org/wiki/File:Kilimanjaro_(2965011512).jpg' }
   },
   {
     id: 'karakoram', nombre: 'Karakórum', pais: 'Pakistán',
     lat: 35.8, lon: 76.5, caja: { oeste: 74.5, sur: 35.0, este: 77.8, norte: 36.6 },
-    diaComparar: '09-15', datos: 'datos/karakorum.json',
+    diaComparar: '09-15', diaDespejado: '2026-07-30', datos: 'datos/karakorum.json',
     foto: { src: '/img/glaciares/karakoram.webp', autor: 'Zacharie Grossen', licencia: 'CC BY-SA 4.0', url: 'https://commons.wikimedia.org/wiki/File:Chogori.jpg' }
   },
   {
     id: 'himalaya', nombre: 'Himalaya', pais: 'Nepal y China',
     lat: 28.0, lon: 86.9, caja: { oeste: 85.5, sur: 27.3, este: 88.3, norte: 28.7 },
-    diaComparar: '10-01', datos: 'datos/himalaya.json',
+    diaComparar: '10-01', diaDespejado: '2026-07-04', datos: 'datos/himalaya.json',
     foto: { src: '/img/glaciares/himalaya.webp', autor: 'Luca Galuzzi', licencia: 'CC BY-SA 2.5', url: 'https://commons.wikimedia.org/wiki/File:Everest_North_Face_toward_Base_Camp_Tibet_Luca_Galuzzi_2006.jpg' }
   },
   {
     id: 'peninsula-antartica', nombre: 'Península Antártica', pais: 'Antártida',
     lat: -65.0, lon: -62.0, caja: { oeste: -66.0, sur: -68.0, este: -57.0, norte: -62.0 },
-    diaComparar: '03-01', datos: 'datos/antartida.json',
+    diaComparar: '03-01', diaDespejado: '2026-01-17', datos: 'datos/antartida.json',
     foto: { src: '/img/glaciares/peninsula-antartica.webp', autor: 'Christian Stangl', licencia: 'CC BY-SA 2.0', url: 'https://commons.wikimedia.org/wiki/File:Mount_Vinson_from_NW_at_Vinson_Plateau_by_Christian_Stangl_(flickr).jpg' }
   }
 ];

@@ -5,8 +5,8 @@
 //     picos: [{ n, h, lat, lon }, …],    // picos de la Cordillera Real
 //     alElegir: (glaciar) => { … }       // aviso cuando se elige un glaciar (toque o elegirGlaciar)
 //   });
-//   globo.elegirGlaciar('kilimanjaro');  // zoom máximo (2 s): ~350 km encima, mirando abajo, con la foto
-//                                        // MODIS de 250 m; .acercado oculta órbita/satélite/halo (ver CERCA)
+//   globo.elegirGlaciar('kilimanjaro');  // zoom máximo (2 s): ~350 km encima, mirando abajo, dentro de una
+//                                        // lente circular, con la foto MODIS de 250 m de su diaDespejado (ver CERCA)
 //   globo.elegirPico(0);                 // gira (1,6 s) hasta dejar el pico al frente; el planeta llena su caja
 //   globo.verPlaneta();                  // vuelve al tamaño del diseño y sigue girando
 //   await globo.mostrarCapa('hoy');      // 'hoy' (foto de ayer con nubes reales y el sol real) o null
@@ -58,23 +58,29 @@ const CERCA = {
   fundido: 0.6                  // segundos que tarda la foto en aparecer o irse
 };
 // De cerca, sin pixelado: MODIS Terra en color real (GoogleMapsCompatible_Level9 → nivel máximo 9)
-// de un día despejado de la época seca de 2026. Se probó el 15 de agosto y, si había nubes sobre el
-// glaciar, del 16 al 20 (revisado tesela por tesela). Excepciones: Kilimanjaro, nublado del 15 al 20
-// → el 14; la Península Antártica está de noche en agosto (sin imagen) → su verano, enero.
-const FOTO_CERCA = {
-  'cordillera-real': '2026-08-15',
-  'cordillera-blanca': '2026-08-15',
-  'campos-de-hielo': '2026-08-20',
-  alaska: '2026-08-19',
-  groenlandia: '2026-08-15',
-  vatnajokull: '2026-08-19',
-  alpes: '2026-08-19',
-  kilimanjaro: '2026-08-14',
-  karakoram: '2026-08-19',
-  himalaya: '2026-08-20',
-  'peninsula-antartica': '2026-01-17'
-};
+// del día despejado de cada glaciar (diaDespejado en contenido/glaciares.js). Si no tiene, este:
 const FOTO_CERCA_DEFECTO = '2026-08-15';
+
+// Lente circular: al acercarse, el globo se ve dentro de un círculo (su diámetro, --lente-diam, lo pone
+// menu.css) con viñeta y un anillo de visor. El contorno del planeta se transforma en la lente animando
+// el clip-path circle() en 0,8 s; al volver, la lente se cierra al tamaño del planeta.
+const TRANSICION_LENTE = 'clip-path .8s cubic-bezier(.4, 0, .2, 1)';
+const CLIP_LENTE = 'circle(calc(var(--lente-diam, calc(100cqmin - 4cqh)) / 2) at 50% 50%)';
+const CLIP_PLANETA = 'circle(calc(var(--globo-fraccion) * 50cqmin + 2px) at 50% 50%)';
+// '2026-07-29' → '29 jul 2026' (corta: el texto de la lente no choca con los botones de arriba)
+const FECHA_CORTA = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+const fechaCorta = (iso) => FECHA_CORTA.format(new Date(`${iso}T00:00:00Z`)).replace(/\./g, '').replace(/ de /g, ' ');
+// Anillo del visor (viewBox −50…50): círculo, 36 marquitas cada 10° y 4 marcas en cruz
+const ANILLO_LENTE = (() => {
+  const linea = (a, r1, r2, clase) => {
+    const c = Math.cos(a), s = Math.sin(a);
+    return `<line class="${clase}" x1="${(c * r1).toFixed(2)}" y1="${(s * r1).toFixed(2)}" x2="${(c * r2).toFixed(2)}" y2="${(s * r2).toFixed(2)}"/>`;
+  };
+  let marcas = '';
+  for (let i = 0; i < 36; i++) if (i % 9) marcas += linea((i * Math.PI) / 18, 48.2, 50, 'marquita');
+  for (let i = 0; i < 4; i++) marcas += linea((i * Math.PI) / 2, 45, 50, 'cruz');
+  return `<circle r="50"/>${marcas}`;
+})();
 
 const POR_DEFECTO = {
   lat: -15,                 // centrado en Sudamérica
@@ -249,7 +255,16 @@ export function crearGlobo(contenedor, opciones = {}) {
   const credito = op.credito ?? document.createElement('p');
   if (!op.credito) credito.className = 'globo3d-credito';
   credito.textContent = CREDITO_BASE;
-  raiz.append(flotante);
+  // Lente (encima del globo, fuera del recorte): viñeta, anillo de visor y sus dos textos
+  const lente = document.createElement('div');
+  lente.className = 'globo3d-lente';
+  lente.setAttribute('aria-hidden', 'true');
+  lente.innerHTML = `
+    <div class="lente-vineta"></div>
+    <svg class="lente-anillo" viewBox="-50 -50 100 100">${ANILLO_LENTE}</svg>
+    <p class="lente-arriba"></p>
+    <p class="lente-abajo"></p>`;
+  raiz.append(flotante, lente);
   if (!op.credito) raiz.append(credito);
 
   // Imagen base algo más viva, como en el diseño
@@ -582,7 +597,7 @@ export function crearGlobo(contenedor, opciones = {}) {
   // ---------------------------------------------------------------
   const fotosSaliendo = [];
   const fechaCerca = () =>
-    FOTO_CERCA[objetivo?.tipo === 'glaciar' ? objetivo.ref.id : principal?.id] ?? FOTO_CERCA_DEFECTO;
+    (objetivo?.tipo === 'glaciar' ? objetivo.ref : principal)?.diaDespejado ?? FOTO_CERCA_DEFECTO;
   // Orden de abajo hacia arriba: Blue Marble, capa "hoy", foto de cerca y luces de las ciudades
   function ordenarCapas() {
     if (cerca) viewer.imageryLayers.raiseToTop(cerca.capa);
@@ -608,6 +623,7 @@ export function crearGlobo(contenedor, opciones = {}) {
         ordenarCapas();
       }
       escribirCredito();
+      escribirLente();
     }
     const paso = sinMovimiento.matches ? 1 : dt / CERCA.fundido;
     let falta = false;
@@ -855,23 +871,56 @@ export function crearGlobo(contenedor, opciones = {}) {
     easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT
   };
 
-  // Zoom máximo a un glaciar: ~350 km encima, sin órbita, satélite ni halo (CSS .acercado)
+  // Zoom máximo a un glaciar: ~350 km encima, dentro de la lente, sin órbita, satélite ni halo (CSS .acercado)
   function acercar(lon, lat) {
     enfocado = true;
     encuadreAuto = false;
     acercado = { lat, lon };
-    raiz.classList.add('acercado');
+    abrirLente();
     topeAlejar();
     volar(Cesium.Cartesian3.fromDegrees(lon, lat, CERCA.altura), CERCA.duracion, null, VUELO_CERCA);
+    escribirLente(); // ya volando: muestra la foto MODIS que se verá al llegar
   }
 
   function dejarCerca() {
     if (!acercado) return false;
     acercado = null;
-    raiz.classList.remove('acercado');
+    cerrarLente();
     topeAlejar();
     escena.light = solActivo ? sol : luz;
     return true;
+  }
+
+  // El contorno del planeta se abre hasta la lente (0,8 s). Si ya estaba en la lente, se queda.
+  function abrirLente() {
+    escribirLente();
+    if (raiz.classList.contains('lente')) return;
+    const radio = Math.round(estado().diametroPx / 2) + 2;
+    flotante.style.transition = 'none';
+    flotante.style.clipPath = `circle(${radio}px at 50% 50%)`;
+    void flotante.offsetWidth; // aplica el punto de partida antes de animar
+    flotante.style.transition = sinMovimiento.matches ? 'none' : TRANSICION_LENTE;
+    flotante.style.clipPath = CLIP_LENTE;
+    raiz.classList.add('acercado', 'lente');
+  }
+  // Al volver: la lente se cierra al tamaño del planeta; al terminar el vuelo, sin recorte (quitarLente)
+  function cerrarLente() {
+    raiz.classList.remove('lente');
+    flotante.style.clipPath = CLIP_PLANETA;
+  }
+  function quitarLente() {
+    if (acercado) return; // se eligió otro glaciar mientras volvía
+    flotante.style.transition = '';
+    flotante.style.clipPath = '';
+    raiz.classList.remove('acercado');
+  }
+  // Textos del anillo: arriba la foto (MODIS de 250 m o, de lejos, el Blue Marble), abajo las coordenadas
+  function escribirLente() {
+    if (!acercado) return;
+    lente.querySelector('.lente-arriba').textContent = cerca || volando
+      ? `MODIS Terra · 250 m · ${fechaCorta(fechaCerca())}`
+      : 'NASA Blue Marble';
+    lente.querySelector('.lente-abajo').textContent = coordenadas(acercado.lat, acercado.lon);
   }
 
 
@@ -926,8 +975,9 @@ export function crearGlobo(contenedor, opciones = {}) {
       const h = alturaEncuadre();
       if (Math.abs(p.height - h) / h > 0.005) volar(Cesium.Cartesian3.fromRadians(p.longitude, p.latitude, h), 0.5);
     });
+    const alLlegar = () => { if (deCerca) quitarLente(); ajustar(); };
     volar(Cesium.Cartesian3.fromDegrees(lon, op.lat, alturaEncuadre()),
-      deCerca ? CERCA.duracion : op.duracionVuelo, ajustar, deCerca ? VUELO_CERCA : {});
+      deCerca ? CERCA.duracion : op.duracionVuelo, alLlegar, deCerca ? VUELO_CERCA : {});
   }
 
   function destruir() {
@@ -955,7 +1005,7 @@ export function crearGlobo(contenedor, opciones = {}) {
       satelite: { t: +tSatelite.toFixed(2), detras: satelite.classList.contains('detras') },
       capa: infoCapa ? { ...infoCapa, capas: capasDatos.length, cargando: cargandoCapa } : null, fpsCelular: fpsMedidos,
       volando, girando: debeGirar(),
-      acercado: Boolean(acercado), alturaKm: Math.round(viewer.camera.positionCartographic.height / 1000),
+      acercado: Boolean(acercado), lente: raiz.classList.contains('lente'), alturaKm: Math.round(viewer.camera.positionCartographic.height / 1000),
       zoomKm: [control.minimumZoomDistance / 1000, control.maximumZoomDistance / 1000].map(Math.round),
       fotoCerca: cerca ? { fecha: cerca.fecha, alpha: +cerca.capa.alpha.toFixed(2) } : null,
       credito: credito.textContent
