@@ -325,6 +325,7 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
   const botonPlay = fechas.querySelector('.play');
   let reloj = 0;
   function pintarAnio() {
+    jhoel?.verAnio?.(estado.anio); // la nieve MODIS de la vista 3D sigue a la línea de tiempo
     fechas.querySelector('.reciente').setAttribute('aria-pressed', String(estado.anio === null));
     deslizador.classList.toggle('activo', estado.anio !== null);
     const salida = fechas.querySelector('.anio-valor');

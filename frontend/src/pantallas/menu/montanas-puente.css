@@ -222,6 +222,15 @@ body.modo-montana .mp-recuadro.con-3d {
 .hud-toggle.activo { background: rgba(209, 32, 33, .22); border-color: var(--rojo-apu, #D12021); }
 .hud-toggle:focus-visible { outline: 3px solid var(--rojo-apu, #D12021); outline-offset: 2px; }
 .hud-credito { margin: 0; font: 500 10px/1.25 var(--letra-dato); color: #A9B4CC; letter-spacing: .02em; }
+/* En la montaña no hay lente: el visor llena el recuadro (si no, el círculo recorta el HUD y la botonera).
+   La etiqueta del globo ("Imagen: MODIS Terra · <fecha>") tampoco: la fuente de la montaña va en su HUD. */
+body.modo-montana .globo3d-flotante { clip-path: none !important; }
+body.modo-montana .globo3d-lente,
+body.modo-montana .menu-credito { display: none; }
+
+/* Logo de Cesium ion (crédito que pide Cesium por el relieve) */
+.hud-cesium { display: block; line-height: 0; }
+.hud-cesium img { height: 18px; width: auto; opacity: .85; }
 
 /* Defensiva: la etiqueta DOM de selección del globo (país · coords) no debe aparecer en montaña.
    Ya la oculta .globo3d-capa { display: none } del prompt 5; este selector lo refuerza. */

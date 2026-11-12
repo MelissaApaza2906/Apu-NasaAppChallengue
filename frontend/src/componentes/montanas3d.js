@@ -8,15 +8,20 @@
 //   const r = await crearMontanas3d(viewer, glaciar);
 //   // viewer  → Cesium.Viewer de globo3d (puede ser null si el globo pasó a imagen)
 //   // glaciar → { id, nombre, lat, lon, … } de contenido/glaciares.js
-//   // retorna → { salir(): Promise<void> }  ← el puente comprueba typeof r.salir === 'function'
-//   //         → null                        si viewer es null, destruido o ya estamos en modo montaña
+//   // retorna → { salir(): Promise<void>, verAnio(anio | null) }  ← el puente comprueba typeof r.salir === 'function'
+//   //         → null  si viewer es null o destruido, ya estamos en modo montaña o no hay VITE_CESIUM_TOKEN
+//   //                 (el puente muestra entonces "Vista 3D de la montaña · En proceso")
+//   // verAnio(anio): la nieve MODIS pasa a la fecha de ese año de la línea de tiempo (null = la más reciente)
+//
+// Relieve: Cesium World Terrain (Cesium ion, asset 1) con el token de servicios/config.js. Si el globo
+// ya lo tiene, se reutiliza; si ion falla (401/403, sin red), queda el elipsoide liso y un console.warn.
 //
 // También exporta REGIONES (las 11 definiciones con sus picos y parámetros de cámara)
 // por si otra parte de la app necesita la lista.
 
 import * as Cesium from 'cesium';
 import { CESIUM_TOKEN } from '../servicios/config.js';
-import { CAPAS, proveedor, haceDias } from '../servicios/nasa-gibs.js';
+import { CAPAS, proveedor, haceDias, fechaBonita, fechaPorDefecto } from '../servicios/nasa-gibs.js';
 
 // ─── Las 11 regiones ─────────────────────────────────────────────────────────
 // heading: rumbo de la cámara en grados (0 = norte).
@@ -201,6 +206,68 @@ let modo = 'globo';
 let instantanea = null;   // snapshot del viewer tomado al entrar
 let apiActiva = null;     // { salir } de la montaña en curso (para __modoVisor)
 let controles = null;     // { quitar() } botonera + atajos + correa en curso
+let vista = null;         // { fecha, relieve: 'cargando'|'ok'|'sin', capaNieve, capaDia, credito } de la montaña en curso
+let visita = 0;           // sube en cada entrada: una respuesta tardía de ion de una visita anterior se ignora
+let entrando = false;
+
+// ─── Fecha de la nieve MODIS ─────────────────────────────────────────────────
+// "Más reciente": la fecha por defecto que anuncia GIBS para la capa (se pide una vez).
+// Un año de la línea de tiempo: el mismo día y mes de ese año (misma estación que la más reciente).
+let pedidoReciente = null;
+const fechaNieveReciente = () => (pedidoReciente ??= fechaPorDefecto(CAPAS.nieveDia).then((f) => f ?? haceDias(3)));
+function fechaDeAnio(anio, reciente) {
+  if (anio == null) return reciente;
+  const mesDia = reciente.slice(5) === '02-29' ? '02-28' : reciente.slice(5);
+  const f = `${anio}-${mesDia}`;
+  return f > reciente ? reciente : f;
+}
+
+// "Relieve: Cesium World Terrain · Nieve: MODIS Terra (NASA) · <fecha>"
+function escribirCreditoMontana() {
+  if (!vista?.credito) return;
+  const relieve = vista.relieve === 'sin' ? 'Relieve: no disponible (Cesium no respondió)' : 'Relieve: Cesium World Terrain';
+  vista.credito.textContent = `${relieve} · Nieve: MODIS Terra (NASA) · ${fechaBonita(vista.fecha)}` +
+    (vista.capaDia ? ' · Color real: MODIS Terra' : '');
+}
+
+// Cambia la fecha de la nieve (y de "Imagen del día" si está puesta) sin mover el orden de las capas
+function ponerFechaNieve(viewer, fecha) {
+  if (!vista || modo !== 'montana' || !fecha || fecha === vista.fecha) return;
+  const capas = viewer.scene.imageryLayers;
+  const cambiar = (vieja, info, alpha) => {
+    const nueva = new Cesium.ImageryLayer(proveedor(info, fecha));
+    nueva.alpha = alpha;
+    capas.add(nueva, Math.max(0, capas.indexOf(vieja)));
+    capas.remove(vieja, true);
+    return nueva;
+  };
+  vista.fecha = fecha;
+  vista.capaNieve = cambiar(vista.capaNieve, CAPAS.nieveDia, 0.65);
+  if (vista.capaDia) vista.capaDia = cambiar(vista.capaDia, CAPAS.fotoTerra, 0.85);
+  escribirCreditoMontana();
+  viewer.scene.requestRender();
+}
+
+// Relieve: reutiliza el del globo si ya lo tiene; si no, lo pide a Cesium ion. Si falla → elipsoide liso.
+function ponerRelieve(viewer) {
+  const scene = viewer.scene;
+  const yo = visita;
+  const listo = (estado) => { if (vista) { vista.relieve = estado; escribirCreditoMontana(); } scene.requestRender(); };
+  if (!(scene.terrainProvider instanceof Cesium.EllipsoidTerrainProvider)) { listo('ok'); return; }
+  listo('cargando');
+  Cesium.CesiumTerrainProvider.fromIonAssetId(1)
+    .then((p) => {
+      if (yo !== visita || modo !== 'montana') return;
+      scene.terrainProvider = p;
+      listo('ok');
+    })
+    .catch((e) => {
+      if (yo !== visita || modo !== 'montana') return;
+      console.warn('APU: el relieve de Cesium ion no respondió; la montaña sigue sin relieve.', e?.message ?? e);
+      scene.terrainProvider = new Cesium.EllipsoidTerrainProvider();
+      listo('sin');
+    });
+}
 
 // Compat: Cesium ≥1.116 usa scene.verticalExaggeration; antes, globe.terrainExaggeration (deprecada)
 const soportaExagVertical = (scene) => scene && 'verticalExaggeration' in scene;
@@ -263,20 +330,19 @@ function tomarInstantanea(viewer) {
 }
 
 // ─── Aplicar modo montaña ────────────────────────────────────────────────────
-function aplicarModoMontana(viewer, region) {
+function aplicarModoMontana(viewer, region, fecha) {
   const EXAG = 2;
   const DURACION_VUELO = 3;
 
-  if (CESIUM_TOKEN) Cesium.Ion.defaultAccessToken = CESIUM_TOKEN;
+  Cesium.Ion.defaultAccessToken = CESIUM_TOKEN; // crearMontanas3d solo llega aquí con token
 
   const scene = viewer.scene;
   const globe = scene.globe;
   const capas = scene.imageryLayers;
+  vista = { fecha, relieve: 'cargando', capaNieve: null, capaDia: null, credito: null };
 
-  // Terreno Cesium World Terrain con exageración ×2
-  scene.setTerrain(new Cesium.Terrain(
-    Cesium.CesiumTerrainProvider.fromIonAssetId(1)
-  ));
+  // Terreno Cesium World Terrain con exageración ×2 (o el elipsoide liso si ion falla)
+  ponerRelieve(viewer);
   escribirExageracion(scene, EXAG);
   globe.depthTestAgainstTerrain = true;
   viewer.useDefaultRenderLoop = true;
@@ -305,10 +371,9 @@ function aplicarModoMontana(viewer, region) {
     })
   );
 
-  // Capa de nieve MODIS (hace 3 días: lo más reciente disponible)
-  const infoNieve = { ...CAPAS.nieveDia, fecha: haceDias(3) };
-  const capaNieve = capas.addImageryProvider(proveedor(infoNieve, infoNieve.fecha));
-  capaNieve.alpha = 0.65;
+  // Capa de nieve MODIS de la fecha de la línea de tiempo (al entrar, la más reciente de GIBS)
+  vista.capaNieve = capas.addImageryProvider(proveedor(CAPAS.nieveDia, fecha));
+  vista.capaNieve.alpha = 0.65;
 
   // Etiquetas de picos en un DataSource propio (fácil de quitar al salir).
   // CLAMP_TO_GROUND: Cesium las coloca automáticamente sobre el terreno exagerado.
@@ -418,39 +483,36 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
       <span class="hud-rango"><span>0 %</span><span>100 %</span></span>
     </div>
     <button type="button" class="hud-toggle" aria-pressed="false"
-            title="Mostrar la imagen MODIS del día (con nubes)"
+            title="Mostrar la imagen MODIS de esa fecha (con nubes)"
             aria-label="Alternar imagen del día / sin nubes">
       Imagen del día
     </button>
-    <p class="hud-credito" role="note"></p>`;
+    <p class="hud-credito" role="note"></p>
+    <span class="hud-cesium">${Cesium.CreditDisplay.cesiumCredit.html}</span>`;
   viewer.container.appendChild(hud);
-  const elCredito = hud.querySelector('.hud-credito');
   const btnToggle = hud.querySelector('.hud-toggle');
 
-  // Atribución base (Blue Marble cloud-free). Se actualiza al añadir MODIS encima.
-  const CRED_BASE = 'Imágenes: NASA GIBS · Blue Marble (sin nubes)';
-  const CRED_MODIS = 'Imágenes: NASA GIBS · MODIS Terra true color + Blue Marble';
-  const actualizarCredito = () => { elCredito.textContent = capaDia ? CRED_MODIS : CRED_BASE; };
+  // Fuente: "Relieve: Cesium World Terrain · Nieve: MODIS Terra (NASA) · <fecha>" (+ color real si está)
+  // y, debajo, el logo de Cesium ion (el crédito que pide Cesium por usar su relieve).
+  vista.credito = hud.querySelector('.hud-credito');
+  const actualizarCredito = escribirCreditoMontana;
 
-  // --- Capa "Imagen del día" (MODIS true color de hace 3 días) -------------
-  let capaDia = null;
+  // --- Capa "Imagen del día" (MODIS color real, misma fecha que la nieve) ----
+  // vista.capaDia (no una variable local): ponerFechaNieve la cambia cuando se mueve la línea de tiempo
   function toggleImagenDia(forzar) {
-    const activar = forzar ?? !capaDia;
-    if (activar && !capaDia) {
-      const info = { ...CAPAS.fotoTerra, fecha: haceDias(3) };
-      capaDia = capas.addImageryProvider(proveedor(info, info.fecha));
+    const activar = forzar ?? !vista.capaDia;
+    if (activar && !vista.capaDia) {
+      const capaDia = capas.addImageryProvider(proveedor(CAPAS.fotoTerra, vista.fecha));
       capaDia.alpha = 0.85;
-      // Orden: base (índice 0) · MODIS true color · snow (al tope)
-      // addImageryProvider añade al final; para que la nieve quede encima la movemos.
-      // Buscamos el índice de la capa nieve y del toggle. Nieve siempre fue la 2.ª añadida.
-      const nIdx = capas.length - 2; // nieve
-      const dIdx = capas.length - 1; // recién añadida (día)
-      if (nIdx >= 0 && dIdx > nIdx) capas.lower(capaDia); // día → bajo la nieve
+      // Orden: base (índice 0) · MODIS color real · nieve (al tope): la recién añadida baja bajo la nieve
+      const nIdx = capas.indexOf(vista.capaNieve);
+      if (nIdx >= 0 && capas.indexOf(capaDia) > nIdx) capas.lower(capaDia);
+      vista.capaDia = capaDia;
       btnToggle.setAttribute('aria-pressed', 'true');
       btnToggle.classList.add('activo');
-    } else if (!activar && capaDia) {
-      capas.remove(capaDia, true);
-      capaDia = null;
+    } else if (!activar && vista.capaDia) {
+      capas.remove(vista.capaDia, true);
+      vista.capaDia = null;
       btnToggle.setAttribute('aria-pressed', 'false');
       btnToggle.classList.remove('activo');
     }
@@ -649,6 +711,8 @@ async function volverAlGlobo(viewer) {
 
   // 0) Quitar botonera, atajos y correa antes de restaurar nada.
   if (controles) { try { controles.quitar(); } catch (e) { console.error(e); } controles = null; }
+  vista = null;
+  visita += 1; // si ion responde tarde, ya no toca el terreno del globo
 
   if (!viewer || viewer.isDestroyed()) {
     document.body.classList.remove('modo-montana');
@@ -694,9 +758,9 @@ async function volverAlGlobo(viewer) {
 
 // ─── Función principal ────────────────────────────────────────────────────────
 //   crearMontanas3d(viewer, glaciar) → { salir(): Promise<void> } ó null
-export function crearMontanas3d(viewer, glaciar) {
+export async function crearMontanas3d(viewer, glaciar) {
   // Guard: no entrar dos veces seguidas
-  if (modo === 'montana') {
+  if (modo === 'montana' || entrando) {
     console.warn('montanas3d: ya hay una vista de montaña activa; se ignora la segunda entrada.');
     return null;
   }
@@ -706,6 +770,18 @@ export function crearMontanas3d(viewer, glaciar) {
     console.warn('montanas3d: se necesita un Cesium.Viewer activo (globo.viewer).');
     return null;
   }
+
+  // Sin token de Cesium ion no se pide el relieve: el puente muestra "en proceso"
+  if (!CESIUM_TOKEN) {
+    console.info('montanas3d: falta VITE_CESIUM_TOKEN en frontend/.env.local; la vista 3D queda "en proceso".');
+    return null;
+  }
+
+  // Fecha de la nieve al entrar: la más reciente que anuncia GIBS
+  entrando = true;
+  let fecha;
+  try { fecha = await fechaNieveReciente(); } finally { entrando = false; }
+  if (modo === 'montana' || viewer.isDestroyed()) return null;
 
   // Resolver región (por id del glaciar; si no, usar lat/lon del glaciar)
   const regionBase = regionPorId(glaciar?.id) ?? {
@@ -727,12 +803,18 @@ export function crearMontanas3d(viewer, glaciar) {
 
   // Snapshot → aplicar modo → marcar body → publicar API
   instantanea = tomarInstantanea(viewer);
-  aplicarModoMontana(viewer, region);
+  visita += 1;
+  modo = 'montana'; // antes de aplicar: ponerRelieve comprueba el modo al llegar la respuesta de ion
+  aplicarModoMontana(viewer, region, fecha);
   document.body.classList.add('modo-montana');
-  modo = 'montana';
 
   apiActiva = {
-    async salir() { await volverAlGlobo(viewer); }
+    async salir() { await volverAlGlobo(viewer); },
+    // Línea de tiempo del puente: un año (2001…) o null = la más reciente
+    async verAnio(anio) {
+      const reciente = await fechaNieveReciente();
+      ponerFechaNieve(viewer, fechaDeAnio(anio, reciente));
+    }
   };
   return apiActiva;
 }

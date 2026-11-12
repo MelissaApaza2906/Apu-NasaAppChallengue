@@ -279,10 +279,22 @@ export function crearGlobo(contenedor, opciones = {}) {
   capaBase.colorToAlpha = Cesium.Color.BLACK;
   capaBase.colorToAlphaThreshold = 0.06; // también algunas sombras del relieve y las fosas más hondas: quedan azul marino
 
+  // Relieve: Cesium World Terrain (Cesium ion) si hay token. Si ion falla (401/403, sin red), el globo
+  // se queda con el elipsoide liso (EllipsoidTerrainProvider): sin relieve, pero nunca negro.
+  const relieve = CESIUM_TOKEN ? Cesium.Terrain.fromWorldTerrain() : undefined;
+  relieve?.errorEvent.addEventListener((e) => {
+    console.warn('APU: el relieve de Cesium ion no respondió; el globo sigue sin relieve.', e?.message ?? e);
+    if (!viewer || viewer.isDestroyed()) return;
+    if (document.body.classList.contains('modo-montana')) return; // la montaña maneja su propio relieve
+    viewer.scene.terrainProvider = new Cesium.EllipsoidTerrainProvider();
+    viewer.scene.verticalExaggeration = 1;
+    viewer.scene.requestRender();
+  });
+
   try {
     viewer = new Cesium.Viewer(lienzo, {
       baseLayer: capaBase,
-      terrain: CESIUM_TOKEN ? Cesium.Terrain.fromWorldTerrain() : undefined,
+      terrain: relieve,
       animation: false, timeline: false, geocoder: false, baseLayerPicker: false,
       homeButton: false, sceneModePicker: false, navigationHelpButton: false,
       fullscreenButton: false, infoBox: false, selectionIndicator: false,
