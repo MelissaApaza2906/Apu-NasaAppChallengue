@@ -1,4 +1,50 @@
 /* Estilos solo de la pantalla insignias. Usa las variables de src/estilos/variables.css */
 .pantalla-insignias {
   position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqh;
+  padding: 0 16px; box-sizing: border-box;
+}
+
+/* Visor (paneles), igual que el menú y el registro */
+.pantalla-insignias .hud {
+  background: linear-gradient(160deg, rgba(14, 30, 72, .88), rgba(8, 18, 48, .88));
+  border: 1px solid rgba(91, 160, 255, .45);
+  box-shadow: 0 0 3cqh rgba(31, 95, 200, .25), inset 0 0 2cqh rgba(31, 95, 200, .12);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  color: var(--nieve); font-family: var(--letra-texto);
+}
+
+/* ---------- Tarjeta del detective (arriba) ---------- */
+.expediente-perfil {
+  position: absolute; top: clamp(12px, 3cqh, 32px); left: 50%; translate: -50% 0;
+  width: min(560px, calc(100cqw - 32px)); box-sizing: border-box;
+  display: flex; align-items: center; gap: clamp(12px, 2cqw, 20px);
+  padding: 12px clamp(14px, 2cqw, 22px); border-radius: var(--radio-panel);
+}
+.expediente-cara {
+  width: 72px; height: 72px; flex: none; border-radius: 50%; object-fit: cover;
+  border: 2px solid rgba(242, 244, 248, .8); background: var(--noche-2);
+}
+.expediente-cara[hidden] { display: none; }
+.expediente-nombre { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.expediente-etiqueta { font: 400 11px var(--letra-titulo); letter-spacing: .16em; color: var(--nieve-sombra); }
+.expediente-apodo { font: 600 clamp(16px, 2.6cqh, 22px) / 1.2 var(--letra-texto); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.expediente-salir { flex: none; --alto: var(--toque-minimo); font-size: 11px; white-space: nowrap; }
+
+/* ---------- Ventana "Cerrar sesión" (dialog propio, no confirm()) ---------- */
+.expediente-ventana {
+  width: min(440px, calc(100vw - 32px)); box-sizing: border-box; margin: auto;
+  padding: 24px; border-radius: var(--radio-panel);
+}
+.expediente-ventana::backdrop { background: rgba(6, 14, 34, .72); }
+.expediente-ventana[open] { animation: expedienteEntra .22s cubic-bezier(.2, .8, .2, 1); }
+@keyframes expedienteEntra { from { opacity: 0; scale: .96; } to { opacity: 1; scale: 1; } }
+.expediente-ventana h2 { margin: 0 0 12px; font: 400 16px var(--letra-titulo); letter-spacing: .12em; }
+.expediente-ventana p { margin: 0; font-size: 16px; line-height: 1.5; color: #D7DEEA; }
+.expediente-ventana .expediente-error { margin-top: 8px; font-size: 14px; color: #FCE7A0; }
+.expediente-ventana .expediente-error:empty { display: none; }
+.expediente-acciones { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.expediente-acciones .btn-apu { --alto: var(--toque-minimo); font-size: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .expediente-ventana[open] { animation: none; }
 }

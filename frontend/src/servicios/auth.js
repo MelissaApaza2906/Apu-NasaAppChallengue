@@ -29,6 +29,16 @@ export function escucharSesion() {
 
 export async function salir() { if (auth) await signOut(auth); }
 
+// "Cerrar sesión" (Mi expediente): borra usuarios/{uid} y el progreso del navegador, cierra la sesión
+// y onAuthStateChanged crea otra anónima en silencio. Sin conexión, Firestore deja el borrado en cola
+// (la promesa no se cumple hasta que vuelve la red): no se espera más de 5 s.
+export async function cerrarSesion() {
+  const borrado = borrarDatosUsuario();
+  await Promise.race([borrado, new Promise((r) => setTimeout(r, 5000))]);
+  usuario = null;
+  if (auth) await signOut(auth);
+}
+
 // "Borrar mi cuenta" (Ajustes): borra el progreso y luego la cuenta.
 export async function borrarCuenta() {
   await borrarDatosUsuario();

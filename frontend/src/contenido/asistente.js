@@ -56,11 +56,11 @@ export const PANTALLAS = {
     saludo: 'Aquí guardas todo lo que ganaste en la expedición.',
     queHago: 'Mira tus insignias y tu avance. Las grises todavía te faltan.',
     conceptos: [],
-    consejos: ['Puedes proteger tus insignias con tu correo desde Ajustes.']
+    consejos: ['Si tocas «Cerrar sesión», tus insignias se borran de este dispositivo.']
   },
   ajustes: {
-    saludo: 'Aquí puedes cambiar tu apodo, tu avatar o proteger tus insignias.',
-    queHago: 'Si agregas tu correo, podrás entrar desde otro dispositivo sin perder nada.',
+    saludo: 'Aquí puedes cambiar tu apodo o tu avatar.',
+    queHago: 'Tu progreso se guarda con tu apodo, sin correo ni contraseña.',
     conceptos: [],
     consejos: ['«Borrar mi cuenta» elimina tu apodo y tu progreso para siempre.']
   }

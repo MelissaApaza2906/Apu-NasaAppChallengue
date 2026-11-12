@@ -52,7 +52,7 @@ export function montar(contenedor, params = []) {
       </fieldset>
       <button class="btn-apu" type="submit" disabled>EMPEZAR MI ENTRENAMIENTO</button>
       <p class="error" id="acceso-error" role="alert"></p>
-      <p class="nota">Sin correo ni contraseña. Solo guardamos tu apodo y tu progreso. Después podrás proteger tus insignias con tu correo, si quieres.</p>
+      <p class="nota">Sin correo ni contraseña. Solo guardamos tu apodo y tu progreso.</p>
     </form>`;
   contenedor.append(raiz);
   crearCopos(raiz.querySelector('.carga-nieve'));
