@@ -1,17 +1,19 @@
 /* El Jukumari asistente: abajo a la izquierda en todas las pantallas (menos la carga).
    JS lo corre (--mover-x / --mover-y) si chocaría con un botón, el riel o un panel. */
 .asistente {
-  --alto-juku: clamp(120px, 26cqh, 260px);
+  --alto-juku: clamp(110px, 22cqh, 230px);
   position: fixed; z-index: 40; left: max(1.2vw, env(safe-area-inset-left)); bottom: max(2vh, env(safe-area-inset-bottom));
   transform: translate(var(--mover-x, 0px), var(--mover-y, 0px)); transition: transform .35s cubic-bezier(.2, .8, .2, 1);
   color: var(--nieve); font-family: var(--letra-texto);
 }
 .asistente[hidden] { display: none; }
 
-/* Cuerpo entero con la mano que saluda y el efecto 3D (reutiliza .carga-juku de la pantalla de carga) */
+/* Cuerpo entero con la mano que saluda (reutiliza .carga-juku de la pantalla de carga), más sutil que en
+   la carga: sin aura ni brillo celeste, solo una sombra suave en el piso y una sombra oscura leve */
 .carga-juku.asistente-juku { position: relative; top: auto; left: auto; height: var(--alto-juku); z-index: auto; }
-.carga-juku.asistente-juku .aura { filter: blur(1.4cqh); }
-.carga-juku.asistente-juku .capa { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.carga-juku.asistente-juku .sombra { left: 14%; right: 14%; bottom: -2%; height: 6%; background: rgba(0, 0, 0, .35); filter: blur(6px); }
+.carga-juku.asistente-juku .capa { position: absolute; inset: 0; width: 100%; height: 100%; display: block; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .45)); }
+.carga-juku.asistente-juku .saludo { filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .45)); }
 
 /* Nubecita blanca con 3 puntitos, junto a la cabeza */
 .asistente-nube {

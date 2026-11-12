@@ -40,7 +40,6 @@ export function montarAsistente(dondeEvitar = document.getElementById('app')) {
   raiz.hidden = true;
   raiz.innerHTML = `
     <div class="carga-juku asistente-juku">
-      <div class="aura" aria-hidden="true"></div>
       <div class="sombra" aria-hidden="true"></div>
       <div class="cuerpo-anim">
         <button type="button" class="juku-btn asistente-abrir" aria-label="Hablar con el Jukumari, tu guía" aria-haspopup="dialog" aria-expanded="false">
