@@ -19,43 +19,57 @@
 .etapas-mundo { position: absolute; border-radius: 50%; overflow: hidden; border: 2px solid rgba(91, 160, 255, .7); box-shadow: 0 0 6cqh rgba(64, 150, 255, .45), inset 0 0 4cqh rgba(0, 0, 0, .6); background: radial-gradient(circle at 50% 50%, #0C1C44, #060E22 70%); }
 .etapas-mundo canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
-/* Texto sobre el mundo */
-.etapas-titulo { position: absolute; left: 3.4cqh; top: 50%; transform: translateY(-50%); width: min(30cqw, 52cqh); pointer-events: none; text-shadow: 0 .3cqh 1.6cqh rgba(0, 0, 0, .8); }
-.etapas-titulo .eyebrow { font: 400 clamp(9px, 1.7cqh, 15px) var(--letra-titulo); letter-spacing: .32em; color: #D7DEEA; }
-.etapas-titulo h1 { margin: .6cqh 0 1.6cqh; font: 400 clamp(18px, 5.2cqh, 50px) / 1.05 var(--letra-titulo); letter-spacing: .04em; }
-.etapas-titulo .linea { height: 1px; background: rgba(242, 244, 248, .7); margin-bottom: 1.4cqh; }
-.etapas-titulo .sub { display: block; font-size: clamp(11px, 2cqh, 18px); color: #E6EBF3; }
-.etapas-titulo .avance { display: flex; align-items: baseline; gap: 1.2cqh; margin-top: 1.4cqh; }
-.etapas-titulo .avance b { font: 400 clamp(22px, 7cqh, 66px) / 1 var(--letra-titulo); }
-.etapas-titulo .avance span { font-size: clamp(10px, 1.8cqh, 16px); color: #D7DEEA; }
+/* Cabeza: ETAPA 1 · ENTRENAMIENTO y la barra rayada "X / 9 lecciones" (arriba, fuera del planeta) */
+.etapas-cabeza { position: absolute; z-index: 3; left: calc(3.4cqh + clamp(44px, 6.4cqh, 58px) + 2.4cqh); top: 2.6cqh; text-shadow: 0 .3cqh 1.6cqh rgba(0, 0, 0, .8); }
+.etapas-cabeza .eyebrow { font: 600 clamp(9px, 1.5cqh, 14px) var(--letra-texto); letter-spacing: .32em; color: var(--dato-lluvia); }
+.etapas-cabeza h1 { margin: .2cqh 0 .8cqh; font: 400 clamp(16px, 3.3cqh, 32px) / 1.05 var(--letra-titulo); letter-spacing: .08em; }
+.etapas-avance { display: flex; align-items: center; gap: 1.4cqh; }
+.etapas-avance .barra { display: flex; width: clamp(140px, 24cqh, 230px); height: clamp(14px, 2.2cqh, 20px); padding: 2px; border: 1.5px solid rgba(242, 244, 248, .92); border-radius: 999px; background: rgba(11, 25, 46, .6); }
+.etapas-avance .relleno { transition: width .6s ease; }
+.etapas-avance b { font: 400 clamp(13px, 2.2cqh, 20px) var(--letra-titulo); letter-spacing: .1em; }
+.etapas-avance span { font-size: clamp(11px, 1.7cqh, 15px); color: #D7DEEA; }
 
-/* Las 6 etapas en arco */
+/* Arco verde hasta la última lección hecha (encima de la órbita) */
+.etapas-verde { position: absolute; overflow: visible; pointer-events: none; }
+.etapas-verde path { fill: none; stroke: #2BC56B; stroke-width: .8; filter: drop-shadow(0 0 1.2px rgba(43, 197, 107, .9)); }
+
+/* Los 10 nodos del arco: 9 lecciones + la meta */
 .etapa {
-  --bola: clamp(44px, 11cqh, 104px);
-  position: absolute; display: flex; align-items: center; gap: 2cqh; padding: 0; border: none; background: transparent;
+  --bola: clamp(34px, 6.6cqh, 60px);
+  position: absolute; display: flex; align-items: center; gap: 1.6cqh; padding: 0; border: none; background: transparent;
   color: var(--nieve); cursor: pointer; font: inherit; text-align: left;
   transform: translate(calc(var(--bola) / -2), -50%);
   animation: etapasEntra .7s cubic-bezier(.2, .9, .3, 1) both;
 }
+.etapa.siguiente:not(.meta) { --bola: clamp(56px, 10.6cqh, 100px); }
 @keyframes etapasEntra { from { opacity: 0; scale: .6; } to { opacity: 1; scale: 1; } }
 .etapa:focus-visible { outline: none; }
 .etapa:focus-visible .bola { outline: 3px solid var(--rojo-apu); outline-offset: 4px; }
-.etapa .bola { position: relative; flex: none; width: var(--bola); height: var(--bola); border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: transform .2s, box-shadow .2s, background .2s; border: 1.5px solid rgba(242, 244, 248, .85); background: rgba(11, 25, 46, .82); }
+.etapa .bola { position: relative; flex: none; width: var(--bola); height: var(--bola); border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: transform .2s, box-shadow .2s; border: 1.5px solid rgba(169, 180, 204, .6); background: rgba(11, 25, 46, .82); }
 .etapa:hover .bola { transform: scale(1.07); }
-.etapa .bola.bloqueada { border-color: rgba(242, 244, 248, .4); color: #A9B4CC; }
-.etapa .bola.bloqueada svg { width: 40%; height: 40%; }
-.etapa .bola.hecha { border-color: var(--dato-nieve); }
-.etapa .bola.actual { border: 2.5px solid var(--rojo-apu); background: rgba(209, 32, 33, .16); animation: etapasLatido 2.2s ease-in-out infinite; }
-.etapa .bola.elegida { background: rgba(31, 65, 108, .95); box-shadow: 0 0 0 .6cqh rgba(242, 244, 248, .25); }
-.etapa .bola.actual.elegida { background: rgba(209, 32, 33, .28); }
-@keyframes etapasLatido { 0%, 100% { box-shadow: 0 0 0 0 rgba(209, 32, 33, .6), 0 0 2cqh rgba(209, 32, 33, .45); } 50% { box-shadow: 0 0 0 1.4cqh rgba(209, 32, 33, 0), 0 0 2cqh rgba(209, 32, 33, .45); } }
-.etapa .num { font: 400 clamp(14px, 3.6cqh, 34px) var(--letra-titulo); }
-.etapa .pildora { position: absolute; top: -1.2cqh; right: -1.2cqh; min-width: 3.4cqh; height: 3.4cqh; padding: 0 .9cqh; border-radius: 999px; background: var(--rojo-apu); color: var(--nieve); font: 600 clamp(9px, 1.6cqh, 14px) / 3.4cqh var(--letra-dato); text-align: center; box-shadow: 0 0 1cqh rgba(209, 32, 33, .6); }
-.etapa .textos { display: flex; flex-direction: column; gap: .4cqh; min-width: 0; }
-.etapa .nombre { font: 400 clamp(10px, 2cqh, 19px) var(--letra-titulo); letter-spacing: .16em; white-space: nowrap; }
-.etapa .bloqueada + .textos .nombre { color: #C9D2E3; }
+.etapa .bola img { width: 112%; height: 112%; object-fit: contain; }
+.etapa .bola:has(img) { border-color: transparent; background: transparent; }
+.etapa .bola img.gris { filter: grayscale(1) brightness(.75); }
+.etapa .bola .icono { font-size: calc(var(--bola) * .5); line-height: 1; }
+.etapa .marca { position: absolute; right: -6%; bottom: -6%; display: grid; place-items: center; width: 42%; height: 42%; border-radius: 50%; background: #2BC56B; color: var(--noche); font: 700 calc(var(--bola) * .24) / 1 var(--letra-texto); border: 2px solid var(--noche); }
+.etapa.hecha .bola { border-color: #2BC56B; }
+.etapa.siguiente .bola { border: 2.5px solid var(--rojo-apu); box-shadow: 0 0 0 .7cqh rgba(209, 32, 33, .25), 0 0 3cqh rgba(209, 32, 33, .7); animation: etapasLatido 2.2s ease-in-out infinite; }
+.etapa.siguiente .bola:has(img) { background: rgba(209, 32, 33, .2); }
+@keyframes etapasLatido { 0%, 100% { box-shadow: 0 0 0 0 rgba(209, 32, 33, .6), 0 0 3cqh rgba(209, 32, 33, .6); } 50% { box-shadow: 0 0 0 1.4cqh rgba(209, 32, 33, 0), 0 0 3cqh rgba(209, 32, 33, .6); } }
+.etapa.bloqueada .bola { opacity: .55; }
+.etapa.bloqueada .textos { opacity: .6; }
+.etapa.meta .bola { --bola: clamp(40px, 7.6cqh, 70px); border: 2.5px solid var(--bandera-amarillo); box-shadow: 0 0 2cqh rgba(248, 174, 5, .45); }
+.etapa.meta .nombre { color: var(--bandera-amarillo); }
+.etapa.meta.bloqueada .bola { opacity: .8; }
+.etapa.elegida .bola { box-shadow: 0 0 0 .6cqh rgba(242, 244, 248, .28); }
+.etapa.siguiente.elegida .bola { box-shadow: 0 0 0 .7cqh rgba(242, 244, 248, .3), 0 0 3cqh rgba(209, 32, 33, .7); }
+.etapa .textos { display: flex; flex-direction: column; gap: .3cqh; min-width: 0; text-shadow: 0 .2cqh 1cqh rgba(0, 0, 0, .9); }
+.etapa .nombre { font: 400 clamp(9px, 1.7cqh, 16px) var(--letra-titulo); letter-spacing: .16em; white-space: nowrap; }
+.etapa.siguiente:not(.meta) .nombre { font-size: clamp(11px, 2.2cqh, 20px); }
+.etapa .paso { font-size: clamp(9px, 1.45cqh, 13px); color: #A9B4CC; white-space: nowrap; }
+.etapa.hecha .paso { color: #2BC56B; }
+.etapa.siguiente .paso { color: #FF6B6B; }
 .etapa.elegida .nombre { text-decoration: underline; text-decoration-color: var(--rojo-apu); text-underline-offset: .6cqh; text-decoration-thickness: 2px; }
-.etapa .paso { font-size: clamp(9px, 1.5cqh, 13px); color: #A9B4CC; white-space: nowrap; }
 
 /* Barra superior */
 .etapas-volver { position: absolute; left: 3.4cqh; top: 3cqh; z-index: 3; width: clamp(44px, 6.4cqh, 58px); height: clamp(44px, 6.4cqh, 58px); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--nieve); cursor: pointer; }
@@ -97,3 +111,48 @@
 
 .etapas-panel .bloqueo { display: flex; align-items: center; justify-content: center; gap: 1cqh; min-height: clamp(44px, 7cqh, 64px); padding: 0 2cqh; border-radius: 999px; border: 1.5px dashed rgba(169, 180, 204, .6); color: #A9B4CC; font-size: clamp(10px, 1.7cqh, 14px); text-align: center; }
 .etapas-panel .bloqueo svg { width: 2.4cqh; height: 2.4cqh; flex: none; }
+
+/* Panel de la lección elegida (maqueta v2): fichas, datos, insignia a ganar */
+.pantalla-etapas > .etapas-panel { top: 11cqh; bottom: auto; max-height: calc(100cqh - 13cqh); width: clamp(260px, 28cqw, 420px); gap: 1.3cqh; padding: 2.4cqh; }
+.pantalla-etapas > .etapas-panel h2 { font-size: clamp(15px, 3cqh, 28px); }
+.pantalla-etapas > .etapas-panel .pregunta { font-size: clamp(11px, 1.8cqh, 16px); line-height: 1.4; }
+.etapas-panel .fichas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1cqh; }
+.etapas-panel .ficha { display: flex; flex-direction: column; align-items: center; gap: .4cqh; padding: 1.2cqh .6cqh; border-radius: 1.2cqh; border: 1.5px solid var(--dato-lluvia); background: rgba(11, 25, 46, .6); text-align: center; font-size: clamp(9px, 1.5cqh, 13px); }
+.etapas-panel .ficha b { font-weight: 700; letter-spacing: .04em; }
+.etapas-panel .ficha small { font: 700 clamp(7px, 1.1cqh, 10px) var(--letra-texto); letter-spacing: .08em; color: var(--dato-nieve); }
+.etapas-panel .ficha.verde { border-color: #2BC56B; } .etapas-panel .ficha.verde small { color: #2BC56B; }
+.etapas-panel .ficha.rojo { border-color: #F07A86; } .etapas-panel .ficha.rojo small { color: #F7A1AA; }
+.etapas-panel .ficha-icono { font-size: clamp(14px, 2.6cqh, 24px); }
+.etapas-panel .datos-leccion { margin: 0; font-size: clamp(10px, 1.6cqh, 14px); color: #C9D2E3; }
+.etapas-panel .premio { display: flex; align-items: center; gap: 1.4cqh; padding: 1.2cqh 1.6cqh; border-radius: 1.4cqh; border: 1px solid rgba(68, 101, 152, .75); background: rgba(31, 65, 108, .4); }
+.etapas-panel .premio .medalla { flex: none; width: clamp(38px, 7cqh, 64px); aspect-ratio: 1; display: grid; place-items: center; }
+.etapas-panel .premio img { width: 100%; height: 100%; object-fit: contain; }
+.etapas-panel .premio .hex { display: grid; place-items: center; width: 86%; height: 92%; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); background: #1C2A4D; color: rgba(169, 180, 204, .7); font-size: clamp(16px, 3cqh, 28px); }
+.etapas-panel .premio .hex.sello { background: var(--dato-lluvia); color: var(--nieve); font-weight: 700; }
+.etapas-panel .premio .rotulo { display: block; color: var(--dato-lluvia); font-family: var(--letra-texto); font-weight: 700; letter-spacing: .2em; }
+.etapas-panel .premio b { font-size: clamp(12px, 2cqh, 18px); }
+.pantalla-etapas > .etapas-panel .pie { margin-top: .4cqh; }
+
+/* Jukumari de cuerpo entero abajo a la derecha, con su globo */
+.etapas-juku { position: absolute; z-index: 2; right: 2cqw; bottom: 0; display: flex; align-items: flex-end; gap: 1cqw; pointer-events: none; }
+.etapas-juku img { height: clamp(110px, 29cqh, 270px); width: auto; filter: drop-shadow(0 1.4cqh 3cqh rgba(0, 0, 0, .55)); }
+.etapas-dice { position: relative; z-index: 1; align-self: center; width: clamp(150px, 16cqw, 240px); margin: 0 -2cqw 4cqh 0; padding: 1.8cqh 1.2cqw; border-radius: 16px; background: var(--nieve); color: #0E1A33; font: 600 clamp(11px, 1.8cqh, 16px) / 1.4 var(--letra-texto); box-shadow: 0 1cqh 3cqh rgba(0, 0, 0, .45); pointer-events: auto; }
+.etapas-dice b { display: block; margin-bottom: .5cqh; color: var(--rojo-apu); font-size: clamp(8px, 1.2cqh, 11px); letter-spacing: .2em; }
+
+/* Celular horizontal / pantallas bajas: el panel ocupa la derecha y el Jukumari se esconde tras él */
+@media (max-height: 560px) {
+  .etapa { --bola: clamp(26px, 6.4cqh, 40px); gap: 1cqh; }
+  .etapa.siguiente:not(.meta) { --bola: clamp(38px, 10cqh, 56px); }
+  .etapa .paso { display: none; }
+  .etapa.siguiente .paso, .etapa.elegida .paso { display: block; }
+  .pantalla-etapas > .etapas-panel { top: 3cqh; bottom: 3cqh; max-height: none; width: clamp(240px, 36cqw, 340px); right: 2cqw; }
+  .etapas-logo { display: none; }
+  .etapas-cabeza { top: 1.6cqh; }
+  .etapas-cabeza .eyebrow { display: none; }
+  .etapas-cabeza h1 { font-size: clamp(13px, 4.6cqh, 20px); margin-bottom: .6cqh; }
+  .etapas-avance .barra { width: clamp(90px, 16cqw, 140px); height: 12px; }
+  .etapas-avance b { font-size: 12px; }
+  .etapas-avance span { font-size: 11px; }
+  .etapas-juku { display: none; }
+  .etapas-panel .fichas { display: none; }
+}

@@ -1,34 +1,32 @@
-// Pantalla: etapas de aprendizaje · Responsable: Luis
-// Copia fiel de la maqueta "APU · Diseño visual del juego" → Pantalla 3 (ApuEntrenamiento).
-// Fondo del Illimani con nieve, el mundo girando en el círculo y las 6 etapas en arco.
-// El avance (qué lección está abierta) sale de servicios/progreso.js.
+// Pantalla: etapas de aprendizaje · #/etapas · Responsable: Luis
+// Maqueta: docs/mockups/apu-etapas-v2.png. El mundo girando (con el pin rojo que late sobre Bolivia) y,
+// en su arco, las 9 lecciones de contenido/lecciones.js + la meta "Caso de la nieve".
+// El estado de cada nodo sale del id de cada lección terminada (servicios/progreso.js), no de la cantidad:
+//   hecha (✓ verde, arco verde hasta ahí) · siguiente (la primera sin terminar: grande, roja, con brillo) · bloqueada.
+// Cada nodo muestra la insignia de la lección (gris hasta ganarla) o, si no tiene dibujo, un ícono.
 import './etapas.css';
+import '../carga/carga.css'; // la barra rayada (.barra .pista .relleno)
 import { ir } from '../../router.js';
 import { leerProgreso } from '../../servicios/progreso.js';
-import { LECCIONES } from '../../contenido/lecciones.js';
+import { LECCIONES, CASOS } from '../../contenido/lecciones.js';
+import { insigniaPorId } from '../../contenido/insignias.js';
+import { VISUAL } from '../leccion/visuales.js';
 
-// Textos de cada etapa (t = cantidad de actividades, pastilla roja)
-const ETAPAS = [
-  { id: 'variable', p: 'Nieve, lluvia o temperatura: cada una cuenta una parte de la historia del agua.', t: 8 },
-  { id: 'region', p: 'En el globo solo brillan los glaciares del mundo. Aprendes a elegir uno.', t: 7 },
-  { id: 'periodo', p: 'Con pocos años, un año raro puede engañarte. Aprendes a elegir el periodo.', t: 6 },
-  { id: 'serie', p: 'Un gráfico con un dato por mes desde 2001. Aprendes a leerlo.', t: 9 },
-  { id: 'significancia', p: '¿El cambio es real o es casualidad? Contamos cuántas veces bajó y cuántas subió.', t: 8 }
-].map((e) => {
-  const l = LECCIONES.find((x) => x.id === e.id);
-  return { ...e, n: l.nombre ?? l.titulo.toUpperCase(), s: l.paso, c: l.conceptos ?? l.teoria.tarjetas.map((t) => t.titulo) };
-});
-ETAPAS.push({
-  id: 'casos', n: 'CASOS', s: 'Etapa 2 · Detective', t: 3,
-  p: 'Investigas glaciares reales con datos de NASA. Se abre al terminar las 5 lecciones.',
-  c: ['Caso 01: Cordillera Real (con ayuda)', 'Caso 02: la lluvia (poca ayuda)', 'Caso final: sin ayuda']
-});
+const TOTAL = LECCIONES.length; // 9
+// Ícono del nodo cuando la lección no tiene insignia con dibujo
+const ICONOS = { academia: '🎓', caso: '📰', variable: '❄', region: '🏔', periodo: '🌨', serie: '📊', significancia: '🔎', validacion: '🚦', veredicto: '⚖' };
+const META = { id: 'meta', titulo: 'Caso de la nieve', paso: 'Etapa 2 · Detective' };
 
-// Geometría del arco (igual que la maqueta): centro, radio del mundo y del arco
-const CX = '6cqw', CY = 50, RM = 34, RA = 44, A0 = -54, A1 = 54;
+// Geometría del arco (la de siempre): centro, radio del mundo y del arco
+// El arco empieza debajo del título (en pantallas bajas, un poco más abajo)
+const CX = '6cqw', CY = 50, RM = 34, RA = 44, A1 = 62;
+const bajo = window.matchMedia('(max-height: 560px)');
+const ANG = (i) => { const a0 = bajo.matches ? -36 : -48; return a0 + (A1 - a0) * i / TOTAL; }; // 10 nodos: 0…8 lecciones, 9 la meta
 const CANDADO = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 let raf = 0;
+let alCambiarAlto = null;
 let observador = null;
 let vivo = false;
 
@@ -47,15 +45,19 @@ export function montar(contenedor) {
 
     <div class="etapas-orbita" aria-hidden="true" style="left:calc(${CX} - ${RA}cqh);top:${CY - RA}cqh;width:${2 * RA}cqh;height:${2 * RA}cqh"></div>
     <div class="etapas-mundo" style="left:calc(${CX} - ${RM}cqh);top:${CY - RM}cqh;width:${2 * RM}cqh;height:${2 * RM}cqh">
-      <canvas aria-label="El mundo en 3D girando. La Cordillera Real de Bolivia late en rojo."></canvas>
+      <canvas aria-label="El mundo en 3D girando. Un pin rojo late sobre Bolivia (Cordillera Real)."></canvas>
     </div>
+    <svg class="etapas-verde" aria-hidden="true" viewBox="-100 -100 200 200" style="left:calc(${CX} - ${RA}cqh);top:${CY - RA}cqh;width:${2 * RA}cqh;height:${2 * RA}cqh"><path d=""/></svg>
 
-    <div class="etapas-titulo">
+    <div class="etapas-cabeza">
       <span class="eyebrow">ETAPA 1</span>
-      <h1>ENTRENA&shy;MIENTO</h1>
-      <div class="linea" aria-hidden="true"></div>
-      <span class="sub">Conceptos básicos y los 5 pasos del detective</span>
-      <div class="avance"><b class="hechas">0/5</b><span>lecciones</span></div>
+      <h1>ENTRENAMIENTO</h1>
+      <div class="etapas-avance">
+        <div class="barra" role="progressbar" aria-label="Lecciones terminadas" aria-valuemin="0" aria-valuemax="${TOTAL}" aria-valuenow="0">
+          <div class="pista"><div class="relleno" style="width:0%"></div></div>
+        </div>
+        <b class="hechas">0 / ${TOTAL}</b><span>lecciones</span>
+      </div>
     </div>
 
     <div class="etapas-arco"></div>
@@ -65,7 +67,11 @@ export function montar(contenedor) {
     </button>
     <img class="etapas-logo" src="/img/logo-apu.png" alt="APU">
 
-    <aside class="etapas-panel vidrio" aria-live="polite"></aside>`;
+    <aside class="etapas-panel vidrio" aria-live="polite"></aside>
+    <div class="etapas-juku">
+      <p class="etapas-dice" aria-live="polite"><b>JUKUMARI</b><span></span></p>
+      <img src="/img/jukumari-cuerpo.webp" alt="El Jukumari, tu guía">
+    </div>`;
   contenedor.append(raiz);
   const $ = (s) => raiz.querySelector(s);
 
@@ -79,49 +85,92 @@ export function montar(contenedor) {
     nieve.append(c);
   }
 
-  // Arco + panel según el avance
-  let hechas = 0, sel = 0;
-  const abierta = (i) => (i < 5 ? i <= hechas : hechas >= 5);
-  const actual = () => Math.min(hechas, 5);
+  // Avance: QUÉ lecciones están hechas (por id), no cuántas
+  let hechas = new Set(), ganadas = new Set(), apodo = 'detective', sel = 0;
+  const siguiente = () => LECCIONES.findIndex((l) => !hechas.has(l.id)); // -1 = todas hechas
+  const todas = () => siguiente() === -1;
+  const estado = (i) => {
+    if (i === TOTAL) return todas() ? 'siguiente meta' : 'bloqueada meta';
+    if (hechas.has(LECCIONES[i].id)) return 'hecha';
+    return i === siguiente() ? 'siguiente' : 'bloqueada';
+  };
+  const pos = (i) => {
+    const a = ANG(i) * Math.PI / 180;
+    return { x: `calc(${CX} + ${(RA * Math.cos(a)).toFixed(2)}cqh)`, y: `${(CY + RA * Math.sin(a)).toFixed(2)}cqh` };
+  };
+  const pregunta = (l) => (VISUAL[l.id]?.titulo ?? [l.titulo]).join('');
+  const medallaDe = (l, conColor) => {
+    const ins = l.insignia ? insigniaPorId(l.insignia) : null;
+    return ins?.img
+      ? `<img class="${conColor ? '' : 'gris'}" src="${esc(ins.img)}" alt="">`
+      : `<span class="icono" aria-hidden="true">${ICONOS[l.id] ?? '❄'}</span>`;
+  };
 
   function pintarArco() {
-    const n = ETAPAS.length;
-    $('.etapas-arco').innerHTML = ETAPAS.map((e, i) => {
-      const ang = (A0 + (A1 - A0) * i / (n - 1)) * Math.PI / 180;
-      const x = `calc(${CX} + ${(RA * Math.cos(ang)).toFixed(2)}cqh)`, y = `${(CY + RA * Math.sin(ang)).toFixed(2)}cqh`;
-      const ab = abierta(i), esActual = i === actual(), hecha = i < 5 && i < hechas;
-      const clases = ['bola', esActual ? 'actual' : '', ab ? 'abierta' : 'bloqueada', hecha ? 'hecha' : '', sel === i ? 'elegida' : ''].join(' ');
-      const pildora = i < n - 1 ? `<span class="pildora">${hecha ? '✓' : e.t}</span>` : '';
+    const nodos = [...LECCIONES, META];
+    $('.etapas-arco').innerHTML = nodos.map((l, i) => {
+      const { x, y } = pos(i), est = estado(i), meta = i === TOTAL;
+      const hecha = est === 'hecha', sig = est.startsWith('siguiente'), bloq = est.startsWith('bloqueada');
+      // La insignia se ve a color si ya la ganó; la de la lección siguiente también, como adelanto (igual que la maqueta)
+      const color = !meta && (ganadas.has(l.insignia) || sig);
+      const linea = meta ? META.paso : hecha ? `✓ Hecha · ${l.paso}` : sig ? `● Siguiente · ${l.paso}` : l.paso;
+      const contenido = meta ? '<span class="icono" aria-hidden="true">🏁</span>' : medallaDe(l, color);
       return `
-        <button type="button" class="etapa${sel === i ? ' elegida' : ''}" data-i="${i}" aria-pressed="${sel === i}"
-          aria-label="${e.n}, ${e.s}, ${ab ? 'disponible' : 'bloqueada'}" style="left:${x};top:${y};animation-delay:${(0.1 + i * 0.08).toFixed(2)}s">
-          <span class="${clases}">${pildora}${ab ? `<span class="num">${i + 1}</span>` : CANDADO}</span>
-          <span class="textos"><span class="nombre">${e.n}</span><span class="paso">${e.s}</span></span>
+        <button type="button" class="etapa ${est}${sel === i ? ' elegida' : ''}" data-i="${i}" aria-pressed="${sel === i}"
+          aria-label="${esc(l.titulo)}, ${esc(l.paso)}, ${hecha ? 'hecha' : sig ? 'siguiente' : 'bloqueada'}" style="left:${x};top:${y};animation-delay:${(0.1 + i * 0.06).toFixed(2)}s">
+          <span class="bola">${contenido}${hecha ? '<span class="marca" aria-hidden="true">✓</span>' : ''}</span>
+          <span class="textos"><span class="nombre">${esc(l.titulo.toUpperCase())}</span><span class="paso">${esc(linea)}</span></span>
         </button>`;
     }).join('');
+    // Arco verde: desde el primer nodo hasta la última lección hecha seguida (o hasta la siguiente)
+    const s = siguiente(), hasta = s === -1 ? TOTAL : s;
+    const p = (i) => { const a = ANG(i) * Math.PI / 180; return `${(100 * Math.cos(a)).toFixed(2)} ${(100 * Math.sin(a)).toFixed(2)}`; };
+    $('.etapas-verde path').setAttribute('d', hasta > 0 ? `M${p(0)} A100 100 0 0 1 ${p(hasta)}` : '');
   }
 
   function pintarPanel() {
-    const e = ETAPAS[sel], casos = sel === ETAPAS.length - 1, ab = abierta(sel);
     const panel = $('.etapas-panel');
-    panel.innerHTML = `
-      <span class="etiqueta"><span class="barras" aria-hidden="true">//</span>${casos ? (ab ? 'ETAPA 2 · DETECTIVE' : 'ETAPA 2 · BLOQUEADA') : `LECCIÓN ${sel + 1} DE 5`}</span>
-      <h2>${e.n}</h2>
-      <p class="pregunta">${e.p}</p>
-      <div class="conceptos">
-        <span class="rotulo">VAS A APRENDER</span>
-        ${e.c.map((c) => `<div class="concepto"><span class="punto" aria-hidden="true"></span>${c}</div>`).join('')}
-      </div>
-      <div class="chips"><span>Teoría</span><span>Tarjetas</span><span>Trivia</span></div>
-      <div class="pie">
-        ${ab
-          ? `<button type="button" class="btn-empezar">${casos ? 'MIS CASOS' : 'EMPEZAR'}</button>`
-          : `<div class="bloqueo">${CANDADO}${casos ? 'Termina las 5 lecciones' : `Termina la lección ${sel} para abrirla`}</div>`}
-        ${casos && !ab ? '<button type="button" class="btn-apu secundario" data-mis-casos>VER MIS CASOS</button>' : ''}
-      </div>`;
+    const est = estado(sel);
+    if (sel === TOTAL) {
+      const caso = CASOS[0];
+      panel.innerHTML = `
+        <span class="etiqueta"><span class="barras" aria-hidden="true">//</span>META · ETAPA 2</span>
+        <h2>CASO DE LA NIEVE</h2>
+        <p class="pregunta">${esc(caso?.nombre ?? '')}. Con todo lo aprendido, investigas la nieve de la Cordillera Real con datos reales de NASA.</p>
+        <div class="pie">${todas()
+          ? '<button type="button" class="btn-empezar" data-ir="casos">MIS CASOS</button>'
+          : `<div class="bloqueo">${CANDADO}Termina las ${TOTAL} lecciones para abrirlo</div>`}</div>`;
+    } else {
+      const l = LECCIONES[sel], ins = l.insignia ? insigniaPorId(l.insignia) : null;
+      const colores = ['verde', 'azul', 'rojo'];
+      const premio = ins
+        ? `<span class="medalla">${ins.img ? `<img src="${esc(ins.img)}" alt="">` : '<span class="hex">?</span>'}</span>
+           <span><span class="rotulo">${ganadas.has(ins.id) ? 'YA GANASTE LA INSIGNIA' : 'GANAS LA INSIGNIA'}</span><b>${esc(ins.img ? ins.nombre : `${ins.nombre} (dibujo pendiente)`)}</b></span>`
+        : `<span class="medalla"><span class="hex sello">✓</span></span><span><span class="rotulo">GANAS EL SELLO</span><b>¡Paso superado!</b></span>`;
+      panel.innerHTML = `
+        <span class="etiqueta"><span class="barras" aria-hidden="true">//</span>LECCIÓN ${l.numero} DE ${TOTAL}</span>
+        <h2>${esc(l.titulo.toUpperCase())}</h2>
+        <p class="pregunta">${esc(pregunta(l))} ${esc(l.jukumari.inicio.replace('{apodo}', apodo))}</p>
+        <div class="fichas">${l.teoria.tarjetas.filter((t, i, a) => a.findIndex((x) => x.titulo === t.titulo) === i).slice(0, 3).map((t, i) => `
+          <div class="ficha ${colores[i]}"><span class="ficha-icono" aria-hidden="true">${t.icono}</span>
+            <b>${esc(t.titulo.split('·').pop().trim())}</b>${t.etiqueta ? `<small>${esc(t.etiqueta.toUpperCase())}</small>` : ''}</div>`).join('')}
+        </div>
+        <p class="datos-leccion">⏱ 2 min · 🃏 ${l.tarjetas.length} tarjetas · ❓ ${l.trivia.length} preguntas</p>
+        <div class="premio">${premio}</div>
+        <div class="pie">${est === 'bloqueada'
+          ? `<div class="bloqueo">${CANDADO}Termina la lección ${LECCIONES[siguiente()]?.numero ?? sel} para abrirla</div>`
+          : `<button type="button" class="btn-empezar" data-ir="leccion/${l.id}">${est === 'hecha' ? 'REPASAR' : 'EMPEZAR'}</button>`}</div>`;
+    }
     panel.classList.remove('nuevo'); void panel.offsetWidth; panel.classList.add('nuevo');
-    panel.querySelector('.btn-empezar')?.addEventListener('click', () => ir(casos ? 'casos' : `leccion/${e.id}`));
-    panel.querySelector('[data-mis-casos]')?.addEventListener('click', () => ir('casos'));
+    panel.querySelector('[data-ir]')?.addEventListener('click', (e) => ir(e.currentTarget.dataset.ir));
+  }
+
+  function pintarJukumari() {
+    const s = siguiente();
+    const t = hechas.size === 0 ? `¡Hola, ${apodo}! Empecemos por la ${LECCIONES[0].titulo}.`
+      : s === -1 ? '¡Terminaste el entrenamiento! El caso de la nieve te espera.'
+        : `¡Vas muy bien! Ahora sigue: ${LECCIONES[s].titulo}.`;
+    $('.etapas-dice span').textContent = t;
   }
 
   $('.etapas-arco').addEventListener('click', (ev) => {
@@ -130,14 +179,21 @@ export function montar(contenedor) {
   });
 
   const pintarTodo = () => {
-    $('.hechas').textContent = `${Math.min(hechas, 5)}/5`;
-    pintarArco(); pintarPanel();
+    const n = LECCIONES.filter((l) => hechas.has(l.id)).length;
+    $('.hechas').textContent = `${n} / ${TOTAL}`;
+    $('.etapas-avance .relleno').style.width = `${(n / TOTAL) * 100}%`;
+    $('.etapas-avance .barra').setAttribute('aria-valuenow', String(n));
+    pintarArco(); pintarPanel(); pintarJukumari();
   };
   pintarTodo();
+  alCambiarAlto = () => { if (vivo) pintarArco(); };
+  bajo.addEventListener('change', alCambiarAlto);
   leerProgreso().then((p) => {
     if (!vivo) return;
-    hechas = LECCIONES.filter((l) => p.lecciones.includes(l.id)).length;
-    sel = actual();
+    hechas = new Set(p.lecciones ?? []);
+    ganadas = new Set(p.insignias ?? []);
+    apodo = String(p.apodo || '').trim() || 'detective';
+    sel = todas() ? TOTAL : siguiente();
     pintarTodo();
   }).catch(() => {});
 
@@ -204,8 +260,7 @@ function iniciarMundo(c) {
           ctx.beginPath(); ctx.arc(X, Y, 4 + f * Rg * 0.18, 0, 2 * Math.PI); ctx.stroke();
         }
         ctx.globalAlpha = 1; ctx.fillStyle = '#D12021'; ctx.strokeStyle = '#F2F4F8'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(X, Y, Math.max(4, Rg * 0.022), 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
-      }
+        ctx.beginPath(); ctx.arc(X, Y, Math.max(4, Rg * 0.022), 0, 2 * Math.PI); ctx.fill(); ctx.stroke();      }
     }
     if (vivo) raf = requestAnimationFrame(dibujar);
   };
@@ -214,6 +269,8 @@ function iniciarMundo(c) {
 
 export function desmontar() {
   vivo = false;
+  if (alCambiarAlto) bajo.removeEventListener('change', alCambiarAlto);
+  alCambiarAlto = null;
   cancelAnimationFrame(raf);
   observador?.disconnect();
   observador = null;

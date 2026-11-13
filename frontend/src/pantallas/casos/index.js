@@ -129,7 +129,7 @@ export function montar(contenedor) {
           <span class="porcentaje">${extra.avance ? `${extra.avance} %` : 'Sin empezar'}</span>
         </div>
         <div class="pie"><button type="button" class="btn-empezar" data-continuar>CONTINUAR</button></div>`
-      : `<div class="pie"><div class="bloqueo">${CANDADO}${i === 0 ? 'Termina las 5 lecciones' : `Resuelve el ${escapar(CASOS[i - 1].corto)}`}</div></div>`}`;
+      : `<div class="pie"><div class="bloqueo">${CANDADO}${i === 0 ? `Termina las ${LECCIONES.length} lecciones` : `Resuelve el ${escapar(CASOS[i - 1].corto)}`}</div></div>`}`;
     t.querySelector('[data-informe]')?.addEventListener('click', () => abrirInforme(caso));
     t.querySelector('[data-continuar]')?.addEventListener('click', () => ir(`caso/${caso.id}`));
   }
