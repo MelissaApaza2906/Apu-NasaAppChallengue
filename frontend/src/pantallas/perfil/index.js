@@ -10,7 +10,7 @@ import '../insignias/insignias.css';    // medallas (.insignia .medalla .pildora
 import '../../componentes/nueva-insignia.css'; // la figura del avatar de cuerpo entero
 import './perfil.css';
 import { ir } from '../../router.js';
-import { leerProgreso } from '../../servicios/progreso.js';
+import { leerProgreso, casosResueltos } from '../../servicios/progreso.js';
 import { usuarioActual } from '../../servicios/auth.js';
 import { avatarPorId } from '../../contenido/avatares.js';
 import { INSIGNIAS, insigniaPorId } from '../../contenido/insignias.js';
@@ -38,7 +38,8 @@ const barra = (clase, rotulo, total) => `
 function siguientePaso(p) {
   const l = LECCIONES.find((x) => !p.lecciones.includes(x.id));
   if (l) return { titulo: `${l.paso}`, texto: `Lección ${LECCIONES.indexOf(l) + 1}: ${l.nombre}`, ruta: `leccion/${l.id}` };
-  const c = CASOS.find((x) => !p.casos.includes(x.id));
+  const resueltos = casosResueltos(p);
+  const c = CASOS.find((x) => !resueltos.has(x.id));
   if (c) return { titulo: 'Etapa 2 · Detective', texto: `${c.nombre} (${c.ayuda})`, ruta: `caso/${c.id}` };
   return null;
 }
@@ -123,7 +124,7 @@ export function montar(contenedor) {
     $('.perfil-desde').textContent = `${a?.nombre ?? 'Detective'} · detective${desde}`;
 
     // Derecha: barras
-    const lecciones = p.lecciones.length, casos = p.casos.length;
+    const lecciones = p.lecciones.length, casos = casosResueltos(p).size;
     const ganadas = p.insignias.filter((id) => insigniaPorId(id));
     ponerBarra('lecciones', lecciones, TOTAL_LECCIONES);
     ponerBarra('casos', casos, TOTAL_CASOS);

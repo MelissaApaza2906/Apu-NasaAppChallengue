@@ -115,11 +115,13 @@ export function montar(contenedor) {
       <div class="chips"><span>Teoría</span><span>Tarjetas</span><span>Trivia</span></div>
       <div class="pie">
         ${ab
-          ? '<button type="button" class="btn-empezar">EMPEZAR</button>'
+          ? `<button type="button" class="btn-empezar">${casos ? 'MIS CASOS' : 'EMPEZAR'}</button>`
           : `<div class="bloqueo">${CANDADO}${casos ? 'Termina las 5 lecciones' : `Termina la lección ${sel} para abrirla`}</div>`}
+        ${casos && !ab ? '<button type="button" class="btn-apu secundario" data-mis-casos>VER MIS CASOS</button>' : ''}
       </div>`;
     panel.classList.remove('nuevo'); void panel.offsetWidth; panel.classList.add('nuevo');
     panel.querySelector('.btn-empezar')?.addEventListener('click', () => ir(casos ? 'casos' : `leccion/${e.id}`));
+    panel.querySelector('[data-mis-casos]')?.addEventListener('click', () => ir('casos'));
   }
 
   $('.etapas-arco').addEventListener('click', (ev) => {

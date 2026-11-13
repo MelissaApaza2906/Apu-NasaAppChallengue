@@ -27,6 +27,7 @@ export async function leerProgreso() {
     const datos = { ...VACIO, ...local, ...nube };
     // Las listas se unen: en la nube caben menos (reglas de Firestore) y no deben pisar lo del navegador
     for (const k of ['lecciones', 'casos', 'insignias']) datos[k] = [...new Set([...(local[k] ?? []), ...(nube[k] ?? [])])];
+    datos.casos = normalizarCasos(datos.casos); // "id" y "id|fecha" del mismo caso → uno solo
     escribirLocal(datos);
     return datos;
   } catch {
@@ -72,9 +73,25 @@ export async function completarLeccion(id) {
   const p = leerLocal();
   return guardar({ lecciones: [...new Set([...p.lecciones, id])] });
 }
+// Casos resueltos: cada uno se guarda como "id|AAAA-MM-DD" (el día en que se resolvió). Es un texto de la
+// misma lista "casos" de siempre (firestore.rules: lista de hasta 3), así que las reglas no cambian.
+// Los guardados antes, solo con el id, se siguen entendiendo (sin fecha).
+export function casosResueltos(p) {
+  const m = new Map();
+  for (const e of p?.casos ?? []) {
+    const [id, fecha = null] = String(e).split('|');
+    if (id && (!m.has(id) || (fecha && !m.get(id)))) m.set(id, fecha);
+  }
+  return m; // Map id → fecha ('AAAA-MM-DD' o null)
+}
+function normalizarCasos(lista) {
+  return [...casosResueltos({ casos: lista })].map(([id, fecha]) => (fecha ? `${id}|${fecha}` : id));
+}
 export async function completarCaso(id) {
   const p = leerLocal();
-  return guardar({ casos: [...new Set([...p.casos, id])] });
+  const m = casosResueltos(p);
+  if (!m.get(id)) m.set(id, new Date().toISOString().slice(0, 10));
+  return guardar({ casos: [...m].map(([i, f]) => (f ? `${i}|${f}` : i)) });
 }
 // Guarda la insignia en el campo insignias, sin duplicarla. Devuelve true si es nueva
 // (así quien la da sabe si debe mostrar el aviso de componentes/nueva-insignia.js).

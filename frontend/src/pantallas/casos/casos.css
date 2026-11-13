@@ -1,4 +1,30 @@
-/* Estilos solo de la pantalla casos. Usa las variables de src/estilos/variables.css */
-.pantalla-casos {
-  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqh;
+/* Pantalla mis casos. Lo visual sale de etapas.css (fondo, marco, panel, chips, bloqueo, botones), carga.css
+   (barra rayada) e insignias.css (título, ventana y medidas de la barra);
+   aquí solo va dónde está cada cosa y su tamaño, con esos mismos valores. */
+
+/* Título arriba, entre "volver" y el logo; debajo, las 3 tarjetas en fila */
+.pantalla-casos .casos-titulo { position: absolute; z-index: 2; left: calc(3.4cqh + var(--volver) + 2cqh); top: 4.4cqh; }
+.pantalla-casos .casos-grilla {
+  position: absolute; z-index: 2; top: 15cqh; bottom: 4cqh; left: calc(3.4cqh + var(--volver) + 2cqh); right: 3.4cqh;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2cqh;
+}
+/* Cada tarjeta es un .etapas-panel, en su celda de la grilla */
+.pantalla-casos .caso-tarjeta { position: relative; inset: auto; width: auto; min-width: 0; }
+.pantalla-casos .caso-tarjeta .rotulo { margin-bottom: -.8cqh; }
+.pantalla-casos .caso-dato { font-weight: 600; }
+.pantalla-casos .caso-tarjeta .pie .btn-apu { --alto: var(--toque-minimo); font-size: clamp(10px, 1.6cqh, 13px); justify-content: center; }
+/* Bloqueado: borde punteado, como el chip de una insignia bloqueada */
+.pantalla-casos .caso-tarjeta.bloqueado { border: 1.5px dashed rgba(169, 180, 204, .6); }
+.pantalla-casos .caso-tarjeta.bloqueado h2, .pantalla-casos .caso-tarjeta.bloqueado .pregunta { color: #A9B4CC; }
+
+/* El informe: rótulos y párrafos de la ventana */
+.casos-informe .informe-cuerpo { display: flex; flex-direction: column; gap: 6px; }
+.casos-informe .informe-cuerpo .rotulo { margin-top: 8px; font: 500 12px var(--letra-dato); letter-spacing: .14em; color: #A9B4CC; }
+.casos-informe .informe-cuerpo p { font-size: 15px; }
+.casos-informe { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; }
+
+/* Pantallas angostas o bajas: las tarjetas se deslizan en fila */
+@media (max-width: 900px), (max-height: 500px) {
+  .pantalla-casos .casos-grilla { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(240px, 34cqw); overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: 6px; }
+  body:has(.pantalla-casos) .asistente-nube { display: none; }
 }
