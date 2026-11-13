@@ -16,7 +16,7 @@ const ETAPAS = [
   { id: 'significancia', p: '¿El cambio es real o es casualidad? Contamos cuántas veces bajó y cuántas subió.', t: 8 }
 ].map((e) => {
   const l = LECCIONES.find((x) => x.id === e.id);
-  return { ...e, n: l.nombre, s: l.paso, c: l.conceptos };
+  return { ...e, n: l.nombre ?? l.titulo.toUpperCase(), s: l.paso, c: l.conceptos ?? l.teoria.tarjetas.map((t) => t.titulo) };
 });
 ETAPAS.push({
   id: 'casos', n: 'CASOS', s: 'Etapa 2 · Detective', t: 3,

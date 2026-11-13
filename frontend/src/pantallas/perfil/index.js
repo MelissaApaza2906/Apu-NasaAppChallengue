@@ -37,7 +37,7 @@ const barra = (clase, rotulo, total) => `
 // El siguiente paso: la primera lección sin terminar; si están todas, el primer caso; si no, nada
 function siguientePaso(p) {
   const l = LECCIONES.find((x) => !p.lecciones.includes(x.id));
-  if (l) return { titulo: `${l.paso}`, texto: `Lección ${LECCIONES.indexOf(l) + 1}: ${l.nombre}`, ruta: `leccion/${l.id}` };
+  if (l) return { titulo: `${l.paso}`, texto: `Lección ${LECCIONES.indexOf(l) + 1}: ${l.nombre ?? l.titulo}`, ruta: `leccion/${l.id}` };
   const resueltos = casosResueltos(p);
   const c = CASOS.find((x) => !resueltos.has(x.id));
   if (c) return { titulo: 'Etapa 2 · Detective', texto: `${c.nombre} (${c.ayuda})`, ruta: `caso/${c.id}` };

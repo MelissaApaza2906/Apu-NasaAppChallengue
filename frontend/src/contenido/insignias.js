@@ -1,4 +1,4 @@
-// Catálogo de insignias (12): { id, nombre, familia, img, como }.
+// Catálogo de insignias (13): { id, nombre, familia, img, como }.
 // img: imagen en public/img/insignias/; si es null, la pantalla muestra un hexágono con "?".
 // Las ganadas se guardan con ganarInsignia(id) (servicios/progreso.js).
 // "caminante" tiene contador (glaciares visitados, en localStorage): meta = cuántos hacen falta.
@@ -12,6 +12,7 @@ export const FAMILIAS = [
 
 export const INSIGNIAS = [
   // Aprendizaje: una por lección
+  { id: 'aprendiz', nombre: 'Aprendiz de campo', familia: 'aprendizaje', img: img('satelite-oro'), como: 'Termina la lección 1: Academia del detective.' },
   { id: 'variable', nombre: 'Variable', familia: 'aprendizaje', img: img('termometro'), como: 'Termina la lección 1: Variable.' },
   { id: 'region', nombre: 'Región', familia: 'aprendizaje', img: img('montana-pin'), como: 'Termina la lección 2: Región.' },
   { id: 'periodo', nombre: 'Periodo', familia: 'aprendizaje', img: img(null), como: 'Termina la lección 3: Periodo.' },

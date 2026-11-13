@@ -250,7 +250,7 @@ export function montarAsistente(dondeEvitar = document.getElementById('app')) {
     contexto = nuevo;
     if (nuevo !== 'glaciar') fraseExtra = '';
     iConsejo = 0;
-    raiz.hidden = nuevo === 'carga';
+    raiz.hidden = nuevo === 'carga' || nuevo === 'leccion'; // la lección tiene su propio Jukumari con globos
     raiz.dataset.contexto = nuevo;
     if (abierto) pintarPanel();
     if (!raiz.hidden) { avisarSiEsNueva(); pedirAcomodo(); setTimeout(acomodar, 900); }
