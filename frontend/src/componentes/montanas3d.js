@@ -12,6 +12,9 @@
 //   //         → null  si viewer es null o destruido, ya estamos en modo montaña o no hay VITE_CESIUM_TOKEN
 //   //                 (el puente muestra entonces "Vista 3D de la montaña · En proceso")
 //   // verAnio(anio): la nieve MODIS pasa a la fecha de ese año de la línea de tiempo (null = la más reciente)
+//   // verFechaNieve('AAAA-MM-DD', { encender }): la nieve MODIS de esa fecha exacta (la elige el puente con
+//   //   servicios/nieve-anual.js: el día despejado de ese año); encender: prende "Cobertura de nieve"
+//   // filaBarras() → { desde, hasta }: dónde va la fila de barras 3D (frente a la cámara "de frente" al pico principal)
 //
 // Imagen, relieve, luz, sombras, atmósfera y créditos: aplicarVistaRealista (componentes/vista-realista.js),
 // la misma configuración que la lupa del globo. Se restaura al salir.
@@ -335,6 +338,22 @@ async function irAPico(viewer, region, i, duracion = 2.5) {
   irAOrbita(viewer, vista.orbita, duracion);
 }
 
+// Fila de barras 3D del puente: perpendicular a la línea de vista "de frente" al pico principal, a un
+// tercio del camino entre la cámara y el pico, y de un ancho que entra en pantalla. El primer año queda a la
+// izquierda (mirando hacia el pico). Sin picos, frente al centro de la región.
+function filaBarras(region) {
+  const p = region.picos?.[0] ?? { lat: region.lat, lon: region.lon };
+  const f = { ...FRENTE_DEFECTO, ...region.frente };
+  const aCamara = f.distancia * 0.35;             // metros de la fila a la cámara: en el llano, antes de la falda del pico
+  const centro = puntoDesde(p.lat, p.lon, f.distancia - aCamara, f.lado);
+  const mitad = aCamara * 0.42;                   // ~84 % de la distancia a lo ancho: entra con el campo de visión de 60°
+  return {
+    desde: puntoDesde(centro.lat, centro.lon, mitad, (f.lado + 90) % 360),
+    hasta: puntoDesde(centro.lat, centro.lon, mitad, (f.lado + 270) % 360),
+    distancia: aCamara
+  };
+}
+
 // Compat: Cesium ≥1.116 usa scene.verticalExaggeration; antes, globe.terrainExaggeration (deprecada)
 const soportaExagVertical = (scene) => scene && 'verticalExaggeration' in scene;
 const leerExageracion = (scene) => (soportaExagVertical(scene) ? scene.verticalExaggeration : (scene.globe.terrainExaggeration ?? 1));
@@ -567,13 +586,14 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
   const actualizarCredito = escribirCreditoMontana;
 
   // --- "Cobertura de nieve": enciende/apaga la capa MODIS (al 50 %) ------------
-  btnNieve.addEventListener('click', () => {
-    const si = !vista.capaNieve.show;
+  function encenderNieve(si) {
+    if (!vista?.capaNieve) return;
     vista.capaNieve.show = si;
     btnNieve.setAttribute('aria-pressed', String(si));
     btnNieve.classList.toggle('activo', si);
     scene.requestRender();
-  });
+  }
+  btnNieve.addEventListener('click', () => encenderNieve(!vista.capaNieve.show));
 
   // --- Capa "Imagen del día" (MODIS color real, misma fecha que la nieve) ----
   // vista.capaDia (no una variable local): ponerFechaNieve la cambia cuando se mueve la línea de tiempo
@@ -760,6 +780,7 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
   window.addEventListener('keydown', onTecla);
 
   return {
+    encenderNieve,
     quitar() {
       window.removeEventListener('keydown', onTecla);
       parador.destroy();
@@ -934,7 +955,13 @@ export async function crearMontanas3d(viewer, glaciar) {
     async verAnio(anio) {
       const reciente = await fechaNieveReciente();
       ponerFechaNieve(viewer, fechaDeAnio(anio, reciente));
-    }
+    },
+    verFechaNieve(fecha, { encender = false } = {}) {
+      ponerFechaNieve(viewer, fecha);
+      if (encender) controles?.encenderNieve?.(true);
+    },
+    filaBarras() { return filaBarras(region); },
+    relieveListo: vista?.relieveListo ?? Promise.resolve()
   };
   return apiActiva;
 }

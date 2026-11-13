@@ -7,15 +7,22 @@
 //   · en el espacio del planeta, un recuadro .hud: lo de Jhoel si crearMontanas3d(viewer, glaciar)
 //     devuelve { salir() }; si no, "Vista 3D de la montaña · En proceso" con la barra a rayas;
 //   · a la derecha, el panel con los datos de NASA (pestañas Nieve/Lluvia, periodos, tarjetas,
-//     gráfico, Nevada/Lluvia con el valor real del mes, Barras 3D desactivado);
-//   · debajo del panel, la máquina del tiempo (marca el año en el gráfico con su valor real).
-// Aquí no hay código de 3D: eso es de Jhoel.
+//     gráfico, Nevada/Lluvia con el valor real del mes, botón Barras 3D);
+//   · debajo del panel, la máquina del tiempo (⏮ ▶/⏸ y el año).
+// Un solo año actual (estado.anioActual) lo comparten el gráfico del panel, las barras 3D
+// (componentes/barras3d.js, junto a la montaña) y la nieve MODIS de la montaña: tocar un año en el
+// gráfico o una barra, mover el deslizador o reproducir cambia los tres (ponerAnio).
+// La nieve de cada año: servicios/nieve-anual.js (el día despejado de MODIS Terra NDSI de ese año).
+// El 3D de la montaña es de Jhoel (componentes/montanas3d.js).
 import { crearMontanas3d } from '../../componentes/montanas3d.js';
+import { crearBarras } from '../../componentes/barras3d.js';
 import { darInsignia } from '../../componentes/nueva-insignia.js';
+import { fechaNieveDeAnio, precargarAnios } from '../../servicios/nieve-anual.js';
+import { fechaBonita } from '../../servicios/nasa-gibs.js';
 
 const PERIODOS = [[2001, 2005, 2021, 2025], [2006, 2010, 2016, 2020]];
 const ANIOS = [2001, 2025];
-const PASO_PLAY = 1200; // ms por año al reproducir
+const PASO_PLAY = 1000; // ms por año al reproducir (1 año por segundo)
 const SIN_DATOS = 'El análisis de 25 años de este glaciar todavía no está en APU.';
 const VARIABLES = {
   nieve: {
@@ -56,8 +63,9 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     : texto.replace('la Cordillera Real', region.nombre).replace('Cordillera Real', region.nombre));
   // Lluvia en revisión (variables.lluvia.revisar): solo se muestra la nieve
   const lluviaEnRevision = () => Boolean(region?.variables?.lluvia?.revisar);
-  const estado = { variable: 'nieve', periodo: 0, anio: null, clima: null };
+  const estado = { variable: 'nieve', periodo: 0, anioActual: null, clima: null };
   const limpiar = [];
+  let vivo = true; // false al cerrar: las respuestas tardías de NASA se ignoran
 
   // ---------------------------------------------------------------
   // Recuadro en el espacio del planeta
@@ -70,6 +78,10 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     <div class="mp-proceso">
       <p>Vista 3D de la montaña · En proceso</p>
       <div class="mp-barra" role="progressbar" aria-label="Vista 3D en proceso"><div class="relleno"></div></div>
+    </div>
+    <div class="mp-anio-grande" aria-live="polite" hidden>
+      <p class="mp-anio-linea"><b class="mp-anio-num"></b><span class="mp-anio-valor"></span><span class="mp-anio-flecha"></span></p>
+      <p class="mp-anio-fuente"></p>
     </div>`;
   raiz.append(recuadro);
   // TODO: migrar a body.modo-montana (prompt 3). Hoy montanas3d.js ya pone body.modo-montana;
@@ -144,8 +156,8 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
         <figcaption><span class="titulo-graf"></span> · <span class="rango"></span></figcaption>
         <svg role="img" viewBox="0 0 300 110"></svg>
         <span class="nota fuente-graf"></span>
-        <button type="button" class="ver-barras" disabled title="Llega con la vista 3D de la montaña">▥ Barras 3D</button>
-        <span class="nota">Las barras 3D llegan con la vista 3D de la montaña.</span>
+        <button type="button" class="ver-barras" disabled aria-pressed="false" title="Llega con la vista 3D de la montaña">▥ Barras 3D</button>
+        <span class="nota nota-barras">Las barras 3D llegan con la vista 3D de la montaña.</span>
       </figure>
     </div>` : `
     <div>
@@ -164,7 +176,8 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
   fechas.setAttribute('aria-label', 'Máquina del tiempo: el valor de cada año');
   fechas.innerHTML = `
     <button type="button" class="reciente" aria-pressed="true">Más reciente</button>
-    <button type="button" class="play" aria-pressed="false" aria-label="Reproducir los años">▶</button>
+    <button type="button" class="inicio" aria-label="Volver al primer año" title="Volver al primer año">⏮</button>
+    <button type="button" class="play" aria-pressed="false" aria-label="Reproducir los años" title="Reproducir: 1 año por segundo">▶</button>
     <input type="range" class="anio" min="${ANIOS[0]}" max="${ANIOS[1]}" step="1" value="${ANIOS[0]}" aria-label="Año">
     <output class="anio-valor" aria-live="polite"></output>`;
   if (conDatos && !esMasa) { raiz.append(fechas); raiz.classList.add('con-fechas'); }
@@ -223,11 +236,11 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     q('.titulo-graf').textContent = V.grafico;
     q('.fuente-graf').textContent = delLugar(V.fuente);
     q('.rango').textContent = `${anios[0]}–${ultimo}`;
-    const iMarca = estado.anio === null ? -1 : anios.indexOf(estado.anio);
+    const iMarca = estado.anioActual === null ? -1 : anios.indexOf(estado.anioActual);
     const svg = q('.grafico svg');
     const que = lluvia ? 'Lluvia por año' : 'Índice de nieve';
     svg.setAttribute('aria-label', `${que} de ${esCordilleraReal() ? 'la Cordillera Real' : region.nombre} de ${anios[0]} a ${ultimo}: empieza en ${fmt(valores[0], V.decimales)} y termina en ${fmt(valores[n - 1], V.decimales)}, ${real ? 'con tendencia a la baja' : 'sin una tendencia segura todavía'}.`
-      + (iMarca >= 0 ? ` Año marcado: ${estado.anio}, ${fmt(valores[iMarca], V.decimales)}${V.unidad}.` : ''));
+      + (iMarca >= 0 ? ` Año marcado: ${estado.anioActual}, ${fmt(valores[iMarca], V.decimales)}${V.unidad}.` : ''));
     const marca = () => {
       if (iMarca < 0) return '';
       const x = X(iMarca), y = Y(valores[iMarca]);
@@ -319,27 +332,107 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
   }
 
   // ---------------------------------------------------------------
-  // Máquina del tiempo: el año elegido, con su valor real, marcado en el gráfico
+  // Año actual compartido: gráfico del panel + barras 3D + nieve de la montaña + etiqueta grande
   // ---------------------------------------------------------------
   const deslizador = fechas.querySelector('.anio');
   const botonPlay = fechas.querySelector('.play');
+  const grande = recuadro.querySelector('.mp-anio-grande');
+  const datosVar = () => region?.variables?.[estado.variable] ?? null;
+  const aniosVar = () => datosVar()?.anios ?? [];
   let reloj = 0;
+  let barras = null;
+  let barrasVisibles = true;
+  let ultimaNieve = null; // la fecha MODIS que muestra la montaña (para dejarla si un año no tiene imagen limpia)
+  let pedidoNieve = 0;
+
+  // El deslizador va del primer al último año con datos de la variable elegida
+  function ajustarDeslizador() {
+    const a = aniosVar();
+    if (!a.length) return;
+    deslizador.min = String(a[0]);
+    deslizador.max = String(a[a.length - 1]);
+  }
+
   function pintarAnio() {
-    jhoel?.verAnio?.(estado.anio); // la nieve MODIS de la vista 3D sigue a la línea de tiempo
-    fechas.querySelector('.reciente').setAttribute('aria-pressed', String(estado.anio === null));
-    deslizador.classList.toggle('activo', estado.anio !== null);
+    fechas.querySelector('.reciente').setAttribute('aria-pressed', String(estado.anioActual === null));
+    deslizador.classList.toggle('activo', estado.anioActual !== null);
     const salida = fechas.querySelector('.anio-valor');
-    if (estado.anio === null || !region) { salida.textContent = 'Último año'; return; }
-    const v = region.variables[estado.variable];
-    const i = v.anios.indexOf(estado.anio);
+    if (estado.anioActual === null || !region) { salida.textContent = 'Último año'; return; }
+    const v = datosVar();
+    const i = v.anios.indexOf(estado.anioActual);
     const V = VARIABLES[estado.variable];
-    salida.textContent = i < 0 ? `${estado.anio}: sin dato` : `${estado.anio} · ${fmt(v.anual[i], V.decimales)}${V.unidad}`;
+    salida.textContent = i < 0 ? `${estado.anioActual}: sin dato` : `${estado.anioActual} · ${fmt(v.anual[i], V.decimales)}${V.unidad}`;
   }
-  function verAnio(anio) {
-    estado.anio = anio;
-    deslizador.value = String(anio);
+
+  // Etiqueta grande del visor: año, valor y flecha frente al año anterior
+  function pintarEtiqueta() {
+    const anio = estado.anioActual;
+    grande.hidden = !jhoel || anio === null || !region;
+    if (grande.hidden) return;
+    const v = datosVar();
+    const V = VARIABLES[estado.variable];
+    const i = v.anios.indexOf(anio);
+    grande.querySelector('.mp-anio-num').textContent = String(anio);
+    grande.querySelector('.mp-anio-valor').textContent = i < 0 ? 'sin dato' : `${V.cambio} ${fmt(v.anual[i], V.decimales)}${V.unidad}`;
+    const flecha = grande.querySelector('.mp-anio-flecha');
+    flecha.className = 'mp-anio-flecha';
+    if (i > 0) {
+      const d = v.anual[i] - v.anual[i - 1];
+      flecha.textContent = `${d > 0 ? '↑' : d < 0 ? '↓' : '='} vs ${v.anios[i - 1]}`;
+      flecha.classList.add(d > 0 ? 'sube' : d < 0 ? 'baja' : 'igual');
+      flecha.setAttribute('aria-label', `${d > 0 ? 'Subió' : d < 0 ? 'Bajó' : 'Igual'} frente a ${v.anios[i - 1]}`);
+    } else {
+      flecha.textContent = i === 0 ? 'primer año' : '';
+      flecha.removeAttribute('aria-label');
+    }
+    grande.classList.remove('pulso'); void grande.offsetWidth; grande.classList.add('pulso');
+  }
+
+  // Nieve de la montaña: el día despejado de MODIS Terra de ese año (servicios/nieve-anual.js)
+  const fuenteNieve = (t) => { grande.querySelector('.mp-anio-fuente').textContent = t; };
+  async function ponerNieve(anio) {
+    if (!jhoel) return;
+    const pedido = ++pedidoNieve;
+    if (anio === null) { ultimaNieve = null; jhoel.verAnio?.(null); return; }
+    fuenteNieve(`Nieve: MODIS Terra (NASA) · buscando la imagen de ${anio}…`);
+    const r = await fechaNieveDeAnio(glaciar, anio);
+    if (pedido !== pedidoNieve || !vivo) return; // ya se pidió otro año
+    if (r.fecha) {
+      ultimaNieve = r.fecha;
+      jhoel.verFechaNieve?.(r.fecha, { encender: true });
+      fuenteNieve(`Nieve: MODIS Terra (NASA) · ${fechaBonita(r.fecha)}`);
+      return;
+    }
+    const motivo = r.estado === 'error' ? `NASA no respondió para ${anio}` : `sin imagen despejada de ${anio}`;
+    fuenteNieve(`Nieve: MODIS Terra (NASA) · ${motivo}` + (ultimaNieve ? `; se ve la del ${fechaBonita(ultimaNieve)}` : '; no se muestra nieve'));
+  }
+
+  // Barras 3D junto a la montaña (con la variable elegida); se rehacen al cambiar de variable
+  function ponerBarras() {
+    barras?.destruir();
+    barras = null;
+    const v = datosVar();
+    const fila = jhoel?.filaBarras?.();
+    if (!v || !fila || !globo?.viewer) return;
+    barras = crearBarras(globo.viewer, {
+      anios: v.anios, valores: v.anual, desde: fila.desde, hasta: fila.hasta, relieveListo: jhoel.relieveListo,
+      altoMaximo: fila.distancia * 0.17, radio: fila.distancia * 0.011,
+      alElegir: (anio) => { parar(); ponerAnio(anio); }
+    });
+    barras.mostrar(barrasVisibles);
+    barras.destacar(estado.anioActual);
+  }
+
+  // Cambia el año actual: lo usan el gráfico, las barras, el deslizador y la reproducción
+  function ponerAnio(anio) {
+    estado.anioActual = anio;
+    if (anio !== null) deslizador.value = String(anio);
     pintarVariable();
+    barras?.destacar(anio);
+    pintarEtiqueta();
+    ponerNieve(anio);
   }
+
   function parar() {
     clearInterval(reloj);
     reloj = 0;
@@ -347,22 +440,63 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     botonPlay.textContent = '▶';
     botonPlay.setAttribute('aria-label', 'Reproducir los años');
   }
-  botonPlay.addEventListener('click', () => {
-    if (reloj) { parar(); return; }
-    let anio = estado.anio === null || estado.anio >= ANIOS[1] ? ANIOS[0] : estado.anio;
-    verAnio(anio);
+  // Al terminar, el Jukumari dice la tendencia real del JSON (cambio por década y p)
+  function decirTendencia() {
+    const v = datosVar();
+    if (!v) return;
+    const V = VARIABLES[estado.variable];
+    const lugar = esCordilleraReal() ? 'la Cordillera Real' : region.nombre;
+    const lluvia = estado.variable === 'lluvia';
+    const cambio = `${conSigno(v.tendencia_por_decada, lluvia ? 1 : 2)}${lluvia ? ' mm por año' : ''}`;
+    const textoP = v.p < 0.01 ? 'p < 0,01' : `p = ${fmt(v.p, 2)}`;
+    const sentido = v.tendencia_por_decada < 0 ? 'bajada' : 'subida';
+    const veredicto = v.veredicto === 'real'
+      ? `Como p es menor que 0,05, la ${sentido} es real.`
+      : 'Como p no es menor que 0,05, todavía no se puede decir que sea una tendencia real.';
+    window.dispatchEvent(new CustomEvent('apu:jukumari', { detail: {
+      texto: `${V.cambio} de ${lugar}, ${v.anios[0]}–${v.anios[v.anios.length - 1]}: cambia ${cambio} por década (${textoP}). ${veredicto}`,
+      abrir: true
+    } }));
+  }
+  function reproducir() {
+    const a = aniosVar();
+    if (!a.length) return;
+    const ultimo = a[a.length - 1];
+    let anio = estado.anioActual === null || estado.anioActual >= ultimo ? a[0] : estado.anioActual;
+    ponerAnio(anio);
     botonPlay.setAttribute('aria-pressed', 'true');
-    botonPlay.textContent = '❚❚';
+    botonPlay.textContent = '⏸';
     botonPlay.setAttribute('aria-label', 'Pausar');
     reloj = setInterval(() => {
       anio += 1;
-      if (anio > ANIOS[1]) { parar(); return; }
-      verAnio(anio);
+      if (anio > ultimo) { parar(); decirTendencia(); return; }
+      ponerAnio(anio);
     }, PASO_PLAY);
+  }
+  botonPlay.addEventListener('click', () => { if (reloj) parar(); else reproducir(); });
+  fechas.querySelector('.inicio').addEventListener('click', () => {
+    const a = aniosVar();
+    if (!a.length) return;
+    const sonando = Boolean(reloj);
+    parar();
+    ponerAnio(a[0]);
+    if (sonando) reproducir();
   });
-  deslizador.addEventListener('input', () => { parar(); verAnio(Number(deslizador.value)); });
-  fechas.querySelector('.reciente').addEventListener('click', () => { parar(); estado.anio = null; pintarVariable(); });
-  limpiar.push(parar);
+  deslizador.addEventListener('input', () => { parar(); ponerAnio(Number(deslizador.value)); });
+  fechas.querySelector('.reciente').addEventListener('click', () => { parar(); ponerAnio(null); });
+
+  // Tocar el gráfico del panel: el año más cercano a donde se tocó
+  function anioDelGrafico(e) {
+    const svg = e.currentTarget;
+    const a = aniosVar();
+    if (!a.length) return null;
+    const caja = svg.getBoundingClientRect();
+    const x = ((e.clientX - caja.left) / caja.width) * 300; // viewBox de 300 de ancho
+    const ultimo = a[a.length - 1];
+    const anio = Math.round(a[0] + ((x - 12) / 284) * Math.max(1, ultimo - a[0]));
+    return Math.min(ultimo, Math.max(a[0], anio));
+  }
+  limpiar.push(() => { parar(); pedidoNieve++; barras?.destruir(); barras = null; });
 
   // ---------------------------------------------------------------
   // Nevada / Lluvia: solo el valor real del mes (el efecto se dibujará con la vista 3D)
@@ -404,10 +538,37 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
   } else if (conDatos) {
     aplicarRevision();
     panel.querySelectorAll('[role="tab"]').forEach((b) => b.addEventListener('click', () => {
+      if (estado.variable === b.dataset.v) return;
+      parar();
       estado.variable = b.dataset.v;
-      pintarVariable();
+      ajustarDeslizador();
+      // Si el año actual no está en la otra variable (lluvia hasta 2024), se queda en su último año
+      const a = aniosVar();
+      if (estado.anioActual !== null && a.length && !a.includes(estado.anioActual)) estado.anioActual = a[a.length - 1];
+      ponerBarras();
+      ponerAnio(estado.anioActual);
       alCambiarVariable?.(estado.variable);
     }));
+    // Gráfico del panel: tocar un año lo pone como año actual
+    const svgGraf = q('.grafico svg');
+    svgGraf.classList.add('elegible');
+    svgGraf.addEventListener('click', (e) => { const anio = anioDelGrafico(e); if (anio !== null) { parar(); ponerAnio(anio); } });
+    // Barras 3D: con la vista 3D de la montaña, el botón las muestra u oculta
+    const botonBarras = q('.ver-barras');
+    if (jhoel && region) {
+      botonBarras.disabled = false;
+      botonBarras.title = 'Mostrar u ocultar las barras 3D junto a la montaña';
+      botonBarras.setAttribute('aria-pressed', 'true');
+      q('.nota-barras').textContent = 'Toca una barra o un año del gráfico. Azul: sobre el promedio · gris-rojo: debajo.';
+      botonBarras.addEventListener('click', () => {
+        barrasVisibles = !barrasVisibles;
+        botonBarras.setAttribute('aria-pressed', String(barrasVisibles));
+        barras?.mostrar(barrasVisibles);
+      });
+      ponerBarras();
+      // Fechas despejadas de la nieve de cada año, por adelantado (la reproducción no espera a NASA)
+      if (region.variables?.nieve?.anios) precargarAnios(glaciar, region.variables.nieve.anios);
+    }
     q('#mp-periodo').addEventListener('change', (e) => { estado.periodo = Number(e.target.value); pintarVariable(); });
     panel.querySelectorAll('.clima [data-clima]').forEach((b) => b.addEventListener('click', () => {
       estado.clima = estado.clima === b.dataset.clima ? null : b.dataset.clima;
@@ -416,11 +577,13 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     }));
     q('.clima-mes').addEventListener('change', pintarClima);
     if (region) llenarMeses('nieve');
+    ajustarDeslizador();
     pintarVariable();
   }
 
   return {
     async cerrar() {
+      vivo = false;
       limpiar.forEach((fn) => fn());
       // Orden crítico para que .menu-planeta transicione ANTES de que el viewer
       // haga el resize dentro de jhoel.salir():

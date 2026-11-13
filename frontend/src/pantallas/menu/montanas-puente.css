@@ -311,3 +311,36 @@ body.modo-montana .globo3d-seleccion { display: none !important; }
     font-size: 11px;
   }
 }
+
+/* ============================================================
+   Año actual sobre el visor 3D (montanas-puente.js · pintarEtiqueta)
+   Etiqueta grande arriba al centro: año, valor, flecha frente al año anterior
+   y, debajo, la fecha de la imagen de nieve MODIS que muestra la montaña.
+   ============================================================ */
+.mp-anio-grande {
+  position: absolute; z-index: 9; top: calc(1.6cqh + 56px); left: 50%; /* debajo del carrusel de picos */ transform: translateX(-50%);
+  max-width: min(92%, 640px); padding: 1cqh 2.2cqh; border-radius: 1.6cqh;
+  background: rgba(8, 18, 48, .78); box-shadow: 0 0 0 1px rgba(91, 160, 255, .45), 0 8px 24px rgba(0, 0, 0, .35);
+  text-align: center; pointer-events: none; color: var(--nieve, #F2F4F8);
+}
+.mp-anio-grande[hidden] { display: none; }
+.mp-anio-grande p { margin: 0; }
+.mp-anio-linea { display: flex; align-items: baseline; justify-content: center; flex-wrap: wrap; gap: .4em 1.4cqh; }
+.mp-anio-num { font: 700 clamp(28px, 7cqh, 64px) / 1 var(--letra-titulo, Inter, sans-serif); letter-spacing: .02em; }
+.mp-anio-valor { font: 600 clamp(14px, 2.6cqh, 24px) var(--letra-texto, Inter, sans-serif); color: #8FDBFF; }
+.mp-anio-flecha { font: 700 clamp(14px, 2.6cqh, 24px) var(--letra-texto, Inter, sans-serif); }
+.mp-anio-flecha.sube { color: #7CE38B; }
+.mp-anio-flecha.baja { color: #FF6B6B; }
+.mp-anio-flecha.igual { color: #D7DEEA; }
+.mp-anio-fuente { margin-top: .5cqh !important; font: 500 clamp(10px, 1.6cqh, 13px) var(--letra-texto, Inter, sans-serif); color: #D7DEEA; }
+.mp-anio-grande.pulso .mp-anio-num { animation: mpAnioPulso .45s cubic-bezier(.2, .8, .2, 1); }
+@keyframes mpAnioPulso { from { transform: translateY(-6px); opacity: .3; } to { transform: none; opacity: 1; } }
+
+/* Gráfico del panel: se puede tocar un año */
+.menu-panel .grafico svg.elegible { cursor: pointer; }
+.menu-panel .ver-barras[aria-pressed="true"] { color: var(--nieve); background: rgba(209, 32, 33, .22); box-shadow: inset 0 0 0 1.5px var(--rojo-apu); border-color: transparent; }
+.menu-fechas .inicio { min-width: 36px; padding: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-anio-grande.pulso .mp-anio-num { animation: none; }
+}
