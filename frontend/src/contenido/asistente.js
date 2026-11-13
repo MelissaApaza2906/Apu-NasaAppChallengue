@@ -56,7 +56,7 @@ export const PANTALLAS = {
     saludo: 'Aquí guardas todo lo que ganaste en la expedición.',
     queHago: 'Mira tus insignias y tu avance. Las grises todavía te faltan.',
     conceptos: [],
-    consejos: ['Si tocas «Cerrar sesión», tus insignias se borran de este dispositivo.']
+    consejos: ['Toca una insignia para ver cómo se gana.']
   },
   perfil: {
     saludo: 'Este es tu expediente de detective.',
@@ -68,7 +68,7 @@ export const PANTALLAS = {
     saludo: 'Aquí puedes cambiar tu apodo o tu avatar.',
     queHago: 'Tu progreso se guarda con tu apodo, sin correo ni contraseña.',
     conceptos: [],
-    consejos: ['«Borrar mi cuenta» elimina tu apodo y tu progreso para siempre.']
+    consejos: ['«Cerrar sesión» borra tu apodo y tu progreso para siempre: no se puede deshacer.']
   }
 };
 

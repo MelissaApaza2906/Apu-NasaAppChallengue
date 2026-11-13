@@ -1,4 +1,21 @@
-/* Estilos solo de la pantalla ajustes. Usa las variables de src/estilos/variables.css */
-.pantalla-ajustes {
-  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqh;
+/* Pantalla ajustes. Lo visual sale de etapas.css (fondo, marco, vidrio, "volver"), acceso.css (tarjeta,
+   campo, avatares, rótulos, nota, error) e insignias.css (ventana de confirmación);
+   aquí solo va dónde está cada cosa y su tamaño, con esos mismos valores. */
+
+/* La tarjeta del registro, centrada, debajo del logo */
+.pantalla-ajustes .ajustes-tarjeta { top: calc(50% + 3cqh); max-height: calc(100cqh - 12cqh); }
+.pantalla-ajustes .ajustes-tarjeta h1 { text-align: left; }
+
+/* Apodo y GUARDAR en la misma fila */
+.pantalla-ajustes .ajustes-apodo { display: flex; align-items: center; gap: 10px; }
+.pantalla-ajustes .ajustes-apodo input { flex: 1; min-width: 0; }
+
+/* DATOS: texto a la izquierda, como el resto de la tarjeta */
+.pantalla-ajustes .ajustes-texto { text-align: left; font-size: 13px; }
+.pantalla-ajustes .ajustes-salir { align-self: flex-start; }
+
+/* Pantallas bajas (celular horizontal): la nube del Jukumari no tapa la tarjeta */
+@media (max-height: 500px) {
+  .pantalla-ajustes .ajustes-tarjeta { top: 50%; max-height: calc(100cqh - 16px); }
+  body:has(.pantalla-ajustes) .asistente-nube { display: none; }
 }

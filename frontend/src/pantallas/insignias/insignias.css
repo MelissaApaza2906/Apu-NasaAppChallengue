@@ -15,14 +15,13 @@
 }
 .pantalla-insignias .etapas-panel { z-index: 2; }
 
-/* Tarjeta del detective (cara 72 px + apodo + Cerrar sesión) */
+/* Tarjeta del detective (cara 72 px + apodo) */
 .expediente-perfil { flex: none; display: flex; align-items: center; gap: 2cqh; padding: 1.2cqh 2cqh; border-radius: 2.4cqh; }
 .expediente-cara { width: 72px; height: 72px; flex: none; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(242, 244, 248, .85); background: var(--noche-2); }
 .expediente-cara[hidden] { display: none; }
 .expediente-nombre { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .4cqh; }
 .expediente-etiqueta { font: 400 clamp(8px, 1.4cqh, 13px) var(--letra-titulo); letter-spacing: .28em; color: #A9B4CC; }
 .expediente-apodo { font: 600 clamp(15px, 3cqh, 24px) / 1.2 var(--letra-texto); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.expediente-salir { flex: none; --alto: var(--toque-minimo); font-size: clamp(10px, 1.6cqh, 13px); white-space: nowrap; }
 
 /* Título y barra "X / 12 insignias" (la barra de carga) */
 .insignias-titulo { margin: .6cqh 0 0; font: 400 clamp(15px, 3.4cqh, 30px) / 1.2 var(--letra-titulo); letter-spacing: .04em; }
