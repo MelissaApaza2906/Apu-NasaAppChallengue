@@ -38,7 +38,7 @@ const ICONOS = {
 const RIEL = [
   { k: 'explorar', n: 'Explorar el globo', ruta: null, actual: true },
   { k: 'entrenar', n: 'Entrenamiento', ruta: 'etapas' },
-  { k: 'perfil', n: 'Mi expediente', ruta: 'insignias' },
+  { k: 'perfil', n: 'Mi perfil', ruta: 'perfil' },
   { k: 'ajustes', n: 'Ajustes', ruta: 'ajustes' }
 ];
 // Capas: 3 rombos apilados
@@ -368,14 +368,14 @@ export function montar(contenedor) {
     cerrarMontana();
   };
 
-  // "Mi expediente" del riel: la cara del avatar elegido en el registro (si no hay, el ícono)
+  // "Mi perfil" del riel (→ #/perfil): la cara del avatar elegido en el registro (si no hay, el ícono)
   leerProgreso().then((p) => {
     const a = avatarPorId(p.avatar);
     if (!vivo || !a) return;
     const boton = $('.menu-riel [data-k="perfil"]');
     boton.classList.add('con-avatar');
     boton.innerHTML = `<img src="${a.cara}" alt="" width="36" height="36">`;
-    boton.title = `Mi expediente (${a.nombre})`;
+    boton.title = `Mi perfil (${a.nombre})`;
   }).catch(() => {});
 }
 

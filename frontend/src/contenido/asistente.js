@@ -58,6 +58,12 @@ export const PANTALLAS = {
     conceptos: [],
     consejos: ['Si tocas «Cerrar sesión», tus insignias se borran de este dispositivo.']
   },
+  perfil: {
+    saludo: 'Este es tu expediente de detective.',
+    queHago: 'Mira cuánto llevas y toca CONTINUAR para seguir donde te quedaste.',
+    conceptos: [],
+    consejos: ['Tu apodo y tu avatar se cambian en Ajustes.']
+  },
   ajustes: {
     saludo: 'Aquí puedes cambiar tu apodo o tu avatar.',
     queHago: 'Tu progreso se guarda con tu apodo, sin correo ni contraseña.',

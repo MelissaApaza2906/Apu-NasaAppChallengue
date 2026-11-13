@@ -1,0 +1,28 @@
+/* Pantalla perfil. Lo visual sale de etapas.css (fondo, vidrio, panel, chips, botón), carga.css (barra
+   rayada), insignias.css (medallas y medidas de la barra) y nueva-insignia.css (figura del avatar);
+   aquí solo va dónde está cada cosa y su tamaño, con esos mismos valores. */
+
+/* Izquierda: el detective. Es el mismo .etapas-panel, puesto a la izquierda (entre "volver" y el avance) */
+.pantalla-perfil .perfil-detective {
+  left: calc(3.4cqh + var(--volver) + 2cqh); right: auto; top: 15cqh;
+  width: clamp(240px, 28cqw, 420px); align-items: center; text-align: center;
+}
+.pantalla-perfil .perfil-detective .etiqueta { align-self: flex-start; }
+.pantalla-perfil .perfil-figura { height: clamp(150px, 40cqh, 340px); }
+.pantalla-perfil .perfil-figura img[hidden] { display: none; }
+.pantalla-perfil .perfil-detective h2 { overflow-wrap: anywhere; }
+.pantalla-perfil .perfil-detective .chips { justify-content: center; }
+.pantalla-perfil .perfil-detective .pie { width: 100%; align-items: center; }
+
+/* Derecha: el avance (el .etapas-panel de siempre, un poco más ancho para las medallas) */
+.pantalla-perfil .perfil-avance { width: clamp(260px, 34cqw, 480px); }
+.pantalla-perfil .perfil-avance { gap: 1.2cqh; }
+.pantalla-perfil .perfil-avance .rotulo { margin-bottom: -.6cqh; }
+.pantalla-perfil .perfil-avance .barra { height: clamp(26px, 4.2cqh, 40px); }
+.pantalla-perfil .perfil-insignias { --medalla: clamp(34px, 6cqh, 56px); gap: 1cqh; }
+.pantalla-perfil .perfil-avance .pie .btn-apu { --alto: var(--toque-minimo); font-size: clamp(10px, 1.6cqh, 13px); align-self: stretch; justify-content: center; }
+
+/* Pantallas bajas (celular horizontal): la nube del Jukumari no tapa los paneles */
+@media (max-height: 500px) {
+  body:has(.pantalla-perfil) .asistente-nube { display: none; }
+}

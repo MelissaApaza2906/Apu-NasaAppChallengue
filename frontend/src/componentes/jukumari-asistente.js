@@ -17,7 +17,7 @@ import { PANTALLAS, GLOSARIO, CURIOSOS, PREGUNTAS } from '../contenido/asistente
 const CLAVE_VISTAS = 'apu-asistente-vistas';     // pantallas en las que ya latió la nubecita
 const CLAVE_MINIMO = 'apu-asistente-minimizado'; // '1' si está como carita
 // Ruta → contexto de asistente.js (lecciones y casos no tienen textos propios: solo lo general)
-const POR_RUTA = { '': 'carga', menu: 'menu', acceso: 'acceso', etapas: 'etapas', insignias: 'insignias', ajustes: 'ajustes', leccion: 'leccion', caso: 'caso', casos: 'casos' };
+const POR_RUTA = { '': 'carga', menu: 'menu', acceso: 'acceso', etapas: 'etapas', insignias: 'insignias', perfil: 'perfil', ajustes: 'ajustes', leccion: 'leccion', caso: 'caso', casos: 'casos' };
 const CON_PISTA = new Set(['leccion', 'caso', 'casos']);
 // Lo que el Jukumari nunca debe tapar (los pines del globo se mueven todo el tiempo: no cuentan)
 const OBSTACULOS = 'button, a[href], input, select, textarea, [role="radio"], .menu-riel, .menu-panel, .menu-pestana, .menu-fechas, .acceso-tarjeta, .etapas-panel';
