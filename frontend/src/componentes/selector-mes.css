@@ -1,0 +1,111 @@
+/* Selector de año y mes (componentes/selector-mes.js). Estilo HUD: esquinas cortadas, borde azul. */
+
+/* El campo dentro del panel: ocupa el lugar del antiguo <select> */
+.selector-mes-campo { display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; cursor: pointer; }
+.selector-mes-campo .sm-campo-texto { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.selector-mes-campo::after { content: ''; flex: none; width: 7px; height: 7px; margin: -3px 2px 0 0; border: solid var(--dato-nieve); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); transition: transform .16s ease; }
+.selector-mes-campo[aria-expanded="true"]::after { transform: translateY(3px) rotate(-135deg); }
+.selector-mes-campo[aria-expanded="true"] { border-color: var(--dato-nieve) !important; }
+.selector-mes-campo:disabled { cursor: default; opacity: .5; }
+.selector-mes-campo:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
+
+/* Forma con esquinas cortadas: ::before es el borde y ::after el relleno (los dos recortados).
+   El elemento en sí no se recorta, así el brillo (filter) y el contorno de foco se ven. */
+.sm-corte { --c: 8px; --b: 1px; --borde: color-mix(in srgb, var(--dato-nieve) 40%, transparent); --fondo: var(--noche); position: relative; isolation: isolate; }
+.sm-corte::before, .sm-corte::after { content: ''; position: absolute; z-index: -1; pointer-events: none; }
+.sm-corte::before { inset: 0; background: var(--borde); clip-path: polygon(var(--c) 0, 100% 0, 100% calc(100% - var(--c)), calc(100% - var(--c)) 100%, 0 100%, 0 var(--c)); }
+.sm-corte::after {
+  inset: var(--b); background: var(--fondo);
+  clip-path: polygon(calc(var(--c) - var(--b) * .41) 0, 100% 0, 100% calc(100% - var(--c) + var(--b) * .41), calc(100% - var(--c) + var(--b) * .41) 100%, 0 100%, 0 calc(var(--c) - var(--b) * .41));
+}
+
+/* Panel flotante */
+.sm-pop {
+  --azul: var(--dato-nieve);
+  --oscuro: color-mix(in srgb, var(--noche) 78%, #000);
+  --oscuro-2: color-mix(in srgb, var(--azul) 6%, var(--oscuro));
+  position: fixed; z-index: 1000; width: min(580px, calc(100vw - 24px));
+  color: var(--nieve); font-family: var(--letra-texto);
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--azul) 35%, transparent)) drop-shadow(0 12px 24px rgba(0, 0, 0, .55));
+  animation: sm-entra .16s cubic-bezier(.2, .8, .2, 1);
+  transform-origin: var(--flecha-x, 50%) 0;
+}
+.sm-pop.sm-arriba { transform-origin: var(--flecha-x, 50%) 100%; animation-name: sm-entra-arriba; }
+@keyframes sm-entra { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
+@keyframes sm-entra-arriba { from { opacity: 0; transform: translateY(6px) scale(.98); } }
+
+.sm-flecha { position: absolute; z-index: 1; top: -9px; left: calc(var(--flecha-x, 50%) - 10px); width: 20px; height: 11px; overflow: visible; }
+.sm-flecha path { fill: var(--oscuro); stroke: var(--azul); stroke-width: 1.5px; stroke-linejoin: miter; }
+.sm-arriba .sm-flecha { top: auto; bottom: -9px; transform: rotate(180deg); }
+
+.sm-caja { --c: 16px; --b: 1.5px; --borde: var(--azul); --fondo: var(--oscuro); padding: 18px 18px 16px; }
+
+/* Adorno: 4 rayitas inclinadas arriba a la derecha */
+.sm-rayas { position: absolute; top: 7px; right: 16px; display: flex; gap: 3px; }
+.sm-rayas i { display: block; width: 3px; height: 9px; background: var(--azul); transform: skewX(-35deg); }
+.sm-rayas i:nth-child(2) { opacity: .75; }
+.sm-rayas i:nth-child(3) { opacity: .5; }
+.sm-rayas i:nth-child(4) { opacity: .3; }
+
+.sm-fila { display: flex; gap: 10px; align-items: stretch; }
+.sm-bloque, .sm-icono { --c: 10px; --fondo: var(--oscuro-2); --borde: color-mix(in srgb, var(--azul) 35%, transparent); }
+.sm-icono { flex: none; width: 54px; display: grid; place-items: center; color: var(--azul); }
+.sm-icono svg { width: 30px; height: 30px; }
+.sm-bloque { padding: 10px 12px 12px; display: flex; flex-direction: column; }
+.sm-anio { flex: 0 0 168px; }
+.sm-meses { flex: 1 1 auto; min-width: 0; }
+
+.sm-titulo {
+  margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid color-mix(in srgb, var(--azul) 30%, transparent);
+  font: 400 9.5px/1 var(--letra-titulo); letter-spacing: .16em; text-transform: uppercase; color: var(--nieve-sombra);
+}
+
+/* Año */
+.sm-anio-fila { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.sm-anio-valor { font: 700 32px/1 var(--letra-dato); color: var(--azul); letter-spacing: .02em; font-variant-numeric: tabular-nums; text-shadow: 0 0 12px color-mix(in srgb, var(--azul) 45%, transparent); }
+.sm-paso { flex: none; width: 36px; height: var(--toque-minimo); display: grid; place-items: center; padding: 0; border: 0; background: none; color: var(--azul); font-size: 15px; cursor: pointer; transition: transform .12s ease, opacity .12s ease; }
+.sm-paso:hover:not(:disabled) { transform: scale(1.15); }
+.sm-paso:disabled { opacity: .22; cursor: not-allowed; }
+
+/* Meses */
+.sm-rejilla { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.sm-mes {
+  --c: 6px; --fondo: var(--oscuro); --borde: color-mix(in srgb, var(--nieve) 35%, transparent);
+  min-height: 36px; padding: 0 4px; border: 0; background: none; cursor: pointer;
+  font: 600 13px var(--letra-texto); color: var(--nieve);
+  transition: color .12s ease, filter .12s ease;
+}
+.sm-mes:hover:not(:disabled) { --borde: var(--azul); }
+.sm-mes[aria-pressed="true"] { --fondo: var(--azul); --borde: var(--azul); color: var(--noche); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--azul) 70%, transparent)); }
+.sm-mes:disabled { opacity: .28; cursor: not-allowed; }
+
+/* Botones de abajo */
+.sm-acciones { display: flex; justify-content: center; gap: 12px; margin-top: 14px; }
+.sm-btn {
+  --c: 8px; --b: 1.5px; --borde: var(--azul); --fondo: var(--oscuro);
+  min-height: 40px; min-width: 132px; padding: 0 20px; border: 0; background: none; cursor: pointer;
+  font: 400 11px var(--letra-titulo); letter-spacing: .08em; text-transform: uppercase; color: var(--azul);
+}
+.sm-btn:hover { --fondo: var(--oscuro-2); }
+.sm-aplicar { --fondo: var(--azul); color: var(--noche); }
+.sm-aplicar:hover { --fondo: color-mix(in srgb, var(--azul) 85%, #fff); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--azul) 60%, transparent)); }
+
+.sm-pop button:focus-visible { outline: 2px solid var(--nieve); outline-offset: 3px; }
+
+/* Celular: ancho de pantalla, sin ícono, año arriba y meses debajo */
+@media (max-width: 599.98px) {
+  .sm-pop { width: calc(100vw - 16px); }
+  .sm-caja { padding: 16px 12px 14px; }
+  .sm-icono { display: none; }
+  .sm-fila { flex-direction: column; }
+  .sm-anio { flex: none; }
+  .sm-anio-fila { justify-content: center; gap: 28px; }
+  .sm-paso { width: var(--toque-minimo); }
+  .sm-mes { min-height: var(--toque-minimo); }
+  .sm-btn { flex: 1; min-width: 0; min-height: var(--toque-minimo); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sm-pop { animation: none; }
+  .selector-mes-campo::after, .sm-paso, .sm-mes { transition: none; }
+}

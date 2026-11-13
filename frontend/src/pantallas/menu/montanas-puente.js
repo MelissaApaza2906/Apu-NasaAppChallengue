@@ -12,6 +12,7 @@
 // Aquí no hay código de 3D: eso es de Jhoel.
 import { crearMontanas3d } from '../../componentes/montanas3d.js';
 import { darInsignia } from '../../componentes/nueva-insignia.js';
+import { crearSelectorMes } from '../../componentes/selector-mes.js';
 
 const PERIODOS = [[2001, 2005, 2021, 2025], [2006, 2010, 2016, 2020]];
 const ANIOS = [2001, 2025];
@@ -135,7 +136,7 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
         <div class="clima-fila">
           <button type="button" data-clima="nieve" aria-pressed="false">❄ Nevada</button>
           <button type="button" data-clima="lluvia" aria-pressed="false">☂ Lluvia</button>
-          <select class="clima-mes" aria-label="Mes del dato"></select>
+          <span data-selector-mes></span>
         </div>
         <p class="clima-valor" aria-live="polite" hidden></p>
       </div>
@@ -170,6 +171,11 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
   if (conDatos && !esMasa) { raiz.append(fechas); raiz.classList.add('con-fechas'); }
 
   const q = (s) => panel.querySelector(s);
+
+  // Selector de año y mes en lugar del <select>: sigue siendo .clima-mes, con .value 'AAAA-MM' y 'change'
+  const selectorMes = crearSelectorMes({ etiqueta: 'Mes del dato', clase: 'clima-mes' });
+  q('[data-selector-mes]')?.replaceWith(selectorMes.campo);
+  limpiar.push(() => selectorMes.destruir());
 
   // ---------------------------------------------------------------
   // Datos (cordillera-real.json)
@@ -371,10 +377,8 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     const selMes = q('.clima-mes');
     const v = region.variables[tipo];
     const anterior = selMes.value;
-    const porAnio = new Map();
-    v.meses.forEach((m) => { const a = m.slice(0, 4); if (!porAnio.has(a)) porAnio.set(a, []); porAnio.get(a).push(m); });
-    selMes.innerHTML = [...porAnio].reverse().map(([a, ms]) => `<optgroup label="${a}">${ms.slice().reverse().map((m) => `<option value="${m}">${nombreMes(m)}</option>`).join('')}</optgroup>`).join('');
-    selMes.value = v.meses.includes(anterior) ? anterior : v.meses[v.meses.length - 1];
+    // Solo los meses del JSON de la región (de ese satélite) se pueden elegir
+    selectorMes.poner(v.meses, v.meses.includes(anterior) ? anterior : v.meses[v.meses.length - 1]);
   }
   function pintarClima() {
     panel.querySelectorAll('.clima [data-clima]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.clima === estado.clima)));
