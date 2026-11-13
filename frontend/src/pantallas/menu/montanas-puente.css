@@ -84,7 +84,7 @@ body.modo-montana .menu-volver,
   position: fixed;
   z-index: 7;
   left: calc(var(--mp-izq) + 12px) !important;
-  top: calc(var(--alto-cabecera) + 10px) !important;
+  top: calc(var(--alto-cabecera) + 16px) !important; /* dentro de la banda superior del visor */
   bottom: auto !important;
   background: rgba(8, 18, 48, .55);
   backdrop-filter: blur(6px);
@@ -180,8 +180,8 @@ body.modo-montana .mp-recuadro.con-3d {
 .montanas3d-picos {
   position: absolute;
   z-index: 8;
-  top: 12px;
-  right: 12px;
+  top: 16px;   /* dentro de la banda superior (.montanas3d-banda) */
+  right: 16px;
   left: 220px;
   display: flex;
   gap: 6px;
@@ -210,9 +210,18 @@ body.modo-montana .mp-recuadro.con-3d {
 .montanas3d-pico:hover { background: rgba(31, 65, 108, .9); }
 .montanas3d-pico[aria-pressed="true"] { background: rgba(209, 32, 33, .25); border-color: var(--rojo-apu, #D12021); }
 .montanas3d-pico:focus-visible { outline: 3px solid var(--rojo-apu, #D12021); outline-offset: 2px; }
+/* Banda superior: un solo fondo translúcido (con desenfoque) detrás de "Volver al planeta" y de los
+   picos, un poco separada del borde del visor */
+.montanas3d-banda {
+  position: absolute; z-index: 7; top: 8px; left: 8px; right: 8px; height: 60px;
+  border-radius: 14px; border: 1px solid rgba(91, 160, 255, .28);
+  background: rgba(8, 18, 48, .42); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  pointer-events: none;
+}
 /* Móvil horizontal estrecho: la botonera va arriba; el carrusel, debajo de ella */
 @media (max-width: 768px) {
-  .montanas3d-picos { top: 60px; left: 8px; right: 8px; }
+  .montanas3d-picos { top: 64px; left: 12px; right: 12px; }
+  .montanas3d-banda { height: 112px; }
 }
 
 /* ============================================================
@@ -265,6 +274,9 @@ body.modo-montana .mp-recuadro.con-3d {
   transition: opacity .15s;
 }
 .hud-rango { display: flex; justify-content: space-between; gap: 6px; font: 500 10px var(--letra-dato); color: #A9B4CC; }
+.hud-fuente { font: 600 11px var(--letra-texto); color: #D7DEEA; }
+.hud-aviso { font: 500 11px/1.3 var(--letra-texto); color: #FFD27A; }
+.hud-aviso[hidden] { display: none; }
 .hud-toggle {
   min-height: 34px;
   padding: 0 12px;
@@ -313,28 +325,38 @@ body.modo-montana .globo3d-seleccion { display: none !important; }
 }
 
 /* ============================================================
-   Año actual sobre el visor 3D (montanas-puente.js · pintarEtiqueta)
-   Etiqueta grande arriba al centro: año, valor, flecha frente al año anterior
-   y, debajo, la fecha de la imagen de nieve MODIS que muestra la montaña.
+   Píldora del año (montanas-puente.js · pintarEtiqueta), estilo reproductor de video:
+   abajo al centro del visor, en la misma línea que la máquina del tiempo (⏮ ▶ y el año).
+   Una línea: 2013 • Lluvia: 1119 mm (↑ vs 2012). El centro de la montaña queda despejado.
    ============================================================ */
-.mp-anio-grande {
-  position: absolute; z-index: 9; top: calc(1.6cqh + 56px); left: 50%; /* debajo del carrusel de picos */ transform: translateX(-50%);
-  max-width: min(92%, 640px); padding: 1cqh 2.2cqh; border-radius: 1.6cqh;
-  background: rgba(8, 18, 48, .78); box-shadow: 0 0 0 1px rgba(91, 160, 255, .45), 0 8px 24px rgba(0, 0, 0, .35);
-  text-align: center; pointer-events: none; color: var(--nieve, #F2F4F8);
+.mp-pildora {
+  position: absolute; z-index: 6; margin: 0;
+  left: calc(var(--mp-izq) + var(--mp-ancho) / 2); bottom: calc(var(--carrusel-arriba) - 2px); transform: translateX(-50%);
+  max-width: calc(var(--mp-ancho) - 24px); min-height: 36px; padding: 0 16px; box-sizing: border-box;
+  display: flex; align-items: center; gap: 10px; white-space: nowrap; overflow: hidden;
+  border-radius: 999px; border: 1px solid rgba(91, 160, 255, .55);
+  background: rgba(8, 18, 48, .72); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+  color: var(--nieve, #F2F4F8); font: 600 clamp(12px, 1.85cqh, 15px) var(--letra-texto, Inter, sans-serif);
+  pointer-events: none;
 }
-.mp-anio-grande[hidden] { display: none; }
-.mp-anio-grande p { margin: 0; }
-.mp-anio-linea { display: flex; align-items: baseline; justify-content: center; flex-wrap: wrap; gap: .4em 1.4cqh; }
-.mp-anio-num { font: 700 clamp(28px, 7cqh, 64px) / 1 var(--letra-titulo, Inter, sans-serif); letter-spacing: .02em; }
-.mp-anio-valor { font: 600 clamp(14px, 2.6cqh, 24px) var(--letra-texto, Inter, sans-serif); color: #8FDBFF; }
-.mp-anio-flecha { font: 700 clamp(14px, 2.6cqh, 24px) var(--letra-texto, Inter, sans-serif); }
-.mp-anio-flecha.sube { color: #7CE38B; }
-.mp-anio-flecha.baja { color: #FF6B6B; }
-.mp-anio-flecha.igual { color: #D7DEEA; }
-.mp-anio-fuente { margin-top: .5cqh !important; font: 500 clamp(10px, 1.6cqh, 13px) var(--letra-texto, Inter, sans-serif); color: #D7DEEA; }
-.mp-anio-grande.pulso .mp-anio-num { animation: mpAnioPulso .45s cubic-bezier(.2, .8, .2, 1); }
-@keyframes mpAnioPulso { from { transform: translateY(-6px); opacity: .3; } to { transform: none; opacity: 1; } }
+.mp-pildora[hidden] { display: none; }
+.mp-pildora-anio { font-weight: 800; letter-spacing: .02em; }
+.mp-pildora-sep { color: #A9B4CC; }
+.mp-pildora-valor { color: #8FDBFF; }
+.mp-pildora-flecha.sube { color: #7CE38B; }
+.mp-pildora-flecha.baja { color: #FF6B6B; }
+.mp-pildora-flecha.igual { color: #D7DEEA; }
+.mp-pildora.pulso .mp-pildora-anio { animation: mpAnioPulso .4s cubic-bezier(.2, .8, .2, 1); display: inline-block; }
+@keyframes mpAnioPulso { from { transform: translateY(-4px); opacity: .3; } to { transform: none; opacity: 1; } }
+
+/* Tarjeta del gráfico del panel: el dato activo en grande; se ilumina mientras corre ▶ */
+.menu-panel .grafico { margin: 0; padding: 1cqh 1.2cqh; border-radius: 1.4cqh; transition: box-shadow .25s, background .25s; }
+.menu-panel .grafico.en-vivo { background: rgba(91, 160, 255, .1); box-shadow: 0 0 0 1.5px rgba(143, 219, 255, .7), 0 0 22px rgba(91, 160, 255, .35); }
+.menu-panel .grafico .dato-activo { margin: 0; display: flex; align-items: baseline; gap: .6em; }
+.menu-panel .grafico .dato-activo[hidden] { display: none; }
+.menu-panel .grafico .dato-anio { font: 700 clamp(20px, 3.6cqh, 32px) / 1 var(--letra-titulo, Inter, sans-serif); color: var(--nieve, #F2F4F8); }
+.menu-panel .grafico .dato-valor { font: 700 clamp(16px, 2.8cqh, 26px) / 1 var(--letra-texto, Inter, sans-serif); color: #8FDBFF; }
 
 /* Gráfico del panel: se puede tocar un año */
 .menu-panel .grafico svg.elegible { cursor: pointer; }
@@ -342,5 +364,6 @@ body.modo-montana .globo3d-seleccion { display: none !important; }
 .menu-fechas .inicio { min-width: 36px; padding: 0; }
 
 @media (prefers-reduced-motion: reduce) {
-  .mp-anio-grande.pulso .mp-anio-num { animation: none; }
+  .mp-pildora.pulso .mp-pildora-anio { animation: none; }
+  .menu-panel .grafico { transition: none; }
 }

@@ -235,7 +235,7 @@ function fechaDeAnio(anio, reciente) {
   return f > reciente ? reciente : f;
 }
 
-// "Imagen: Bing Maps Aerial (Microsoft) · Relieve: Cesium World Terrain · Nieve: MODIS (NASA)"
+// "Imagen: Bing Maps Aerial (Microsoft) · Relieve: Cesium World Terrain" (la nieve, en la leyenda)
 // (la imagen y el relieve los pone aplicarVistaRealista, en componentes/vista-realista.js)
 const NIEVE_ALPHA = 0.5;      // "Cobertura de nieve" encendida: al 50 % (NASA ya deja transparente lo que no es nieve)
 function escribirCreditoMontana() {
@@ -243,7 +243,8 @@ function escribirCreditoMontana() {
   const vr = vista.vr;
   const imagen = vr?.imagen?.texto ?? TEXTO_BLUE_MARBLE.texto;
   const relieve = vr?.relieve === 'sin' ? 'Relieve: no disponible (Cesium no respondió)' : 'Relieve: Cesium World Terrain';
-  vista.credito.textContent = `Imagen: ${imagen} · ${relieve} · Nieve: MODIS (NASA)` + (vista.capaDia ? ' · Color real: MODIS Terra' : '');
+  // (la fuente de la nieve, MODIS Terra (NASA), y su fecha van en la leyenda "Cobertura de nieve")
+  vista.credito.textContent = `Imagen: ${imagen} · ${relieve}` + (vista.capaDia ? ' · Color real: MODIS Terra' : '');
   if (vista.fechaNieve) vista.fechaNieve.textContent = fechaBonita(vista.fecha);
 }
 
@@ -288,6 +289,7 @@ async function alturasSuelo(scene, puntos) {
     return cs.map((c) => (Number.isFinite(c?.height) ? c.height : null));
   } catch { return puntos.map(() => null); }
 }
+const CIMA_EN_PANTALLA = 0.42; // la cumbre, a esta fracción de la altura del visor desde arriba (tercio medio)
 const HOLGURA_SUELO = 300; // metros libres entre la línea de vista y el terreno (si no, Cesium empuja la cámara hacia arriba)
 
 // Vuela (o salta, con reduced-motion) a la órbita { target, hpr } y al llegar ata la cámara al pico
@@ -331,22 +333,36 @@ async function irAPico(viewer, region, i, duracion = 2.5) {
   const minima = Math.max(...suelos.map((s, i) => (s == null ? -Infinity : s + tramos[i] * Math.tan(-pitch) + HOLGURA_SUELO)));
   const altura = Math.max(base, minima);
   const ex = leerExageracion(scene) || 1; // el relieve se dibuja × ex: la cámara también
-  // Centro de la órbita: sobre el eje del pico, a la altura que deja la línea de vista con ese pitch
-  const target = Cesium.Cartesian3.fromDegrees(p.lon, p.lat, (altura + f.distancia * Math.tan(pitch)) * ex);
-  const hpr = new Cesium.HeadingPitchRange(Cesium.Math.toRadians((f.lado + 180) % 360), pitch, f.distancia / Math.cos(pitch));
+  // Encuadre: misma posición de cámara, pero apuntando para que la cumbre (y su etiqueta) quede en el
+  // tercio medio del visor (CIMA_EN_PANTALLA desde arriba), lejos de la banda de botones de arriba.
+  // Sin altura del pico, el pitch de la región.
+  let mira = pitch;
+  if (p.h) {
+    const fovy = viewer.camera.frustum.fovy ?? Cesium.Math.toRadians(45);
+    const anguloCima = Math.atan(((p.h - altura) * ex) / f.distancia);
+    const sobreCentro = (0.5 - CIMA_EN_PANTALLA) * 2; // fracción de media pantalla por encima del centro
+    mira = Cesium.Math.clamp(anguloCima - Math.atan(sobreCentro * Math.tan(fovy / 2)), Cesium.Math.toRadians(-30), Cesium.Math.toRadians(10));
+  }
+  // Centro de la órbita: sobre el eje del pico, a la altura que deja la línea de vista con ese ángulo
+  const target = Cesium.Cartesian3.fromDegrees(p.lon, p.lat, (altura + f.distancia * Math.tan(mira)) * ex);
+  const hpr = new Cesium.HeadingPitchRange(Cesium.Math.toRadians((f.lado + 180) % 360), mira, f.distancia / Math.cos(mira));
   vista.orbita = { target, hpr };
   irAOrbita(viewer, vista.orbita, duracion);
 }
 
 // Fila de barras 3D del puente: perpendicular a la línea de vista "de frente" al pico principal, a un
-// tercio del camino entre la cámara y el pico, y de un ancho que entra en pantalla. El primer año queda a la
-// izquierda (mirando hacia el pico). Sin picos, frente al centro de la región.
+// tercio del camino entre la cámara y el pico. El primer año queda a la izquierda (mirando hacia el pico).
+// Sin picos, frente al centro de la región.
 function filaBarras(region) {
   const p = region.picos?.[0] ?? { lat: region.lat, lon: region.lon };
   const f = { ...FRENTE_DEFECTO, ...region.frente };
   const aCamara = f.distancia * 0.35;             // metros de la fila a la cámara: en el llano, antes de la falda del pico
-  const centro = puntoDesde(p.lat, p.lon, f.distancia - aCamara, f.lado);
-  const mitad = aCamara * 0.42;                   // ~84 % de la distancia a lo ancho: entra con el campo de visión de 60°
+  const enLinea = puntoDesde(p.lat, p.lon, f.distancia - aCamara, f.lado);
+  // Con el campo de visión de 60° (a lo ancho), a esa distancia se ve ±0,58·aCamara a cada lado. La fila va
+  // corrida a la derecha (centro a +0,16·aCamara) y mide ±0,30·aCamara: ocupa ~38–90 % del ancho del visor
+  // y no queda detrás de la leyenda "Cobertura de nieve" (abajo a la izquierda).
+  const centro = puntoDesde(enLinea.lat, enLinea.lon, aCamara * 0.16, (f.lado + 270) % 360);
+  const mitad = aCamara * 0.30;
   return {
     desde: puntoDesde(centro.lat, centro.lon, mitad, (f.lado + 90) % 360),
     hasta: puntoDesde(centro.lat, centro.lon, mitad, (f.lado + 270) % 360),
@@ -564,7 +580,9 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
     <button type="button" class="hud-nieve" aria-pressed="false" title="Mostrar dónde hay nieve según MODIS (NASA)">
       <span class="hud-titulo">Cobertura de nieve</span>
       <span class="hud-escala" aria-hidden="true"></span>
-      <span class="hud-rango"><span>1 %</span><span class="hud-fecha"></span><span>100 %</span></span>
+      <span class="hud-rango"><span>1 %</span><span>100 %</span></span>
+      <span class="hud-fuente">MODIS Terra (NASA) · <span class="hud-fecha"></span></span>
+      <span class="hud-aviso" role="status" hidden></span>
     </button>
     <button type="button" class="hud-toggle" aria-pressed="false"
             title="Mostrar la imagen MODIS de esa fecha (con nubes)"
@@ -577,11 +595,12 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
   const btnToggle = hud.querySelector('.hud-toggle');
   const btnNieve = hud.querySelector('.hud-nieve');
 
-  // Fuente: "Imagen: … · Relieve: Cesium World Terrain · Nieve: MODIS (NASA)" (+ color real si está).
+  // Fuente: "Imagen: … · Relieve: Cesium World Terrain" (+ color real si está); la de la nieve va en su leyenda.
   // Debajo, los créditos que escribe Cesium (logo de Cesium ion y atribuciones de la imagen: Bing/Sentinel):
   // aplicarVistaRealista ya los puso en vista.cajaCreditos y al salir los devuelve a donde estaban.
   vista.credito = hud.querySelector('.hud-credito');
   vista.fechaNieve = hud.querySelector('.hud-fecha');
+  vista.avisoNieve = hud.querySelector('.hud-aviso');
   hud.querySelector('.hud-creditos-cesium').replaceWith(vista.cajaCreditos);
   const actualizarCredito = escribirCreditoMontana;
 
@@ -647,6 +666,12 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
     refs[id] = b;
   });
   viewer.container.appendChild(barra);
+
+  // --- Banda superior translúcida: fondo continuo para "Volver al planeta" y el carrusel de picos ----
+  const banda = document.createElement('div');
+  banda.className = 'montanas3d-banda';
+  banda.setAttribute('aria-hidden', 'true');
+  viewer.container.appendChild(banda);
 
   // --- Carrusel de picos (arriba a la derecha): tocar uno lleva la cámara a ESE pico ----
   let carrusel = null;
@@ -791,6 +816,7 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
       barra.remove();
       hud.remove();
       carrusel?.remove();
+      banda.remove();
       // Soltar el pico: sin esto la cámara del globo seguiría girando alrededor de él
       camera.cancelFlight();
       camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
@@ -961,6 +987,13 @@ export async function crearMontanas3d(viewer, glaciar) {
       if (encender) controles?.encenderNieve?.(true);
     },
     filaBarras() { return filaBarras(region); },
+    // Aviso bajo la fecha de la leyenda (p. ej. "Sin imagen despejada de 2009; se ve la del …"); null: sin aviso
+    avisoNieve(texto) {
+      const a = vista?.avisoNieve;
+      if (!a) return;
+      a.textContent = texto ?? '';
+      a.hidden = !texto;
+    },
     relieveListo: vista?.relieveListo ?? Promise.resolve()
   };
   return apiActiva;

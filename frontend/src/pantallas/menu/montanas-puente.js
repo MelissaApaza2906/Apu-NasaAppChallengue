@@ -78,10 +78,6 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     <div class="mp-proceso">
       <p>Vista 3D de la montaña · En proceso</p>
       <div class="mp-barra" role="progressbar" aria-label="Vista 3D en proceso"><div class="relleno"></div></div>
-    </div>
-    <div class="mp-anio-grande" aria-live="polite" hidden>
-      <p class="mp-anio-linea"><b class="mp-anio-num"></b><span class="mp-anio-valor"></span><span class="mp-anio-flecha"></span></p>
-      <p class="mp-anio-fuente"></p>
     </div>`;
   raiz.append(recuadro);
   // TODO: migrar a body.modo-montana (prompt 3). Hoy montanas3d.js ya pone body.modo-montana;
@@ -154,6 +150,7 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
       <div class="tarjetas"></div>
       <figure class="grafico">
         <figcaption><span class="titulo-graf"></span> · <span class="rango"></span></figcaption>
+        <p class="dato-activo" hidden><b class="dato-anio"></b><span class="dato-valor"></span></p>
         <svg role="img" viewBox="0 0 300 110"></svg>
         <span class="nota fuente-graf"></span>
         <button type="button" class="ver-barras" disabled aria-pressed="false" title="Llega con la vista 3D de la montaña">▥ Barras 3D</button>
@@ -181,6 +178,15 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     <input type="range" class="anio" min="${ANIOS[0]}" max="${ANIOS[1]}" step="1" value="${ANIOS[0]}" aria-label="Año">
     <output class="anio-valor" aria-live="polite"></output>`;
   if (conDatos && !esMasa) { raiz.append(fechas); raiz.classList.add('con-fechas'); }
+
+  // Píldora del año (estilo reproductor de video): abajo al centro del visor, en la misma línea que la
+  // máquina del tiempo. Una sola línea: año • variable: valor (↑/↓ vs año anterior)
+  const pildora = document.createElement('p');
+  pildora.className = 'mp-pildora';
+  pildora.setAttribute('aria-live', 'polite');
+  pildora.hidden = true;
+  pildora.innerHTML = '<b class="mp-pildora-anio"></b><span class="mp-pildora-sep" aria-hidden="true">•</span><span class="mp-pildora-valor"></span><span class="mp-pildora-flecha"></span>';
+  raiz.append(pildora);
 
   const q = (s) => panel.querySelector(s);
 
@@ -336,7 +342,7 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
   // ---------------------------------------------------------------
   const deslizador = fechas.querySelector('.anio');
   const botonPlay = fechas.querySelector('.play');
-  const grande = recuadro.querySelector('.mp-anio-grande');
+
   const datosVar = () => region?.variables?.[estado.variable] ?? null;
   const aniosVar = () => datosVar()?.anios ?? [];
   let reloj = 0;
@@ -357,54 +363,63 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     fechas.querySelector('.reciente').setAttribute('aria-pressed', String(estado.anioActual === null));
     deslizador.classList.toggle('activo', estado.anioActual !== null);
     const salida = fechas.querySelector('.anio-valor');
-    if (estado.anioActual === null || !region) { salida.textContent = 'Último año'; return; }
+    const dato = panel.querySelector('.dato-activo');
+    if (estado.anioActual === null || !region) { salida.textContent = 'Último año'; if (dato) dato.hidden = true; return; }
     const v = datosVar();
     const i = v.anios.indexOf(estado.anioActual);
     const V = VARIABLES[estado.variable];
     salida.textContent = i < 0 ? `${estado.anioActual}: sin dato` : `${estado.anioActual} · ${fmt(v.anual[i], V.decimales)}${V.unidad}`;
+    // El dato activo, en grande, en la tarjeta del gráfico
+    if (dato) {
+      dato.hidden = false;
+      dato.querySelector('.dato-anio').textContent = String(estado.anioActual);
+      dato.querySelector('.dato-valor').textContent = i < 0 ? 'sin dato' : `${fmt(v.anual[i], V.decimales)}${V.unidad || (estado.variable === 'nieve' ? ' / 100' : '')}`;
+    }
   }
 
-  // Etiqueta grande del visor: año, valor y flecha frente al año anterior
+  // Píldora del año: año • variable: valor (flecha vs año anterior). La fecha y la fuente de la nieve
+  // van en la leyenda "Cobertura de nieve" del visor; el dato en grande, en el gráfico del panel.
   function pintarEtiqueta() {
     const anio = estado.anioActual;
-    grande.hidden = !jhoel || anio === null || !region;
-    if (grande.hidden) return;
+    pildora.hidden = !jhoel || anio === null || !region;
+    if (pildora.hidden) return;
     const v = datosVar();
     const V = VARIABLES[estado.variable];
     const i = v.anios.indexOf(anio);
-    grande.querySelector('.mp-anio-num').textContent = String(anio);
-    grande.querySelector('.mp-anio-valor').textContent = i < 0 ? 'sin dato' : `${V.cambio} ${fmt(v.anual[i], V.decimales)}${V.unidad}`;
-    const flecha = grande.querySelector('.mp-anio-flecha');
-    flecha.className = 'mp-anio-flecha';
+    pildora.querySelector('.mp-pildora-anio').textContent = String(anio);
+    pildora.querySelector('.mp-pildora-valor').textContent = i < 0 ? `${V.cambio}: sin dato` : `${V.cambio}: ${fmt(v.anual[i], V.decimales)}${V.unidad}`;
+    const flecha = pildora.querySelector('.mp-pildora-flecha');
+    flecha.className = 'mp-pildora-flecha';
     if (i > 0) {
       const d = v.anual[i] - v.anual[i - 1];
-      flecha.textContent = `${d > 0 ? '↑' : d < 0 ? '↓' : '='} vs ${v.anios[i - 1]}`;
+      flecha.textContent = `(${d > 0 ? '↑' : d < 0 ? '↓' : '='} vs ${v.anios[i - 1]})`;
       flecha.classList.add(d > 0 ? 'sube' : d < 0 ? 'baja' : 'igual');
       flecha.setAttribute('aria-label', `${d > 0 ? 'Subió' : d < 0 ? 'Bajó' : 'Igual'} frente a ${v.anios[i - 1]}`);
     } else {
-      flecha.textContent = i === 0 ? 'primer año' : '';
+      flecha.textContent = i === 0 ? '(primer año)' : '';
       flecha.removeAttribute('aria-label');
     }
-    grande.classList.remove('pulso'); void grande.offsetWidth; grande.classList.add('pulso');
+    pildora.classList.remove('pulso'); void pildora.offsetWidth; pildora.classList.add('pulso');
   }
 
-  // Nieve de la montaña: el día despejado de MODIS Terra de ese año (servicios/nieve-anual.js)
-  const fuenteNieve = (t) => { grande.querySelector('.mp-anio-fuente').textContent = t; };
+  // Nieve de la montaña: el día despejado de MODIS Terra de ese año (servicios/nieve-anual.js).
+  // La fecha usada la escribe la leyenda "Cobertura de nieve"; aquí solo los avisos (buscando, sin imagen)
+  const avisoNieve = (t) => jhoel?.avisoNieve?.(t);
   async function ponerNieve(anio) {
     if (!jhoel) return;
     const pedido = ++pedidoNieve;
-    if (anio === null) { ultimaNieve = null; jhoel.verAnio?.(null); return; }
-    fuenteNieve(`Nieve: MODIS Terra (NASA) · buscando la imagen de ${anio}…`);
+    if (anio === null) { ultimaNieve = null; avisoNieve(null); jhoel.verAnio?.(null); return; }
+    avisoNieve(`Buscando la imagen de ${anio}…`);
     const r = await fechaNieveDeAnio(glaciar, anio);
     if (pedido !== pedidoNieve || !vivo) return; // ya se pidió otro año
     if (r.fecha) {
       ultimaNieve = r.fecha;
       jhoel.verFechaNieve?.(r.fecha, { encender: true });
-      fuenteNieve(`Nieve: MODIS Terra (NASA) · ${fechaBonita(r.fecha)}`);
+      avisoNieve(null);
       return;
     }
-    const motivo = r.estado === 'error' ? `NASA no respondió para ${anio}` : `sin imagen despejada de ${anio}`;
-    fuenteNieve(`Nieve: MODIS Terra (NASA) · ${motivo}` + (ultimaNieve ? `; se ve la del ${fechaBonita(ultimaNieve)}` : '; no se muestra nieve'));
+    const motivo = r.estado === 'error' ? `NASA no respondió para ${anio}` : `Sin imagen despejada de ${anio}`;
+    avisoNieve(`${motivo}` + (ultimaNieve ? `; se ve la del ${fechaBonita(ultimaNieve)}.` : '; no se muestra nieve.'));
   }
 
   // Barras 3D junto a la montaña (con la variable elegida); se rehacen al cambiar de variable
@@ -416,7 +431,7 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     if (!v || !fila || !globo?.viewer) return;
     barras = crearBarras(globo.viewer, {
       anios: v.anios, valores: v.anual, desde: fila.desde, hasta: fila.hasta, relieveListo: jhoel.relieveListo,
-      altoMaximo: fila.distancia * 0.17, radio: fila.distancia * 0.011,
+      altoMaximo: fila.distancia * 0.17, radio: fila.distancia * 0.008,
       alElegir: (anio) => { parar(); ponerAnio(anio); }
     });
     barras.mostrar(barrasVisibles);
@@ -436,6 +451,7 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
   function parar() {
     clearInterval(reloj);
     reloj = 0;
+    panel.querySelector('.grafico')?.classList.remove('en-vivo');
     botonPlay.setAttribute('aria-pressed', 'false');
     botonPlay.textContent = '▶';
     botonPlay.setAttribute('aria-label', 'Reproducir los años');
@@ -467,6 +483,10 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
     botonPlay.setAttribute('aria-pressed', 'true');
     botonPlay.textContent = '⏸';
     botonPlay.setAttribute('aria-label', 'Pausar');
+    // La tarjeta del gráfico se ilumina y se pone a la vista (el panel tiene scroll)
+    const tarjetaGraf = panel.querySelector('.grafico');
+    tarjetaGraf?.classList.add('en-vivo');
+    tarjetaGraf?.scrollIntoView({ block: 'nearest', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     reloj = setInterval(() => {
       anio += 1;
       if (anio > ultimo) { parar(); decirTendencia(); return; }
@@ -596,6 +616,7 @@ export async function abrirMontana({ raiz, glaciar, region, globo, alCambiarVari
       }
       try { await jhoel?.salir(); } catch (e) { console.error(e); }
       recuadro.remove();
+      pildora.remove();
       panel.remove();
       fechas.remove();
       alCambiarVariable?.('nieve');
