@@ -26,6 +26,7 @@ import * as Cesium from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import './globo3d.css';
 import { CESIUM_TOKEN, EXAGERACION } from '../servicios/config.js';
+import { aplicarVistaRealista } from './vista-realista.js';
 import { CAPAS, proveedor, nasaResponde, primeraFechaConImagen, haceDias, diasAntes, fechaBonita } from '../servicios/nasa-gibs.js';
 
 // Capas que se pueden poner encima del Blue Marble con mostrarCapa(nombre, fecha).
@@ -45,19 +46,19 @@ const CAPAS_DATOS = {
 const CREDITO_BASE = 'Imágenes: NASA GIBS / Blue Marble';
 
 // ---------------------------------------------------------------
-// Zoom máximo al elegir un glaciar: la cámara baja a ~350 km, justo encima, mirando recto hacia abajo
-// (sin inclinar: el 3D de la montaña es de Jhoel). Mientras la pestaña está abierta, el zoom queda
-// entre 150 y 6 000 km y se puede arrastrar un poco (ARRASTRE_MAX grados alrededor del glaciar).
+// Lupa al elegir un glaciar: la cámara se inclina (LUPA.pitch) a LUPA.rango del glaciar, atada a él
+// (al arrastrar gira a su alrededor), con la vista realista de componentes/vista-realista.js.
+// Mientras la pestaña está abierta, el zoom queda entre 5 y 6 000 km.
 // ---------------------------------------------------------------
 const CERCA = {
-  altura: 350_000,
-  zoomMin: 150_000,
+  zoomMin: 5_000,
   zoomMax: 6_000_000,
   duracion: 2,                  // segundos del vuelo
   arrastreMax: 2.5,             // grados (~280 km)
-  alturaFoto: 2_000_000,        // debajo de esto, la foto MODIS de 250 m encima del Blue Marble
+  alturaFoto: 2_000_000,        // debajo de esto, la foto MODIS del día (si está encendida en el botón de capas)
   fundido: 0.6                  // segundos que tarda la foto en aparecer o irse
 };
+const LUPA = { rango: 60_000, pitch: -45 };
 // De cerca, sin pixelado: MODIS Terra en color real (GoogleMapsCompatible_Level9 → nivel máximo 9)
 // del día despejado de cada glaciar (diaDespejado en contenido/glaciares.js). Si no tiene, este:
 const FOTO_CERCA_DEFECTO = '2026-08-15';
@@ -155,6 +156,8 @@ export function crearGlobo(contenedor, opciones = {}) {
   let viewer = null;
   let destruido = false;
   let acercado = null;    // { lat, lon } del glaciar mientras se ve de cerca (pestaña abierta)
+  let lupa = null;        // la lupa en curso: { lugar, orbita, vr (aplicarVistaRealista), hoyOcultas }
+  let fotoDelDia = false; // botón de capas: "Imagen MODIS del día" (la foto de 250 m del día despejado, en la lupa)
   let solActivo = false;  // la capa "hoy" usa el sol real
   let cerca = null;       // { capa, fecha }: la foto MODIS de cerca que se ve (o está entrando)
   const limpiezas = [];   // funciones que deshacen listeners
@@ -194,7 +197,7 @@ export function crearGlobo(contenedor, opciones = {}) {
   // API cuando no hay globo 3D (imagen de respaldo): elegir un glaciar igual avisa al menú
   const apiSinGlobo = () => ({
     viewer: null, // sin globo 3D no hay visor de Cesium
-    irA() {}, elegirPico() {}, verPlaneta() {}, estado: () => ({ modo: 'imagen' }),
+    irA() {}, elegirPico() {}, verPlaneta() {}, ponerFotoDelDia() {}, estado: () => ({ modo: 'imagen' }),
     mostrarCapa: async () => ({ ok: false, motivo: 'sin-globo' }),
     elegirGlaciar(id) { const g = glaciares.find((x) => x.id === id); if (g) op.alElegir?.(g); },
     destruir: () => { destruido = true; raiz.remove(); }
@@ -266,6 +269,11 @@ export function crearGlobo(contenedor, opciones = {}) {
     <p class="lente-arriba"></p>
     <p class="lente-abajo"></p>`;
   raiz.append(flotante, lente);
+  // Créditos de Cesium en la lupa (logo de ion y atribuciones de la imagen, p. ej. Bing): abajo a la derecha
+  const cajaCreditos = document.createElement('div');
+  cajaCreditos.className = 'globo3d-creditos';
+  cajaCreditos.hidden = true;
+  raiz.append(cajaCreditos);
   if (!op.credito) raiz.append(credito);
 
   // Imagen base algo más viva, como en el diseño
@@ -349,6 +357,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     escena.requestRender();
   }
   const orientarLuz = () => {
+    if (lupa) return; // en la lupa manda el sol de las 10:00 locales (vista realista)
     const c = viewer.camera;
     const d = luz.direction;
     // De cerca: luz de frente (desde la cámara), para que la foto del glaciar se vea pareja
@@ -380,6 +389,13 @@ export function crearGlobo(contenedor, opciones = {}) {
   let cargandoCapa = false;
 
   function escribirCredito() {
+    // Lupa: "Imagen: Bing Maps Aerial (Microsoft) · Relieve: Cesium World Terrain" (+ la foto MODIS si está)
+    if (lupa) {
+      const vr = lupa.vr;
+      credito.textContent = `Imagen: ${vr?.imagen?.texto ?? 'Blue Marble (NASA)'} · Relieve: ${vr?.relieve === 'sin' ? 'no disponible' : 'Cesium World Terrain'}` +
+        (cerca ? ` · Foto: MODIS Terra · ${fechaBonita(cerca.fecha)}` : '');
+      return;
+    }
     if (cerca) { credito.textContent = `Imagen: MODIS Terra · ${fechaBonita(cerca.fecha)}`; return; }
     const d = infoCapa && CAPAS_DATOS[infoCapa.nombre];
     if (!d) { credito.textContent = CREDITO_BASE; return; }
@@ -586,6 +602,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     && !enfocado && !volando;
   // Dibujo continuo mientras gira o vuela; si no, solo cuando algo cambia
   const actualizarModo = () => {
+    if (enMontana()) return; // en la montaña el modo de dibujo es de montanas3d.js
     const continuo = debeGirar() || volando;
     escena.requestRenderMode = !continuo;
     if (!continuo) escena.requestRender();
@@ -627,12 +644,12 @@ export function crearGlobo(contenedor, opciones = {}) {
     const ahora = performance.now();
     const dt = Math.min((ahora - ultimo) / 1000, 0.1); // evita saltos al volver a la pestaña
     ultimo = ahora;
-    if (enMontana()) { orientarLuz(); return; } // la montaña maneja la cámara y las capas
+    if (enMontana()) return; // la montaña maneja la cámara, las capas y la luz (su sol)
     if (debeGirar()) {
       // Ángulo positivo: la cámara va al oeste y la Tierra se ve girar hacia el este
       viewer.camera.rotate(Cesium.Cartesian3.UNIT_Z, op.velocidad * dt);
     }
-    if (acercado && !volando) limitarArrastre();
+    if (acercado && !volando && !lupa) limitarArrastre(); // en la lupa la cámara gira atada al glaciar
     revisarFotoCerca(dt);
     orientarLuz();
   }));
@@ -669,11 +686,12 @@ export function crearGlobo(contenedor, opciones = {}) {
   function revisarFotoCerca(dt) {
     const bajo = viewer.camera.positionCartographic.height < CERCA.alturaFoto;
     // De cerca, la atmósfera sobre el suelo y la niebla de Cesium dejan un velo blanco sobre la foto
-    if (globo.showGroundAtmosphere === bajo) {
+    // (en la lupa, la vista realista deja puestas la niebla y la atmósfera)
+    if (!lupa && globo.showGroundAtmosphere === bajo) {
       globo.showGroundAtmosphere = !bajo;
       escena.fog.enabled = !bajo;
     }
-    const quiere = bajo ? fechaCerca() : null;
+    const quiere = bajo && fotoDelDia ? fechaCerca() : null; // solo si está encendida en el botón de capas
     if ((cerca?.fecha ?? null) !== quiere) {
       if (cerca) fotosSaliendo.push(cerca.capa);
       cerca = null;
@@ -909,6 +927,7 @@ export function crearGlobo(contenedor, opciones = {}) {
   // ---------------------------------------------------------------
   // extra: más opciones de flyTo (orientation, easingFunction)
   function volar(destino, duracion, alTerminar, extra = {}) {
+    viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY); // suelta la lupa (si la cámara estaba atada)
     volando = true;
     actualizarModo();
     let terminado = false;
@@ -934,24 +953,77 @@ export function crearGlobo(contenedor, opciones = {}) {
     easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT
   };
 
-  // Zoom máximo a un glaciar: ~350 km encima, dentro de la lente, sin órbita, satélite ni halo (CSS .acercado)
-  function acercar(lon, lat) {
+  // Lupa: al tocar un glaciar, la cámara se inclina (−45°) sobre él, dentro de la lente, con la vista realista
+  // (aplicarVistaRealista: la misma imagen, relieve, luz, sombras, atmósfera y créditos que la montaña).
+  // Sin nubes: la capa "Hoy" se oculta mientras dura; la foto MODIS del día está en el botón de capas.
+  // La cámara queda atada al glaciar (lookAt): al arrastrar, gira alrededor de él.
+  function acercar(lon, lat, id) {
     enfocado = true;
     encuadreAuto = false;
-    acercado = { lat, lon };
+    acercado = { lat, lon, id };
     abrirLente();
+    entrarLupa(acercado);
     topeAlejar();
-    volar(Cesium.Cartesian3.fromDegrees(lon, lat, CERCA.altura), CERCA.duracion, null, VUELO_CERCA);
-    escribirLente(); // ya volando: muestra la foto MODIS que se verá al llegar
+    const target = Cesium.Cartesian3.fromDegrees(lon, lat, 0);
+    const hpr = new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(LUPA.pitch), LUPA.rango);
+    lupa.orbita = { target, hpr };
+    volarOrbita(target, hpr, CERCA.duracion);
+    escribirLente();
+  }
+
+  // Vuela a la órbita (target + heading/pitch/distancia) y al llegar ata la cámara al punto
+  function volarOrbita(target, hpr, duracion) {
+    volando = true;
+    actualizarModo();
+    let terminado = false;
+    const fin = (atar) => {
+      if (terminado) return;
+      terminado = true;
+      volando = false;
+      if (atar && lupa?.orbita?.target === target) viewer.camera.lookAt(target, hpr);
+      actualizarModo();
+      escena.requestRender();
+    };
+    viewer.camera.cancelFlight();
+    viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+    if (sinMovimiento.matches) { fin(true); return; }
+    viewer.camera.flyToBoundingSphere(new Cesium.BoundingSphere(target, 1), {
+      offset: hpr, duration: duracion, easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
+      complete: () => fin(true), cancel: () => fin(false)
+    });
   }
 
   function dejarCerca() {
     if (!acercado) return false;
     acercado = null;
+    salirLupa();
     cerrarLente();
     topeAlejar();
     escena.light = solActivo ? sol : luz;
     return true;
+  }
+
+  function entrarLupa(lugar) {
+    salirLupa();
+    const yo = { lugar, orbita: null, vr: null, hoyOcultas: capasDatos.filter((c) => c.show) };
+    lupa = yo;
+    yo.hoyOcultas.forEach((c) => { c.show = false; }); // sin nubes
+    cajaCreditos.hidden = false;
+    yo.vr = aplicarVistaRealista(viewer, {
+      regionId: lugar.id, lon: lugar.lon, creditos: cajaCreditos, indiceImagen: 1,
+      alCambiar: () => { if (lupa === yo) { ordenarCapas(); escribirLente(); escribirCredito(); } }
+    });
+    escribirCredito();
+  }
+  function salirLupa() {
+    const yo = lupa;
+    if (!yo || !viewer) return;
+    lupa = null;
+    yo.vr?.restaurar();
+    yo.hoyOcultas.forEach((c) => { if (capasDatos.includes(c)) c.show = true; });
+    cajaCreditos.hidden = true;
+    escribirCredito();
+    escena.requestRender();
   }
 
   // El contorno del planeta se abre hasta la lente (0,8 s). Si ya estaba en la lente, se queda.
@@ -980,9 +1052,11 @@ export function crearGlobo(contenedor, opciones = {}) {
   // Textos del anillo: arriba la foto (MODIS de 250 m o, de lejos, el Blue Marble), abajo las coordenadas
   function escribirLente() {
     if (!acercado) return;
-    lente.querySelector('.lente-arriba').textContent = cerca || volando
-      ? `MODIS Terra · 250 m · ${fechaCorta(fechaCerca())}`
-      : 'NASA Blue Marble';
+    lente.querySelector('.lente-arriba').textContent = lupa
+      ? (cerca ? `MODIS Terra · 250 m · ${fechaCorta(cerca.fecha)}` : (lupa.vr?.imagen?.corto ?? 'NASA Blue Marble'))
+      : cerca || volando
+        ? `MODIS Terra · 250 m · ${fechaCorta(fechaCerca())}`
+        : 'NASA Blue Marble';
     lente.querySelector('.lente-abajo').textContent = coordenadas(acercado.lat, acercado.lon);
   }
 
@@ -999,7 +1073,7 @@ export function crearGlobo(contenedor, opciones = {}) {
   function irA(lat, lon, alturaM = alturaEncuadre()) {
     if (!viewer) return;
     encuadreAuto = false;
-    if (acercado) acercado = { lat, lon }; // de cerca, el arrastre se limita alrededor del nuevo punto
+    if (acercado) acercado = { ...acercado, lat, lon }; // de cerca, el arrastre se limita alrededor del nuevo punto
     const h = Math.min(control.maximumZoomDistance, Math.max(control.minimumZoomDistance, alturaM));
     volar(Cesium.Cartesian3.fromDegrees(lon, lat, h), 2.5);
   }
@@ -1010,7 +1084,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     if (!g) return;
     if (viewer) {
       ponerObjetivo(objetivoGlaciar(g));
-      acercar(g.lon, g.lat);
+      acercar(g.lon, g.lat, g.id);
     }
     op.alElegir?.(g);
   }
@@ -1071,12 +1145,19 @@ export function crearGlobo(contenedor, opciones = {}) {
       acercado: Boolean(acercado), lente: raiz.classList.contains('lente'), alturaKm: Math.round(viewer.camera.positionCartographic.height / 1000),
       zoomKm: [control.minimumZoomDistance / 1000, control.maximumZoomDistance / 1000].map(Math.round),
       fotoCerca: cerca ? { fecha: cerca.fecha, alpha: +cerca.capa.alpha.toFixed(2) } : null,
+      lupa: lupa ? { imagen: lupa.vr?.imagen?.id ?? null, relieve: lupa.vr?.relieve ?? null, atada: !Cesium.Matrix4.equals(viewer.camera.transform, Cesium.Matrix4.IDENTITY), pitch: Math.round(Cesium.Math.toDegrees(viewer.camera.pitch)) } : null,
       credito: credito.textContent
     };
   }
 
+  // Botón de capas → "Imagen MODIS del día": la foto de 250 m del día despejado del glaciar, en la lupa
+  function ponerFotoDelDia(si) {
+    fotoDelDia = Boolean(si);
+    escena.requestRender();
+  }
+
   const api = {
-    irA, elegirGlaciar, elegirPico, verPlaneta, mostrarCapa, destruir, estado, forzarResize,
+    irA, elegirGlaciar, elegirPico, verPlaneta, mostrarCapa, destruir, estado, forzarResize, ponerFotoDelDia,
     // El Cesium.Viewer del globo, para reutilizarlo (no crear otro visor). null si pasó a imagen.
     get viewer() { return viewer; },
     // Capa HTML encima del canvas (flota con el planeta): ahí van pines extra (componentes/en-vivo.js)

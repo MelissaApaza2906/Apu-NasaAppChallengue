@@ -273,6 +273,18 @@
   to   { transform: scale(1);  opacity: 1; }
 }
 
+/* Lupa: créditos de Cesium (logo de ion, Bing…) abajo a la derecha, fuera del círculo de la lente.
+   Cesium le da a su contenedor la clase .cesium-widget-credits con position:absolute; aquí va en flujo. */
+.globo3d-creditos {
+  position: absolute; z-index: 6; right: 0; bottom: 0; max-width: 34%;
+  text-align: right; font: 500 10px/1.3 var(--letra-texto); color: var(--nieve-sombra, #A9B4CC);
+  pointer-events: auto;
+}
+.globo3d-creditos[hidden] { display: none; }
+.globo3d-creditos .cesium-widget-credits { position: static; display: block; padding: 0; text-shadow: none; }
+.globo3d-creditos .cesium-credit-logoContainer img { height: 16px; width: auto; }
+.globo3d-creditos a { color: inherit; }
+
 /* Debajo del contenedor, alineado a la derecha: nunca tapa el planeta */
 .globo3d-credito {
   position: absolute;

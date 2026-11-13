@@ -238,16 +238,33 @@ body.modo-montana .mp-recuadro.con-3d {
   -webkit-backdrop-filter: blur(6px);
   pointer-events: auto;
 }
-.hud-leyenda { display: flex; flex-direction: column; gap: 4px; }
+/* "Cobertura de nieve": botón que enciende la capa MODIS; dentro, su escala (colores reales de NASA GIBS,
+   MODIS_NDSI_Snow_Cover: 1 % amarillo claro → 99 % rosa → 100 % rojo) y la fecha de la capa */
+.hud-nieve {
+  display: flex; flex-direction: column; gap: 4px;
+  min-height: 44px; padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(91, 160, 255, .55);
+  background: rgba(8, 18, 48, .7);
+  color: var(--nieve, #F2F4F8);
+  cursor: pointer; text-align: left;
+  transition: background .15s, border-color .15s;
+}
+.hud-nieve:hover { background: rgba(31, 65, 108, .9); }
+.hud-nieve.activo { background: rgba(209, 32, 33, .22); border-color: var(--rojo-apu, #D12021); }
+.hud-nieve:focus-visible { outline: 3px solid var(--rojo-apu, #D12021); outline-offset: 2px; }
+.hud-nieve:not(.activo) .hud-escala { opacity: .45; }
 .hud-titulo { font: 600 12px/1 var(--letra-texto); letter-spacing: .04em; color: #CFE3FF; }
 .hud-escala {
   display: block;
   height: 8px;
   border-radius: 999px;
-  background: linear-gradient(to right, #0B2554 0%, #1F4FB8 25%, #4F8DFF 55%, #8FDBFF 80%, #FFFFFF 100%);
+  background: linear-gradient(to right, rgb(240,240,128) 0%, rgb(240,240,142) 15%, rgb(240,210,137) 30%, rgb(240,180,132) 45%,
+    rgb(240,180,147) 60%, rgb(240,150,142) 75%, rgb(240,128,129) 90%, rgb(240,133,133) 98%, rgb(255,0,0) 100%);
   border: 1px solid rgba(242, 244, 248, .35);
+  transition: opacity .15s;
 }
-.hud-rango { display: flex; justify-content: space-between; font: 500 10px var(--letra-dato); color: #A9B4CC; }
+.hud-rango { display: flex; justify-content: space-between; gap: 6px; font: 500 10px var(--letra-dato); color: #A9B4CC; }
 .hud-toggle {
   min-height: 34px;
   padding: 0 12px;
@@ -269,9 +286,14 @@ body.modo-montana .globo3d-flotante { clip-path: none !important; }
 body.modo-montana .globo3d-lente,
 body.modo-montana .menu-credito { display: none; }
 
-/* Logo de Cesium ion (crédito que pide Cesium por el relieve) */
-.hud-cesium { display: block; line-height: 0; }
-.hud-cesium img { height: 18px; width: auto; opacity: .85; }
+/* Créditos de Cesium (logo de Cesium ion + atribuciones de la imagen, p. ej. el logo de Bing y © Microsoft).
+   Cesium le da a su contenedor .cesium-widget-credits con position:absolute (tapaba la etiqueta): aquí va en flujo. */
+.hud-creditos-cesium .cesium-widget-credits { position: static; display: block; padding: 0; text-shadow: none; }
+.hud-creditos-cesium .cesium-credit-logoContainer img { height: 18px; width: auto; }
+.hud-creditos-cesium .cesium-credit-textContainer,
+.hud-creditos-cesium .cesium-credit-expand-link { font: 500 10px/1.3 var(--letra-dato); color: #A9B4CC; }
+.hud-creditos-cesium .cesium-credit-logoContainer { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.hud-creditos-cesium a { color: #CFE3FF; }
 
 /* Defensiva: la etiqueta DOM de selección del globo (país · coords) no debe aparecer en montaña.
    Ya la oculta .globo3d-capa { display: none } del prompt 5; este selector lo refuerza. */

@@ -13,8 +13,8 @@
 //   //                 (el puente muestra entonces "Vista 3D de la montaña · En proceso")
 //   // verAnio(anio): la nieve MODIS pasa a la fecha de ese año de la línea de tiempo (null = la más reciente)
 //
-// Relieve: Cesium World Terrain (Cesium ion, asset 1) con el token de servicios/config.js. Si el globo
-// ya lo tiene, se reutiliza; si ion falla (401/403, sin red), queda el elipsoide liso y un console.warn.
+// Imagen, relieve, luz, sombras, atmósfera y créditos: aplicarVistaRealista (componentes/vista-realista.js),
+// la misma configuración que la lupa del globo. Se restaura al salir.
 //
 // También exporta REGIONES (las 11 definiciones con sus picos y parámetros de cámara)
 // por si otra parte de la app necesita la lista.
@@ -22,12 +22,14 @@
 import * as Cesium from 'cesium';
 import { CESIUM_TOKEN } from '../servicios/config.js';
 import { CAPAS, proveedor, haceDias, fechaBonita, fechaPorDefecto } from '../servicios/nasa-gibs.js';
+import { aplicarVistaRealista, TEXTO_BLUE_MARBLE } from './vista-realista.js';
 
 // ─── Las 11 regiones ─────────────────────────────────────────────────────────
 // heading: rumbo de la cámara en grados (0 = norte).
 // pitch:   ángulo vertical en grados (negativo = mirando hacia abajo).
 // altura:  distancia al suelo en metros desde donde se posiciona la cámara.
-// picos:   puntos de interés [{ n, h, lat, lon }] para las etiquetas en 3D.
+// picos:   puntos de interés [{ n, h, lat, lon }] para las etiquetas en 3D. El primero es el pico
+//          principal: al entrar, la cámara se pone "de frente" a él.
 // ─────────────────────────────────────────────────────────────────────────────
 export const REGIONES = [
   {
@@ -38,9 +40,8 @@ export const REGIONES = [
     altura: 55_000,
     heading: 10,
     pitch: -28,
-    // Escala real (sin exagerar el relieve) y vista "de frente": cámara a 8 km del pico, del lado del
-    // Altiplano (suroeste), a la altura del Altiplano, mirando casi horizontal.
-    exageracion: 1,
+    // Vista "de frente": cámara a 8 km del pico, del lado del Altiplano (suroeste), a la altura del
+    // Altiplano, mirando casi horizontal. (Las demás regiones usan FRENTE_DEFECTO.)
     frente: { distancia: 8_000, lado: 225, alturaCamara: 4_800, pitch: -5 },
     // Coordenadas y alturas: Wikipedia (verificadas). Condoriri sin altura.
     picos: [
@@ -174,7 +175,7 @@ export const REGIONES = [
     ]
   },
   {
-    id: 'antartida',
+    id: 'peninsula-antartica', // el mismo id que el glaciar de contenido/glaciares.js
     nombre: 'Península Antártica',
     pais: 'Antártida',
     lat: -65.0, lon: -62.0,
@@ -231,52 +232,36 @@ function fechaDeAnio(anio, reciente) {
   return f > reciente ? reciente : f;
 }
 
-// "Relieve: Cesium World Terrain · Nieve: MODIS Terra (NASA) · <fecha>"
+// "Imagen: Bing Maps Aerial (Microsoft) · Relieve: Cesium World Terrain · Nieve: MODIS (NASA)"
+// (la imagen y el relieve los pone aplicarVistaRealista, en componentes/vista-realista.js)
+const NIEVE_ALPHA = 0.5;      // "Cobertura de nieve" encendida: al 50 % (NASA ya deja transparente lo que no es nieve)
 function escribirCreditoMontana() {
   if (!vista?.credito) return;
-  const relieve = vista.relieve === 'sin' ? 'Relieve: no disponible (Cesium no respondió)' : 'Relieve: Cesium World Terrain';
-  vista.credito.textContent = `${relieve} · Nieve: MODIS Terra (NASA) · ${fechaBonita(vista.fecha)}` +
-    (vista.capaDia ? ' · Color real: MODIS Terra' : '');
+  const vr = vista.vr;
+  const imagen = vr?.imagen?.texto ?? TEXTO_BLUE_MARBLE.texto;
+  const relieve = vr?.relieve === 'sin' ? 'Relieve: no disponible (Cesium no respondió)' : 'Relieve: Cesium World Terrain';
+  vista.credito.textContent = `Imagen: ${imagen} · ${relieve} · Nieve: MODIS (NASA)` + (vista.capaDia ? ' · Color real: MODIS Terra' : '');
+  if (vista.fechaNieve) vista.fechaNieve.textContent = fechaBonita(vista.fecha);
 }
 
-// Cambia la fecha de la nieve (y de "Imagen del día" si está puesta) sin mover el orden de las capas
+// Cambia la fecha de la nieve (y de "Imagen del día" si está puesta) sin mover el orden de las capas; el sol también
 function ponerFechaNieve(viewer, fecha) {
   if (!vista || modo !== 'montana' || !fecha || fecha === vista.fecha) return;
   const capas = viewer.scene.imageryLayers;
   const cambiar = (vieja, info, alpha) => {
     const nueva = new Cesium.ImageryLayer(proveedor(info, fecha));
     nueva.alpha = alpha;
+    nueva.show = vieja.show;
     capas.add(nueva, Math.max(0, capas.indexOf(vieja)));
     capas.remove(vieja, true);
     return nueva;
   };
   vista.fecha = fecha;
-  vista.capaNieve = cambiar(vista.capaNieve, CAPAS.nieveDia, 0.65);
+  vista.capaNieve = cambiar(vista.capaNieve, CAPAS.nieveDia, NIEVE_ALPHA);
   if (vista.capaDia) vista.capaDia = cambiar(vista.capaDia, CAPAS.fotoTerra, 0.85);
+  vista.vr?.ponerFecha(fecha);
   escribirCreditoMontana();
   viewer.scene.requestRender();
-}
-
-// Relieve: reutiliza el del globo si ya lo tiene; si no, lo pide a Cesium ion. Si falla → elipsoide liso.
-// Devuelve una promesa que se cumple cuando ya se sabe ('ok' | 'sin'): la cámara la espera para medir el suelo.
-function ponerRelieve(viewer) {
-  const scene = viewer.scene;
-  const yo = visita;
-  const listo = (estado) => { if (vista) { vista.relieve = estado; escribirCreditoMontana(); } scene.requestRender(); return estado; };
-  if (!(scene.terrainProvider instanceof Cesium.EllipsoidTerrainProvider)) return Promise.resolve(listo('ok'));
-  listo('cargando');
-  return Cesium.CesiumTerrainProvider.fromIonAssetId(1)
-    .then((p) => {
-      if (yo !== visita || modo !== 'montana') return 'sin';
-      scene.terrainProvider = p;
-      return listo('ok');
-    })
-    .catch((e) => {
-      if (yo !== visita || modo !== 'montana') return 'sin';
-      console.warn('APU: el relieve de Cesium ion no respondió; la montaña sigue sin relieve.', e?.message ?? e);
-      scene.terrainProvider = new Cesium.EllipsoidTerrainProvider();
-      return listo('sin');
-    });
 }
 
 // ─── Cámara "de frente" a un pico ────────────────────────────────────────────
@@ -292,13 +277,15 @@ function puntoDesde(lat, lon, distancia, rumboGrados) {
   const dLon = (distancia * Math.sin(r)) / (R_TIERRA * Math.cos(Cesium.Math.toRadians(lat)));
   return { lat: lat + Cesium.Math.toDegrees(dLat), lon: lon + Cesium.Math.toDegrees(dLon) };
 }
-async function alturaSuelo(scene, lat, lon) {
-  if (!(scene.terrainProvider instanceof Cesium.CesiumTerrainProvider)) return null;
+// Alturas del terreno en varios puntos [{ lat, lon }] (null donde no hay dato o sin relieve)
+async function alturasSuelo(scene, puntos) {
+  if (!(scene.terrainProvider instanceof Cesium.CesiumTerrainProvider)) return puntos.map(() => null);
   try {
-    const [c] = await Cesium.sampleTerrainMostDetailed(scene.terrainProvider, [Cesium.Cartographic.fromDegrees(lon, lat)]);
-    return Number.isFinite(c?.height) ? c.height : null;
-  } catch { return null; }
+    const cs = await Cesium.sampleTerrainMostDetailed(scene.terrainProvider, puntos.map((q) => Cesium.Cartographic.fromDegrees(q.lon, q.lat)));
+    return cs.map((c) => (Number.isFinite(c?.height) ? c.height : null));
+  } catch { return puntos.map(() => null); }
 }
+const HOLGURA_SUELO = 300; // metros libres entre la línea de vista y el terreno (si no, Cesium empuja la cámara hacia arriba)
 
 // Vuela (o salta, con reduced-motion) a la órbita { target, hpr } y al llegar ata la cámara al pico
 function irAOrbita(viewer, orbita, duracion) {
@@ -329,14 +316,18 @@ async function irAPico(viewer, region, i, duracion = 2.5) {
   const pedido = ++vista.pedidoPico;
   await vista.relieveListo; // para medir el suelo hace falta saber si hay relieve
   if (!vista || pedido !== vista.pedidoPico || modo !== 'montana') return;
-  const cam = puntoDesde(p.lat, p.lon, f.distancia, f.lado);
-  const suelo = await alturaSuelo(scene, cam.lat, cam.lon);
+  // Suelo bajo la cámara y a 1 y 2 km hacia el pico (en mesetas o glaciares que suben rápido, la línea de vista chocaría)
+  const tramos = [0, 1_000, 2_000];
+  const suelos = await alturasSuelo(scene, tramos.map((x) => puntoDesde(p.lat, p.lon, f.distancia - x, f.lado)));
   if (!vista || pedido !== vista.pedidoPico || modo !== 'montana') return;
-  // Altura de la cámara (metros reales): la del Altiplano o, sin dato, 1 500 m bajo la cima; nunca bajo el suelo
-  const base = f.alturaCamara ?? (p.h ? p.h - 1_500 : (suelo ?? 0) + 1_000);
-  const altura = Math.max(base, (suelo ?? -Infinity) + 150);
-  const ex = leerExageracion(scene) || 1; // el relieve se dibuja × ex: la cámara también
   const pitch = Cesium.Math.toRadians(f.pitch);
+  // Altura de la cámara (metros reales): la del Altiplano o, sin dato, 1 500 m bajo la cima; y siempre con
+  // HOLGURA_SUELO entre la línea de vista (que baja con el pitch) y el terreno de esos primeros 2 km
+  const suelo = suelos[0];
+  const base = f.alturaCamara ?? (p.h ? p.h - 1_500 : (suelo ?? 0) + 1_000);
+  const minima = Math.max(...suelos.map((s, i) => (s == null ? -Infinity : s + tramos[i] * Math.tan(-pitch) + HOLGURA_SUELO)));
+  const altura = Math.max(base, minima);
+  const ex = leerExageracion(scene) || 1; // el relieve se dibuja × ex: la cámara también
   // Centro de la órbita: sobre el eje del pico, a la altura que deja la línea de vista con ese pitch
   const target = Cesium.Cartesian3.fromDegrees(p.lon, p.lat, (altura + f.distancia * Math.tan(pitch)) * ex);
   const hpr = new Cesium.HeadingPitchRange(Cesium.Math.toRadians((f.lado + 180) % 360), pitch, f.distancia / Math.cos(pitch));
@@ -347,10 +338,6 @@ async function irAPico(viewer, region, i, duracion = 2.5) {
 // Compat: Cesium ≥1.116 usa scene.verticalExaggeration; antes, globe.terrainExaggeration (deprecada)
 const soportaExagVertical = (scene) => scene && 'verticalExaggeration' in scene;
 const leerExageracion = (scene) => (soportaExagVertical(scene) ? scene.verticalExaggeration : (scene.globe.terrainExaggeration ?? 1));
-function escribirExageracion(scene, valor) {
-  if (soportaExagVertical(scene)) scene.verticalExaggeration = valor;
-  else scene.globe.terrainExaggeration = valor;
-}
 
 // ─── Snapshot ────────────────────────────────────────────────────────────────
 // Guarda TODO lo que el modo montaña modifica, para poder restaurarlo tal cual.
@@ -367,24 +354,20 @@ function tomarInstantanea(viewer) {
   for (let i = 0; i < viewer.dataSources.length; i++) fuentes.push(viewer.dataSources.get(i));
   const entidades = viewer.entities.values.slice();
 
+  // (Imagen, relieve, luz, sombras, atmósfera, reloj y créditos los guarda y restaura aplicarVistaRealista.)
   return {
-    // Terreno y atmósfera
-    terrain: scene.terrainProvider,
-    exageracion: leerExageracion(scene),
     depthTest: globe.depthTestAgainstTerrain,
-    showGroundAtmosphere: globe.showGroundAtmosphere,
-    skyAtmosphereShow: scene.skyAtmosphere ? scene.skyAtmosphere.show : null,
-    fogEnabled: scene.fog ? scene.fog.enabled : null,
-    fogDensity: scene.fog ? scene.fog.density : null,
     requestRenderMode: scene.requestRenderMode,
     renderLoopActivo: viewer.useDefaultRenderLoop,
 
-    // Cámara (clonamos la posición: Cartesian3 es mutable)
+    // Cámara en coordenadas del mundo (clonadas: Cartesian3 es mutable). Si venía atada a un punto
+    // (la lupa inclinada usa lookAt), se guarda su marco para volver a atarla al llegar.
     camara: {
-      position: camera.position.clone(),
+      position: camera.positionWC.clone(),
       heading: camera.heading,
       pitch: camera.pitch,
-      roll: camera.roll
+      roll: camera.roll,
+      marco: Cesium.Matrix4.equals(camera.transform, Cesium.Matrix4.IDENTITY) ? null : Cesium.Matrix4.clone(camera.transform)
     },
 
     // Entidades / marcadores / capas (por referencia, para diff al salir)
@@ -406,36 +389,19 @@ function tomarInstantanea(viewer) {
 
 // ─── Aplicar modo montaña ────────────────────────────────────────────────────
 function aplicarModoMontana(viewer, region, fecha, glaciar) {
-  const EXAG = region.exageracion ?? 2;
   const DURACION_VUELO = 3;
-
-  Cesium.Ion.defaultAccessToken = CESIUM_TOKEN; // crearMontanas3d solo llega aquí con token
 
   const scene = viewer.scene;
   const globe = scene.globe;
   const capas = scene.imageryLayers;
   vista = {
-    fecha, relieve: 'cargando', capaNieve: null, capaDia: null, credito: null,
+    fecha, capaNieve: null, capaDia: null, credito: null, fechaNieve: null, vr: null, cajaCreditos: null,
     pico: null, orbita: null, vuelo: 0, pedidoPico: 0, relieveListo: null, alElegirPico: null
   };
-
-  // Terreno Cesium World Terrain (o el elipsoide liso si ion falla); exageración ×2 salvo que la región diga otra
-  vista.relieveListo = ponerRelieve(viewer);
-  escribirExageracion(scene, EXAG);
   globe.depthTestAgainstTerrain = true;
   viewer.useDefaultRenderLoop = true;
 
-  // Atmósfera visible y fog suave para dar profundidad al relieve lejano.
-  // (El snapshot del prompt 1 guarda skyAtmosphere.show, fog.enabled y showGroundAtmosphere,
-  //  así que al salir vuelven a lo que había puesto globo3d.)
-  if (scene.skyAtmosphere) scene.skyAtmosphere.show = true;
-  globe.showGroundAtmosphere = true;
-  if (scene.fog) {
-    scene.fog.enabled = true;
-    scene.fog.density = 0.00015; // densidad suave: oculta el borde del terreno sin blanquearlo
-  }
-
-  // Capa base: Blue Marble
+  // Capa base: Blue Marble (respaldo); encima, la imagen de Cesium ion que pone aplicarVistaRealista
   while (capas.length > 0) capas.remove(capas.get(0), false);
   capas.addImageryProvider(
     new Cesium.WebMapTileServiceImageryProvider({
@@ -449,9 +415,21 @@ function aplicarModoMontana(viewer, region, fecha, glaciar) {
     })
   );
 
-  // Capa de nieve MODIS de la fecha de la línea de tiempo (al entrar, la más reciente de GIBS)
+  // La configuración visual común con la lupa: imagen, relieve a escala real, sol de las 10:00 locales,
+  // sombras, niebla, atmósfera, detalle y créditos (que van al HUD). Se restaura al salir.
+  vista.cajaCreditos = document.createElement('div');
+  vista.cajaCreditos.className = 'hud-creditos-cesium';
+  vista.vr = aplicarVistaRealista(viewer, {
+    regionId: glaciar?.id ?? region.id, lon: region.lon, fecha, creditos: vista.cajaCreditos, indiceImagen: 1,
+    alCambiar: () => escribirCreditoMontana()
+  });
+  vista.relieveListo = vista.vr.relieveListo;
+
+  // Capa de nieve MODIS de la fecha de la línea de tiempo (al entrar, la más reciente de GIBS).
+  // Apagada al entrar: la enciende el botón "Cobertura de nieve" (al 50 %; lo que no es nieve ya viene transparente).
   vista.capaNieve = capas.addImageryProvider(proveedor(CAPAS.nieveDia, fecha));
-  vista.capaNieve.alpha = 0.65;
+  vista.capaNieve.alpha = NIEVE_ALPHA;
+  vista.capaNieve.show = false;
 
   // Pines de los picos en un DataSource propio (fácil de quitar al salir).
   // RELATIVE_TO_GROUND con altura 0: el pin queda pegado al terreno (también al exagerado).
@@ -493,14 +471,14 @@ function aplicarModoMontana(viewer, region, fecha, glaciar) {
     });
   });
 
-  // Vuelo de entrada: "de frente" al pico más cercano al glaciar elegido; sin picos, la vista de la región
+  // Vuelo de entrada: "de frente" al pico principal de la región (el primero); sin picos, la vista de la región
   const destino = Cesium.Cartesian3.fromDegrees(region.lon, region.lat, region.altura);
   const orient = {
     heading: Cesium.Math.toRadians(region.heading),
     pitch:   Cesium.Math.toRadians(region.pitch),
     roll:    0
   };
-  const picoInicial = picoMasCercano(region, glaciar?.lat ?? region.lat, glaciar?.lon ?? region.lon);
+  const picoInicial = region.picos?.length ? 0 : null;
   if (picoInicial == null) {
     if (sinMovimiento()) {
       viewer.camera.setView({ destination: destino, orientation: orient });
@@ -527,7 +505,10 @@ function aplicarModoMontana(viewer, region, fecha, glaciar) {
     if (devolviendo || modo !== 'montana') return;
     const pc = viewer.camera.positionCartographic;
     const aquí = Cesium.Cartesian3.fromRadians(pc.longitude, pc.latitude);
-    if (Cesium.Cartesian3.distance(aquí, centroRegion) <= LIMITE_LEASH_M) return;
+    // Desde el pico actual (el principal puede estar lejos del centro de la región: Denali, Mont Blanc)
+    const p = vista?.pico != null ? region.picos[vista.pico] : null;
+    const centro = p ? Cesium.Cartesian3.fromDegrees(p.lon, p.lat) : centroRegion;
+    if (Cesium.Cartesian3.distance(aquí, centro) <= LIMITE_LEASH_M) return;
     if (vista?.pico != null) { irAPico(viewer, region, vista.pico, 1.2); return; }
     devolviendo = true;
     viewer.camera.flyTo({
@@ -547,16 +528,6 @@ function aplicarModoMontana(viewer, region, fecha, glaciar) {
   if (picoInicial != null) irAPico(viewer, region, picoInicial, DURACION_VUELO);
 }
 
-// El pico de la región más cercano a un punto (el glaciar elegido); null si la región no tiene picos
-function picoMasCercano(region, lat, lon) {
-  if (!region.picos?.length) return null;
-  let mejor = 0, dMin = Infinity;
-  region.picos.forEach((p, i) => {
-    const d = (p.lat - lat) ** 2 + ((p.lon - lon) * Math.cos(Cesium.Math.toRadians(lat))) ** 2;
-    if (d < dMin) { dMin = d; mejor = i; }
-  });
-  return mejor;
-}
 
 // ─── Botonera dentro del visor ───────────────────────────────────────────────
 // ＋ Acercar, － Alejar, ⟲ Reencuadrar, Brújula/Norte, Inclinación oblicua/cenital,
@@ -571,25 +542,38 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
   const hud = document.createElement('div');
   hud.className = 'montanas3d-hud';
   hud.innerHTML = `
-    <div class="hud-leyenda" role="img" aria-label="Escala de cobertura de nieve (MODIS)">
+    <button type="button" class="hud-nieve" aria-pressed="false" title="Mostrar dónde hay nieve según MODIS (NASA)">
       <span class="hud-titulo">Cobertura de nieve</span>
       <span class="hud-escala" aria-hidden="true"></span>
-      <span class="hud-rango"><span>0 %</span><span>100 %</span></span>
-    </div>
+      <span class="hud-rango"><span>1 %</span><span class="hud-fecha"></span><span>100 %</span></span>
+    </button>
     <button type="button" class="hud-toggle" aria-pressed="false"
             title="Mostrar la imagen MODIS de esa fecha (con nubes)"
             aria-label="Alternar imagen del día / sin nubes">
       Imagen del día
     </button>
     <p class="hud-credito" role="note"></p>
-    <span class="hud-cesium">${Cesium.CreditDisplay.cesiumCredit.html}</span>`;
+    <div class="hud-creditos-cesium"></div>`;
   viewer.container.appendChild(hud);
   const btnToggle = hud.querySelector('.hud-toggle');
+  const btnNieve = hud.querySelector('.hud-nieve');
 
-  // Fuente: "Relieve: Cesium World Terrain · Nieve: MODIS Terra (NASA) · <fecha>" (+ color real si está)
-  // y, debajo, el logo de Cesium ion (el crédito que pide Cesium por usar su relieve).
+  // Fuente: "Imagen: … · Relieve: Cesium World Terrain · Nieve: MODIS (NASA)" (+ color real si está).
+  // Debajo, los créditos que escribe Cesium (logo de Cesium ion y atribuciones de la imagen: Bing/Sentinel):
+  // aplicarVistaRealista ya los puso en vista.cajaCreditos y al salir los devuelve a donde estaban.
   vista.credito = hud.querySelector('.hud-credito');
+  vista.fechaNieve = hud.querySelector('.hud-fecha');
+  hud.querySelector('.hud-creditos-cesium').replaceWith(vista.cajaCreditos);
   const actualizarCredito = escribirCreditoMontana;
+
+  // --- "Cobertura de nieve": enciende/apaga la capa MODIS (al 50 %) ------------
+  btnNieve.addEventListener('click', () => {
+    const si = !vista.capaNieve.show;
+    vista.capaNieve.show = si;
+    btnNieve.setAttribute('aria-pressed', String(si));
+    btnNieve.classList.toggle('activo', si);
+    scene.requestRender();
+  });
 
   // --- Capa "Imagen del día" (MODIS color real, misma fecha que la nieve) ----
   // vista.capaDia (no una variable local): ponerFechaNieve la cambia cuando se mueve la línea de tiempo
@@ -818,17 +802,9 @@ function restaurarInstantanea(viewer, snap) {
   while (capas.length > 0) capas.remove(capas.get(0), false);
   snap.capas.forEach((l) => capas.add(l));
 
-  // Atmósfera / fog / render
-  if (scene.skyAtmosphere && snap.skyAtmosphereShow !== null) scene.skyAtmosphere.show = snap.skyAtmosphereShow;
-  if (scene.fog && snap.fogEnabled !== null) scene.fog.enabled = snap.fogEnabled;
-  if (scene.fog && snap.fogDensity !== null) scene.fog.density = snap.fogDensity;
-  globe.showGroundAtmosphere = snap.showGroundAtmosphere;
+  // Render (imagen, relieve, luz, sombras, atmósfera y reloj los restaura aplicarVistaRealista)
   scene.requestRenderMode = snap.requestRenderMode;
   viewer.useDefaultRenderLoop = snap.renderLoopActivo;
-
-  // Terreno y exageración
-  scene.terrainProvider = snap.terrain;
-  escribirExageracion(scene, snap.exageracion);
   globe.depthTestAgainstTerrain = snap.depthTest;
 
   // Controlador
@@ -851,6 +827,8 @@ async function volverAlGlobo(viewer) {
 
   // 0) Quitar botonera, atajos y correa antes de restaurar nada.
   if (controles) { try { controles.quitar(); } catch (e) { console.error(e); } controles = null; }
+  // Vista realista fuera: imagen, relieve, luz, sombras, atmósfera, reloj y créditos como estaban
+  if (viewer && !viewer.isDestroyed()) { try { vista?.vr?.restaurar(); } catch (e) { console.error(e); } }
   vista = null;
   visita += 1; // si ion responde tarde, ya no toca el terreno del globo
 
@@ -888,6 +866,8 @@ async function volverAlGlobo(viewer) {
   } else {
     await volar(viewer.camera, { destination: destino, orientation: orient, duration: 1.2 });
   }
+  // Si venía de la lupa (cámara atada al glaciar), se vuelve a atar sin moverla
+  if (snap.camara.marco && modo === 'montana') viewer.camera.lookAtTransform(snap.camara.marco);
   viewer.scene.requestRender();
 
   // 6) Limpieza
@@ -944,7 +924,7 @@ export async function crearMontanas3d(viewer, glaciar) {
   // Snapshot → aplicar modo → marcar body → publicar API
   instantanea = tomarInstantanea(viewer);
   visita += 1;
-  modo = 'montana'; // antes de aplicar: ponerRelieve comprueba el modo al llegar la respuesta de ion
+  modo = 'montana'; // antes de aplicar: irAPico comprueba el modo al llegar la respuesta de ion
   aplicarModoMontana(viewer, region, fecha, glaciar);
   document.body.classList.add('modo-montana');
 

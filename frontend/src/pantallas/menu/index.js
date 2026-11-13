@@ -100,6 +100,7 @@ export function montar(contenedor) {
           ${CAPAS_MENU.map((c) => `<button type="button" role="menuitemradio" data-capa="${c.capa ?? ''}" aria-checked="${c.capa === null}">${c.n}</button>`).join('')}
           <span class="separador" role="separator"></span>
           <button type="button" role="menuitemcheckbox" data-eventos aria-checked="true">Eventos en vivo</button>
+          <button type="button" role="menuitemcheckbox" data-foto-dia aria-checked="false" title="Foto MODIS de 250 m del día despejado de cada glaciar, en la lupa">Imagen MODIS del día</button>
         </div>
       </div>
       <p class="menu-cargando" role="status" hidden>${AVISO_NUBES}</p>
@@ -160,10 +161,11 @@ export function montar(contenedor) {
   botonCapas.addEventListener('click', () => abrirCapas(menuCapas.hidden));
   menuCapas.addEventListener('click', (e) => {
     const ev = e.target.closest('[role="menuitemcheckbox"]');
-    if (ev) { // "Eventos en vivo": se prende o se apaga; el menú sigue abierto
+    if (ev) { // "Eventos en vivo" / "Imagen MODIS del día": se prenden o se apagan; el menú sigue abierto
       const si = ev.getAttribute('aria-checked') !== 'true';
       ev.setAttribute('aria-checked', String(si));
-      enVivo?.eventos(si);
+      if (ev.hasAttribute('data-foto-dia')) globo?.ponerFotoDelDia?.(si);
+      else enVivo?.eventos(si);
       return;
     }
     const b = e.target.closest('[role="menuitemradio"]'); if (!b) return;
