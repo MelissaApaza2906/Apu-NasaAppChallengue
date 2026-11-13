@@ -650,6 +650,15 @@ export function crearGlobo(contenedor, opciones = {}) {
       viewer.camera.rotate(Cesium.Cartesian3.UNIT_Z, op.velocidad * dt);
     }
     if (acercado && !volando && !lupa) limitarArrastre(); // en la lupa la cámara gira atada al glaciar
+    // Vista normal: el zoom de Cesium va hacia el cursor (corre la Tierra), así que el zoom es nuestro.
+    // En la lupa y de cerca vuelve el de Cesium (la montaña pone el suyo en montanas3d.js).
+    control.enableZoom = !vistaNormal();
+    if (vistaNormal()) {
+      // Solo girar: sin inclinar, sin mover de lado, sin mirar alrededor (por si algo los dejó puestos)
+      control.enableRotate = true;
+      control.enableTilt = control.enableTranslate = control.enableLook = false;
+      if (!enVuelo()) centrarCamara();
+    }
     revisarFotoCerca(dt);
     orientarLuz();
   }));
@@ -669,6 +678,65 @@ export function crearGlobo(contenedor, opciones = {}) {
       orientation: { heading: c.heading, pitch: c.pitch, roll: c.roll }
     });
   }
+
+  // ---------------------------------------------------------------
+  // Vista normal del globo: solo gira en su lugar. La cámara siempre mira al centro de la Tierra y su
+  // altura queda entre los topes de topeAlejar (la Tierra llena el anillo, nunca más). Así el planeta,
+  // el anillo y la órbita punteada (CSS, centrados en la caja) coinciden siempre.
+  // ---------------------------------------------------------------
+  const vistaNormal = () => !lupa && !acercado && !enMontana();
+  // Cualquier vuelo de la cámara (los nuestros o el regreso de la montaña): no se toca
+  const enVuelo = () => volando || escena.tweens.length > 0;
+  const auxDir = new Cesium.Cartesian3(), auxUp = new Cesium.Cartesian3(), auxRight = new Cesium.Cartesian3();
+  const altura = () => Cesium.Cartesian3.magnitude(viewer.camera.positionWC) - RADIO_TIERRA;
+  const limitarAltura = (h) => Math.min(control.maximumZoomDistance, Math.max(control.minimumZoomDistance, h));
+  function ponerAltura(h) {
+    const c = viewer.camera;
+    Cesium.Cartesian3.multiplyByScalar(Cesium.Cartesian3.normalize(c.position, auxDir), RADIO_TIERRA + h, c.position);
+  }
+  // Seguro: si la cámara no apunta al centro (o se salió de los topes), se corrige en el mismo cuadro,
+  // conservando el giro de la pantalla (sin saltos)
+  function centrarCamara() {
+    const c = viewer.camera;
+    if (!Cesium.Matrix4.equals(c.transform, Cesium.Matrix4.IDENTITY)) c.lookAtTransform(Cesium.Matrix4.IDENTITY);
+    const h = altura();
+    if (Math.abs(limitarAltura(h) - h) > 1) ponerAltura(limitarAltura(h));
+    const dir = Cesium.Cartesian3.negate(Cesium.Cartesian3.normalize(c.position, auxDir), auxDir);
+    if (Cesium.Cartesian3.dot(dir, c.direction) > 1 - 1e-9) return; // ya mira al centro
+    // "Arriba" = el de ahora, sin la parte que va hacia el centro (si es casi paralelo, el norte)
+    let up = Cesium.Cartesian3.subtract(c.up, Cesium.Cartesian3.multiplyByScalar(dir, Cesium.Cartesian3.dot(c.up, dir), auxUp), auxUp);
+    if (Cesium.Cartesian3.magnitude(up) < 1e-6) {
+      up = Cesium.Cartesian3.subtract(Cesium.Cartesian3.UNIT_Z, Cesium.Cartesian3.multiplyByScalar(dir, dir.z, auxUp), auxUp);
+    }
+    Cesium.Cartesian3.normalize(up, up);
+    Cesium.Cartesian3.clone(dir, c.direction);
+    Cesium.Cartesian3.clone(up, c.up);
+    Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(dir, up, auxRight), c.right);
+  }
+
+  // Zoom hacia el centro: rueda (suave) y pellizco con dos dedos (directo)
+  let alturaMeta = null;
+  let animZoom = 0;
+  function pasoZoom() {
+    animZoom = 0;
+    if (alturaMeta === null || viewer.isDestroyed() || !vistaNormal() || enVuelo()) { alturaMeta = null; return; }
+    const h = altura();
+    const sig = Math.abs(alturaMeta - h) < 200 || sinMovimiento.matches ? alturaMeta : h + (alturaMeta - h) * 0.25;
+    ponerAltura(sig);
+    centrarCamara();
+    escena.requestRender();
+    if (sig === alturaMeta) alturaMeta = null; else animZoom = requestAnimationFrame(pasoZoom);
+  }
+  function zoomCentro(factor, suave) {
+    if (!vistaNormal() || enVuelo()) return;
+    encuadreAuto = false; // el usuario eligió su distancia
+    const base = alturaMeta ?? altura();
+    const meta = limitarAltura(base * factor);
+    if (!suave) { alturaMeta = null; ponerAltura(meta); centrarCamara(); escena.requestRender(); return; }
+    alturaMeta = meta;
+    if (!animZoom) animZoom = requestAnimationFrame(pasoZoom);
+  }
+  limpiezas.push(() => cancelAnimationFrame(animZoom));
 
   // ---------------------------------------------------------------
   // De cerca, sin pixelado: con la cámara a menos de 2 000 km, encima del Blue Marble (hasta 8 niveles)
@@ -871,9 +939,43 @@ export function crearGlobo(contenedor, opciones = {}) {
     temporizadorGiro = setTimeout(() => { temporizadorGiro = 0; actualizarModo(); }, op.esperaTrasArrastre);
     actualizarModo();
   };
-  const alZoom = () => { encuadreAuto = false; }; // el usuario eligió su distancia
+  // Rueda: en la vista normal, zoom hacia el centro (nuestro); en la lupa/de cerca, el de Cesium
+  const alZoom = (e) => {
+    encuadreAuto = false; // el usuario eligió su distancia
+    if (!vistaNormal()) return;
+    e.preventDefault();
+    const d = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1);
+    zoomCentro(Math.exp(Math.max(-300, Math.min(300, d)) * 0.0018), true);
+  };
+  // Pellizco (dos dedos): la distancia entre los dedos manda la altura, directo
+  const dedos = new Map();
+  let pellizco = null; // { dist, altura }
+  const distDedos = () => { const [a, b] = [...dedos.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  const alTocar = (e) => {
+    if (e.pointerType !== 'touch') return;
+    dedos.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    pellizco = dedos.size === 2 && vistaNormal() ? { dist: distDedos(), altura: altura() } : null;
+  };
+  const alMoverDedo = (e) => {
+    if (!dedos.has(e.pointerId)) return;
+    dedos.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!pellizco || dedos.size !== 2) return;
+    const d = distDedos();
+    if (d > 0) { alturaMeta = null; zoomCentro((pellizco.altura / altura()) * (pellizco.dist / d), false); }
+  };
+  const alSoltarDedo = (e) => { dedos.delete(e.pointerId); if (dedos.size < 2) pellizco = null; };
   const lienzoCanvas = escena.canvas;
-  lienzoCanvas.addEventListener('wheel', alZoom, { passive: true });
+  lienzoCanvas.addEventListener('wheel', alZoom, { passive: false });
+  lienzoCanvas.addEventListener('pointerdown', alTocar);
+  window.addEventListener('pointermove', alMoverDedo);
+  window.addEventListener('pointerup', alSoltarDedo);
+  window.addEventListener('pointercancel', alSoltarDedo);
+  limpiezas.push(() => {
+    lienzoCanvas.removeEventListener('pointerdown', alTocar);
+    window.removeEventListener('pointermove', alMoverDedo);
+    window.removeEventListener('pointerup', alSoltarDedo);
+    window.removeEventListener('pointercancel', alSoltarDedo);
+  });
   lienzoCanvas.addEventListener('pointerdown', alPresionar);
   window.addEventListener('pointerup', alSoltar);
   window.addEventListener('pointercancel', alSoltar);

@@ -491,6 +491,9 @@ function aplicarModoMontana(viewer, region, fecha, glaciar) {
   // ── Límites de cámara (se restauran desde la instantánea al salir) ──────────
   const ctrl = scene.screenSpaceCameraController;
   ctrl.enableCollisionDetection = true;
+  // El globo normal apaga el zoom de Cesium (usa uno propio, hacia el centro): aquí se usa el de Cesium
+  ctrl.enableRotate = true;
+  ctrl.enableZoom = true;
   // Distancia mínima al suelo: con picos, 150 m (la vista "de frente" va a la altura del Altiplano, a
   // pocos cientos de metros del suelo; con 1,5 km Cesium subía la cámara y el pico quedaba abajo)
   ctrl.minimumZoomDistance = region.picos?.length ? 150 : 1_500;
