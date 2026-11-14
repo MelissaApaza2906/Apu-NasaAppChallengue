@@ -155,6 +155,7 @@ export function crearSelectorMes({ etiqueta = 'Mes', clase = '' } = {}) {
       b.setAttribute('aria-pressed', String(i === mes));
       b.tabIndex = i === mes ? 0 : -1;
       b.setAttribute('aria-label', `${LARGOS[i]} ${anio}${conDato ? '' : ', sin datos'}`);
+      if (conDato) b.removeAttribute('title'); else b.title = 'Sin datos de NASA para este mes';
     });
   }
 

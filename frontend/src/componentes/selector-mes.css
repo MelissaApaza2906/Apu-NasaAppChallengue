@@ -30,7 +30,7 @@
   --fondo-abajo: #060C1E;
   --fondo-caja: #08112A;          /* rgba(6, 14, 34, .6) sobre el degradado */
   --fondo-mes: #12285C;
-  --apagado: #5B6578;
+  --apagado: #8A94A8;             /* desactivados: 4,6:1 sobre los meses y 6,1:1 sobre la caja */
   --titulo-caja: #9FD3FF;
   --rojo: var(--rojo-apu);        /* #D12021 */
   --rojo-borde: #FF6B6B;
@@ -88,7 +88,9 @@
 }
 .sm-mes:hover:not(:disabled) { --borde: var(--azul); }
 .sm-mes[aria-pressed="true"] { --fondo: var(--rojo); --borde: var(--rojo-borde); color: #FFFFFF; filter: drop-shadow(0 0 7px rgba(209, 32, 33, .65)); }
-.sm-mes:disabled { color: var(--apagado); cursor: not-allowed; pointer-events: none; }
+/* Sin datos: además del color, tachado suave (no depende solo del color). Al estar disabled no se elige
+   ni recibe foco: el teclado se lo salta. */
+.sm-mes:disabled { color: var(--apagado); cursor: not-allowed; text-decoration: line-through; text-decoration-color: rgba(138, 148, 168, .6); text-decoration-thickness: 1.5px; }
 
 /* Botones de abajo */
 .sm-acciones { display: flex; justify-content: center; gap: 12px; margin-top: 14px; }
