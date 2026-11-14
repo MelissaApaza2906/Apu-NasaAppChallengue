@@ -37,3 +37,8 @@
   .expediente-ayuda { font-size: clamp(8px, 2.4cqh, 11px); }
 }
 @media (max-width: 700px) { .archivo-grilla { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* Aviso si el 01 sigue bloqueado: las lecciones que faltan, con enlace */
+.archivo-faltan { margin-top: 2cqh; padding: 1.4cqh 1.2cqw; border: 1.5px dashed rgba(242, 185, 12, .7); border-radius: 12px; background: rgba(8, 18, 48, .85); color: var(--nieve); }
+.archivo-faltan p { margin: 0 0 .8cqh; font-weight: 700; }
+.archivo-faltan ul { margin: 0; padding-left: 1.2em; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .4cqh 1.2cqw; }
+.archivo-faltan a { color: #9FD4FF; }

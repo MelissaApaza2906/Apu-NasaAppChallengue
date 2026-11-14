@@ -635,7 +635,10 @@ export function montar(contenedor, params = []) {
       ? `<img src="${esc(ins.img)}" alt="Insignia ${esc(ins.nombre)}">`
       : `<svg class="lec-sello" viewBox="0 0 200 220" role="img" aria-label="Sello: lección superada"><path d="M100 6 190 58v104l-90 52-90-52V58Z" fill="#0F2150" stroke="var(--dato-lluvia)" stroke-width="8"/><path d="M100 30 168 70v80l-68 40-68-40V70Z" fill="none" stroke="var(--rojo-apu)" stroke-width="4"/><path d="m62 112 26 26 52-56" fill="none" stroke="var(--nieve)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     const nombre = ins ? ins.nombre : '¡Lección superada!';
-    const ultimo = !siguiente;
+    const ultimo = !siguiente || Boolean(l.meta.abreCasos); // L10: el botón principal lleva a #/casos
+    // Primero se marca la lección como hecha (completarLeccion escribe el navegador al instante y después intenta
+    // Firestore; si Firestore falla, el desbloqueo usa lo local). Recién entonces se pintan los botones.
+    const guardada = aprobo ? completarLeccion(l.id).catch(() => null) : Promise.resolve(null);
     cuerpo.innerHTML = `
       <div class="lec-meta ${aprobo ? '' : 'sin-aprobar'}">
         <p class="lec-ceja">${aprobo ? `LECCIÓN ${l.numero} COMPLETADA` : `LECCIÓN ${l.numero} · NECESITAS ${Math.ceil(total * APROBAR)} DE ${total}`}${bloque ? ` · BLOQUE ${esc(l.bloque)}` : ''}</p>
@@ -656,11 +659,15 @@ export function montar(contenedor, params = []) {
     cuerpo.querySelector('[data-ruta]').addEventListener('click', () => ir('etapas'));
     cuerpo.querySelector('[data-repetir]').addEventListener('click', () => irA('trivia', { reiniciar: true }));
     cuerpo.querySelector('[data-teoria]')?.addEventListener('click', () => irA('teoria', { pagina: 0 }));
-    cuerpo.querySelector('[data-seguir]')?.addEventListener('click', () => ir(ultimo || l.meta.abreCasos ? 'casos' : `leccion/${siguiente.id}`));
+    cuerpo.querySelector('[data-seguir]')?.addEventListener('click', async (e) => {
+      e.currentTarget.disabled = true;
+      // no se espera a Firestore más de 1,5 s: lo local ya está escrito
+      await Promise.race([guardada, new Promise((r) => setTimeout(r, 1500))]);
+      ir(ultimo ? 'casos' : `leccion/${siguiente.id}`);
+    });
     if (aprobo) {
       jukumari(l.jukumari.final, ultimo ? '¡A los casos!' : `Lo que viene: ${siguiente.titulo}`);
       echarConfeti();
-      completarLeccion(l.id).catch(() => {});
       if (l.insignia) temporizadores.push(setTimeout(() => { if (vivo) darInsignia(l.insignia); }, 1600));
     } else {
       jukumari(l.jukumari.fallo, '¿Qué parte me costó más? Repaso y vuelvo.');

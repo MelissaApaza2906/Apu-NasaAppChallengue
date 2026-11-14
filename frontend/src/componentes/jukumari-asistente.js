@@ -19,6 +19,11 @@ const CLAVE_MINIMO = 'apu-asistente-minimizado'; // '1' si está como carita
 // Ruta → contexto de asistente.js (lecciones y casos no tienen textos propios: solo lo general)
 const POR_RUTA = { '': 'carga', menu: 'menu', acceso: 'acceso', etapas: 'etapas', insignias: 'insignias', perfil: 'perfil', ajustes: 'ajustes', leccion: 'leccion', caso: 'caso', casos: 'casos' };
 const CON_PISTA = new Set(['leccion', 'caso', 'casos']);
+// Pantallas con su propio Jukumari: ahí el flotante global se esconde. Única lista: se usa en cada cambio de ruta.
+//   '' = carga · leccion = #/leccion/:id (teoría, tarjetas, trivia y meta) · casos · caso = #/caso/:id y su informe · etapas
+export const RUTAS_CON_GUIA = new Set(['', 'leccion', 'casos', 'caso', 'etapas']);
+const rutaActual = () => location.hash.replace(/^#\/?/, '').split('/')[0];
+const conGuiaPropia = () => RUTAS_CON_GUIA.has(rutaActual()) || !(rutaActual() in POR_RUTA);
 // Lo que el Jukumari nunca debe tapar (los pines del globo se mueven todo el tiempo: no cuentan)
 const OBSTACULOS = 'button, a[href], input, select, textarea, [role="radio"], .menu-riel, .menu-panel, .menu-pestana, .menu-fechas, .acceso-tarjeta, .etapas-panel';
 
@@ -251,12 +256,13 @@ export function montarAsistente(dondeEvitar = document.getElementById('app')) {
     if (nuevo !== 'glaciar') fraseExtra = '';
     iConsejo = 0;
     // lección, etapas y los casos tienen su propio Jukumari con globo
-    raiz.hidden = nuevo === 'carga' || nuevo === 'leccion' || nuevo === 'etapas' || nuevo === 'caso' || nuevo === 'casos';
+    // Se decide por la RUTA (no por el contexto): un aviso tardío del menú no lo revive encima de una lección
+    raiz.hidden = conGuiaPropia();
     raiz.dataset.contexto = nuevo;
     if (abierto) pintarPanel();
     if (!raiz.hidden) { avisarSiEsNueva(); pedirAcomodo(); setTimeout(acomodar, 900); }
   }
-  const contextoDeRuta = () => POR_RUTA[location.hash.replace(/^#\/?/, '').split('/')[0]] ?? 'carga';
+  const contextoDeRuta = () => POR_RUTA[rutaActual()] ?? 'carga';
   window.addEventListener('hashchange', () => { cerrar(false); ponerContexto(contextoDeRuta()); });
   window.addEventListener('apu:contexto', (e) => {
     if (contextoDeRuta() !== 'menu') return;

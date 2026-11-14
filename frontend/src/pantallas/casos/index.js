@@ -121,8 +121,14 @@ export function montar(contenedor) {
 
   Promise.all([leerProgreso(), Promise.all(CASOS.map((c) => cargarDatosCaso(c).then(Boolean)))]).then(([p, conDatos]) => {
     if (!vivo) return;
-    estados = estadosCasos(p, conDatos);
+    estados = estadosCasos(p, conDatos); // p: lo del navegador unido con Firestore (leerProgreso: el que tenga más)
     pintar();
+    // Si el 01 sigue bloqueado: qué lecciones faltan, con su enlace
+    raiz.querySelector('.archivo-faltan')?.remove();
+    const faltan = LECCIONES.filter((l) => !(p.lecciones ?? []).includes(l.id));
+    if (estados[0] === 'clasificado' && faltan.length) {
+      raiz.querySelector('.archivo-grilla').insertAdjacentHTML('afterend', `<div class="archivo-faltan" role="status"><p>Termina las ${LECCIONES.length} lecciones para abrir los casos. Te falta${faltan.length > 1 ? 'n' : ''}:</p><ul>${faltan.map((l) => `<li><a href="#/leccion/${esc(l.id)}">Lección ${l.numero}: ${esc(l.titulo)}</a></li>`).join('')}</ul></div>`);
+    }
   }).catch(() => {});
 }
 
