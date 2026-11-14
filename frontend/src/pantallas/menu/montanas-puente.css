@@ -34,7 +34,6 @@
 .mp-pestanas button { flex: 1; min-height: 40px; border-radius: 999px; border: 1px solid rgba(91, 160, 255, .55); background: rgba(8, 18, 48, .85); color: #D7DEEA; cursor: pointer; font: 600 clamp(12px, 1.95cqh, 17px) var(--letra-texto); }
 .mp-pestanas button[aria-selected="true"] { color: var(--nieve); background: rgba(209, 32, 33, .22); box-shadow: inset 0 0 0 1.5px var(--rojo-apu); border-color: transparent; }
 .mp-pestanas button:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
-.menu-panel .ver-barras:disabled { opacity: .5; cursor: not-allowed; }
 
 /* Masa de hielo (GRACE): tarjeta grande a todo el ancho, con el dato oficial de NASA debajo */
 .mp-datos .tarjeta.grande { grid-column: 1 / -1; padding: 1.8cqh; }
@@ -84,7 +83,7 @@ body.modo-montana .menu-volver,
   position: fixed;
   z-index: 7;
   left: calc(var(--mp-izq) + 12px) !important;
-  top: calc(var(--alto-cabecera) + 10px) !important;
+  top: calc(var(--alto-cabecera) + 16px) !important; /* dentro de la banda superior del visor */
   bottom: auto !important;
   background: rgba(8, 18, 48, .55);
   backdrop-filter: blur(6px);
@@ -180,8 +179,8 @@ body.modo-montana .mp-recuadro.con-3d {
 .montanas3d-picos {
   position: absolute;
   z-index: 8;
-  top: 12px;
-  right: 12px;
+  top: 16px;   /* dentro de la banda superior (.montanas3d-banda) */
+  right: 16px;
   left: 220px;
   display: flex;
   gap: 6px;
@@ -210,9 +209,18 @@ body.modo-montana .mp-recuadro.con-3d {
 .montanas3d-pico:hover { background: rgba(31, 65, 108, .9); }
 .montanas3d-pico[aria-pressed="true"] { background: rgba(209, 32, 33, .25); border-color: var(--rojo-apu, #D12021); }
 .montanas3d-pico:focus-visible { outline: 3px solid var(--rojo-apu, #D12021); outline-offset: 2px; }
+/* Banda superior: un solo fondo translúcido (con desenfoque) detrás de "Volver al planeta" y de los
+   picos, un poco separada del borde del visor */
+.montanas3d-banda {
+  position: absolute; z-index: 7; top: 8px; left: 8px; right: 8px; height: 60px;
+  border-radius: 14px; border: 1px solid rgba(91, 160, 255, .28);
+  background: rgba(8, 18, 48, .42); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  pointer-events: none;
+}
 /* Móvil horizontal estrecho: la botonera va arriba; el carrusel, debajo de ella */
 @media (max-width: 768px) {
-  .montanas3d-picos { top: 60px; left: 8px; right: 8px; }
+  .montanas3d-picos { top: 64px; left: 12px; right: 12px; }
+  .montanas3d-banda { height: 112px; }
 }
 
 /* ============================================================
@@ -241,19 +249,28 @@ body.modo-montana .mp-recuadro.con-3d {
 /* "Cobertura de nieve": botón que enciende la capa MODIS; dentro, su escala (colores reales de NASA GIBS,
    MODIS_NDSI_Snow_Cover: 1 % amarillo claro → 99 % rosa → 100 % rojo) y la fecha de la capa */
 .hud-nieve {
-  display: flex; flex-direction: column; gap: 4px;
-  min-height: 44px; padding: 8px 10px;
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 8px 10px;
   border-radius: 10px;
   border: 1px solid rgba(91, 160, 255, .55);
   background: rgba(8, 18, 48, .7);
   color: var(--nieve, #F2F4F8);
-  cursor: pointer; text-align: left;
-  transition: background .15s, border-color .15s;
 }
-.hud-nieve:hover { background: rgba(31, 65, 108, .9); }
-.hud-nieve.activo { background: rgba(209, 32, 33, .22); border-color: var(--rojo-apu, #D12021); }
-.hud-nieve:focus-visible { outline: 3px solid var(--rojo-apu, #D12021); outline-offset: 2px; }
-.hud-nieve:not(.activo) .hud-escala { opacity: .45; }
+.hud-nieve:not([data-modo="no"]) { border-color: var(--rojo-apu, #D12021); background: rgba(8, 18, 48, .82); }
+.hud-nieve[data-modo="no"] .hud-escala { opacity: .45; }
+/* Selector Sin capa · Cobertura · Cambio */
+.hud-modos { display: flex; gap: 4px; }
+.hud-modos button {
+  flex: 1; min-height: 32px; padding: 0 8px; border-radius: 999px;
+  border: 1px solid rgba(91, 160, 255, .45); background: rgba(8, 18, 48, .6);
+  color: #D7DEEA; cursor: pointer; font: 600 11.5px var(--letra-texto); white-space: nowrap;
+}
+.hud-modos button:hover { background: rgba(31, 65, 108, .9); }
+.hud-modos button[aria-pressed="true"] { color: var(--nieve, #F2F4F8); background: rgba(209, 32, 33, .25); border-color: var(--rojo-apu, #D12021); }
+.hud-modos button:focus-visible { outline: 3px solid var(--rojo-apu, #D12021); outline-offset: 2px; }
+/* Escala del modo Cambio: rojo (menos nieve) · gris (sin cambio) · azul (más nieve), los colores del mapa */
+.hud-nieve[data-modo="cambio"] .hud-escala { background: linear-gradient(to right, rgb(229,57,53) 0%, rgba(229,57,53,.35) 38%, rgba(150,158,172,.5) 50%, rgba(47,116,255,.35) 62%, rgb(47,116,255) 100%); }
+.hud-rango-m { color: #A9B4CC; }
 .hud-titulo { font: 600 12px/1 var(--letra-texto); letter-spacing: .04em; color: #CFE3FF; }
 .hud-escala {
   display: block;
@@ -265,6 +282,10 @@ body.modo-montana .mp-recuadro.con-3d {
   transition: opacity .15s;
 }
 .hud-rango { display: flex; justify-content: space-between; gap: 6px; font: 500 10px var(--letra-dato); color: #A9B4CC; }
+.hud-nieve[data-modo="cambio"] .hud-rango { font-family: var(--letra-texto); font-size: 10.5px; }
+.hud-fuente { font: 600 11px var(--letra-texto); color: #D7DEEA; }
+.hud-aviso { font: 500 11px/1.3 var(--letra-texto); color: #FFD27A; }
+.hud-aviso[hidden] { display: none; }
 .hud-toggle {
   min-height: 34px;
   padding: 0 12px;
@@ -310,4 +331,25 @@ body.modo-montana .globo3d-seleccion { display: none !important; }
     padding: 6px 8px;
     font-size: 11px;
   }
+}
+
+/* Tarjeta del gráfico del panel: el dato activo en grande; se ilumina mientras corre ▶ */
+.menu-panel .grafico { margin: 0; padding: 1cqh 1.2cqh; border-radius: 1.4cqh; transition: box-shadow .25s, background .25s; }
+.menu-panel .grafico.en-vivo { background: rgba(91, 160, 255, .1); box-shadow: 0 0 0 1.5px rgba(143, 219, 255, .7), 0 0 22px rgba(91, 160, 255, .35); }
+.menu-panel .grafico .dato-activo { margin: 0; display: flex; align-items: baseline; gap: .6em; }
+.menu-panel .grafico .dato-activo[hidden] { display: none; }
+.menu-panel .grafico .dato-anio { font: 700 clamp(20px, 3.6cqh, 32px) / 1 var(--letra-titulo, Inter, sans-serif); color: var(--nieve, #F2F4F8); }
+.menu-panel .grafico .dato-valor { font: 700 clamp(16px, 2.8cqh, 26px) / 1 var(--letra-texto, Inter, sans-serif); color: #8FDBFF; }
+
+/* Gráfico del panel: se puede tocar un año */
+.menu-panel .grafico svg.elegible { cursor: pointer; }
+/* Franjas por año bajo el gráfico (una por año, color = separación del promedio) */
+.menu-panel .grafico svg.franjas { overflow: visible; }
+.menu-panel .grafico svg.franjas rect { cursor: pointer; }
+.menu-panel .grafico svg.franjas rect:hover { stroke: rgba(242, 244, 248, .7); stroke-width: 1.5; }
+.menu-panel .grafico svg.franjas rect:focus-visible { outline: none; stroke: var(--rojo-apu); stroke-width: 2.5; }
+.menu-fechas .inicio { min-width: 36px; padding: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-panel .grafico { transition: none; }
 }

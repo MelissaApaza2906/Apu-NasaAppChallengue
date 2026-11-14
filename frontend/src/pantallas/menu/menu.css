@@ -260,8 +260,6 @@
 .menu-panel .clima button:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
 .menu-panel .clima .clima-mes { flex: 1; min-width: 0; height: 41px; padding: 0 .6cqh 0 1.2cqh; font-size: clamp(12px, 1.85cqh, 15px); }
 .menu-panel .clima-valor { margin: 0; font: 700 clamp(12.5px, 2.07cqh, 17px) var(--letra-texto); color: var(--nieve); }
-.menu-panel .ver-barras { align-self: flex-start; margin-top: .8cqh; min-height: 41px; padding: 0 1.4cqh; border-radius: 999px; border: 1px solid rgba(91, 160, 255, .55); background: rgba(8, 18, 48, .85); color: #D7DEEA; cursor: pointer; font: 500 clamp(12px, 1.85cqh, 15px) var(--letra-texto); }
-.menu-panel .ver-barras:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
 .menu-panel .tarjetas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2cqh; }
 .menu-panel .tarjeta { display: flex; align-items: center; gap: 1.2cqh; padding: 1.2cqh 1.4cqh; min-width: 0; background: rgba(12, 28, 68, .85); border: 1px solid rgba(91, 160, 255, .35); border-radius: 1.4cqh; }
 .tarjeta .icono { flex: none; font-size: max(14px, 3.7cqh); color: var(--dato-nieve); }
