@@ -14,7 +14,7 @@
 //   // verAnio(anio): la nieve MODIS pasa a la fecha de ese año de la línea de tiempo (null = la más reciente)
 //   // verFechaNieve('AAAA-MM-DD', { encender }): la nieve MODIS de esa fecha exacta (la elige el puente con
 //   //   servicios/nieve-anual.js: el día despejado de ese año); encender: prende "Cobertura de nieve"
-//   // filaBarras() → { desde, hasta }: dónde va la fila de barras 3D (frente a la cámara "de frente" al pico principal)
+//   // ponerCambio({ lienzo, caja } | null) · modoNieve('no' | 'cobertura' | 'cambio'): capa de nieve del visor
 //
 // Imagen, relieve, luz, sombras, atmósfera y créditos: aplicarVistaRealista (componentes/vista-realista.js),
 // la misma configuración que la lupa del globo. Se restaura al salir.
@@ -350,24 +350,28 @@ async function irAPico(viewer, region, i, duracion = 2.5) {
   irAOrbita(viewer, vista.orbita, duracion);
 }
 
-// Fila de barras 3D del puente: perpendicular a la línea de vista "de frente" al pico principal, a un
-// tercio del camino entre la cámara y el pico. El primer año queda a la izquierda (mirando hacia el pico).
-// Sin picos, frente al centro de la región.
-function filaBarras(region) {
-  const p = region.picos?.[0] ?? { lat: region.lat, lon: region.lon };
-  const f = { ...FRENTE_DEFECTO, ...region.frente };
-  const aCamara = f.distancia * 0.35;             // metros de la fila a la cámara: en el llano, antes de la falda del pico
-  const enLinea = puntoDesde(p.lat, p.lon, f.distancia - aCamara, f.lado);
-  // Con el campo de visión de 60° (a lo ancho), a esa distancia se ve ±0,58·aCamara a cada lado. La fila va
-  // corrida a la derecha (centro a +0,16·aCamara) y mide ±0,30·aCamara: ocupa ~38–90 % del ancho del visor
-  // y no queda detrás de la leyenda "Cobertura de nieve" (abajo a la izquierda).
-  const centro = puntoDesde(enLinea.lat, enLinea.lon, aCamara * 0.16, (f.lado + 270) % 360);
-  const mitad = aCamara * 0.30;
-  return {
-    desde: puntoDesde(centro.lat, centro.lon, mitad, (f.lado + 90) % 360),
-    hasta: puntoDesde(centro.lat, centro.lon, mitad, (f.lado + 270) % 360),
-    distancia: aCamara
-  };
+// Mapa de cambio de la nieve (lienzo de servicios/cambio-nieve.js) como capa encima de todo; se cambia
+// cada año sin mover las demás capas. null: lo quita.
+function ponerCambio(viewer, r) {
+  if (!vista || modo !== 'montana' || viewer.isDestroyed()) return;
+  const capas = viewer.scene.imageryLayers;
+  const vieja = vista.capaCambio;
+  vista.capaCambio = null;
+  if (r?.lienzo) {
+    const { oeste, sur, este, norte } = r.caja;
+    const nueva = new Cesium.ImageryLayer(new Cesium.SingleTileImageryProvider({
+      url: r.lienzo.toDataURL('image/png'),
+      rectangle: Cesium.Rectangle.fromDegrees(oeste, sur, este, norte),
+      tileWidth: r.lienzo.width,
+      tileHeight: r.lienzo.height,
+      credit: new Cesium.Credit('Cambio de la nieve: MODIS Terra (NASA)')
+    }), { alpha: 0.9 });
+    capas.add(nueva);
+    vista.capaCambio = nueva;
+  }
+  if (vieja) capas.remove(vieja, true);
+  controles?.ponerModo?.(vista.modo); // muestra u oculta según el modo elegido
+  viewer.scene.requestRender();
 }
 
 // Compat: Cesium ≥1.116 usa scene.verticalExaggeration; antes, globe.terrainExaggeration (deprecada)
@@ -430,7 +434,8 @@ function aplicarModoMontana(viewer, region, fecha, glaciar) {
   const globe = scene.globe;
   const capas = scene.imageryLayers;
   vista = {
-    fecha, capaNieve: null, capaDia: null, credito: null, fechaNieve: null, vr: null, cajaCreditos: null,
+    fecha, capaNieve: null, capaDia: null, capaCambio: null, modo: 'no', alCambiarModo: null,
+    credito: null, fechaNieve: null, vr: null, cajaCreditos: null,
     pico: null, orbita: null, vuelo: 0, pedidoPico: 0, relieveListo: null, alElegirPico: null
   };
   globe.depthTestAgainstTerrain = true;
@@ -577,13 +582,18 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
   const hud = document.createElement('div');
   hud.className = 'montanas3d-hud';
   hud.innerHTML = `
-    <button type="button" class="hud-nieve" aria-pressed="false" title="Mostrar dónde hay nieve según MODIS (NASA)">
-      <span class="hud-titulo">Cobertura de nieve</span>
+    <div class="hud-nieve" data-modo="no" role="group" aria-label="Capa de nieve de MODIS">
+      <span class="hud-titulo">Nieve · satélite</span>
+      <div class="hud-modos">
+        <button type="button" data-modo="no" aria-pressed="true">Sin capa</button>
+        <button type="button" data-modo="cobertura" aria-pressed="false" title="Dónde hay nieve ese día, según MODIS (NASA)">Cobertura</button>
+        <button type="button" data-modo="cambio" aria-pressed="false" title="Ese año frente a su promedio del mismo día: azul, más nieve; rojo, menos">Cambio</button>
+      </div>
       <span class="hud-escala" aria-hidden="true"></span>
-      <span class="hud-rango"><span>1 %</span><span>100 %</span></span>
-      <span class="hud-fuente">MODIS Terra (NASA) · <span class="hud-fecha"></span></span>
+      <span class="hud-rango"><span class="hud-rango-a">1 %</span><span class="hud-rango-m"></span><span class="hud-rango-b">100 %</span></span>
+      <span class="hud-fuente">MODIS Terra (NASA) · <span class="hud-fecha"></span><span class="hud-vs"></span></span>
       <span class="hud-aviso" role="status" hidden></span>
-    </button>
+    </div>
     <button type="button" class="hud-toggle" aria-pressed="false"
             title="Mostrar la imagen MODIS de esa fecha (con nubes)"
             aria-label="Alternar imagen del día / sin nubes">
@@ -593,7 +603,7 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
     <div class="hud-creditos-cesium"></div>`;
   viewer.container.appendChild(hud);
   const btnToggle = hud.querySelector('.hud-toggle');
-  const btnNieve = hud.querySelector('.hud-nieve');
+  const cajaNieve = hud.querySelector('.hud-nieve');
 
   // Fuente: "Imagen: … · Relieve: Cesium World Terrain" (+ color real si está); la de la nieve va en su leyenda.
   // Debajo, los créditos que escribe Cesium (logo de Cesium ion y atribuciones de la imagen: Bing/Sentinel):
@@ -604,15 +614,37 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
   hud.querySelector('.hud-creditos-cesium').replaceWith(vista.cajaCreditos);
   const actualizarCredito = escribirCreditoMontana;
 
-  // --- "Cobertura de nieve": enciende/apaga la capa MODIS (al 50 %) ------------
-  function encenderNieve(si) {
+  // --- Nieve del satélite: Sin capa · Cobertura (MODIS NDSI del día, al 50 %) · Cambio (ese año frente
+  // a su promedio del mismo día: servicios/cambio-nieve.js lo calcula y el puente lo pasa con ponerCambio) ---
+  const TEXTOS_MODO = {
+    no: ['1 %', '', '100 %'],
+    cobertura: ['1 %', '', '100 %'],
+    cambio: ['Menos nieve', 'gris: nubes', 'Más nieve']
+  };
+  // desdeUsuario: solo un toque del usuario avisa al puente (alCambiarModo). Si el aviso saliera también de
+  // ponerCambio, el puente volvería a pedir el mapa y se formaría un ciclo sin fin.
+  function ponerModo(modo, desdeUsuario = false) {
     if (!vista?.capaNieve) return;
-    vista.capaNieve.show = si;
-    btnNieve.setAttribute('aria-pressed', String(si));
-    btnNieve.classList.toggle('activo', si);
+    vista.modo = modo;
+    const conCambio = modo === 'cambio' && Boolean(vista.capaCambio);
+    vista.capaNieve.show = modo === 'cobertura' || (modo === 'cambio' && !vista.capaCambio); // sin mapa de cambio aún: la cobertura
+    if (vista.capaCambio) vista.capaCambio.show = conCambio;
+    cajaNieve.dataset.modo = conCambio ? 'cambio' : modo === 'no' ? 'no' : 'cobertura';
+    cajaNieve.querySelectorAll('[data-modo]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.modo === modo)));
+    const [a, m, b] = TEXTOS_MODO[cajaNieve.dataset.modo]; // la escala de la capa que se ve (sin mapa de cambio aún: cobertura)
+    cajaNieve.querySelector('.hud-rango-a').textContent = a;
+    cajaNieve.querySelector('.hud-rango-m').textContent = m;
+    cajaNieve.querySelector('.hud-rango-b').textContent = b;
+    cajaNieve.querySelector('.hud-vs').textContent = conCambio ? ' · vs su promedio del mismo día' : '';
     scene.requestRender();
+    if (desdeUsuario) vista.alCambiarModo?.(modo);
   }
-  btnNieve.addEventListener('click', () => encenderNieve(!vista.capaNieve.show));
+  cajaNieve.querySelector('.hud-modos').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-modo]');
+    if (b) ponerModo(b.dataset.modo, true);
+  });
+  // Compatibilidad: encenderNieve(true) = Cobertura (si estaba sin capa); false = Sin capa
+  const encenderNieve = (si) => { if (!si) ponerModo('no'); else if (vista?.modo === 'no') ponerModo('cobertura'); };
 
   // --- Capa "Imagen del día" (MODIS color real, misma fecha que la nieve) ----
   // vista.capaDia (no una variable local): ponerFechaNieve la cambia cuando se mueve la línea de tiempo
@@ -806,6 +838,7 @@ function instalarControles(viewer, region, destinoInicial, orientInicial) {
 
   return {
     encenderNieve,
+    ponerModo,
     quitar() {
       window.removeEventListener('keydown', onTecla);
       parador.destroy();
@@ -986,15 +1019,19 @@ export async function crearMontanas3d(viewer, glaciar) {
       ponerFechaNieve(viewer, fecha);
       if (encender) controles?.encenderNieve?.(true);
     },
-    filaBarras() { return filaBarras(region); },
+    // Mapa de cambio de ese año (servicios/cambio-nieve.js): { lienzo, caja } o null para quitarlo
+    ponerCambio(r) { ponerCambio(viewer, r); },
+    // 'no' | 'cobertura' | 'cambio' (el puente pone 'cambio' al elegir el primer año)
+    modoNieve(modo) { controles?.ponerModo?.(modo); },
+    get modo() { return vista?.modo ?? 'no'; },
+    set alCambiarModo(fn) { if (vista) vista.alCambiarModo = fn; },
     // Aviso bajo la fecha de la leyenda (p. ej. "Sin imagen despejada de 2009; se ve la del …"); null: sin aviso
     avisoNieve(texto) {
       const a = vista?.avisoNieve;
       if (!a) return;
       a.textContent = texto ?? '';
       a.hidden = !texto;
-    },
-    relieveListo: vista?.relieveListo ?? Promise.resolve()
+    }
   };
   return apiActiva;
 }

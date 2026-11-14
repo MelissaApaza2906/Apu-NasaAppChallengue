@@ -21,6 +21,7 @@ const NUBES = {
   layer: 'MODIS_Terra_Cloud_Fraction_Day', formato: 'image/png', matriz: 'GoogleMapsCompatible_Level6', nivel: 6,
   paleta: 'https://gibs.earthdata.nasa.gov/colormaps/v1.3/MODIS_Cloud_Fraction.xml'
 };
+const ESPERA_MS = 20_000;     // una petición a NASA que no responde en este tiempo cuenta como error
 export const MAX_NUBES = 0.5;  // nubosidad media sobre la caja: más que esto, se prueba otro día
 const MIN_COBERTURA = 0.5;     // parte de la caja con dato de nubes (las pasadas del satélite dejan franjas)
 const MAX_INTENTOS = 16;       // días probados por año, como mucho
@@ -58,7 +59,7 @@ function unaVez(crear) {
 
 // Paleta oficial de la nubosidad: color → % de nubes (las entradas transparentes son "sin dato")
 const leerPaleta = unaVez(async () => {
-  const r = await fetch(NUBES.paleta);
+  const r = await fetch(NUBES.paleta, { signal: AbortSignal.timeout(ESPERA_MS) });
   if (!r.ok) throw new Error(`paleta ${r.status}`);
   const xml = new DOMParser().parseFromString(await r.text(), 'application/xml');
   const lista = [...xml.getElementsByTagName('ColorMapEntry')]
@@ -71,7 +72,7 @@ const leerPaleta = unaVez(async () => {
 
 // Días con imagen de la capa de nieve (su GetCapabilities: '2000-08-18/2001-06-15/P1D', …)
 const leerRangosNieve = unaVez(async () => {
-  const r = await fetch(`${GIBS}?SERVICE=WMTS&REQUEST=GetCapabilities&LAYER=${CAPAS.nieveDia.layer}`);
+  const r = await fetch(`${GIBS}?SERVICE=WMTS&REQUEST=GetCapabilities&LAYER=${CAPAS.nieveDia.layer}`, { signal: AbortSignal.timeout(ESPERA_MS) });
   if (!r.ok) throw new Error(`capacidades ${r.status}`);
   const xml = new DOMParser().parseFromString(await r.text(), 'application/xml');
   return [...xml.getElementsByTagName('Value')].map((n) => n.textContent.trim().split('/'))
@@ -100,7 +101,7 @@ async function medirNubes(caja, fecha, colores) {
   for (const t of teselasDe(caja, NUBES.nivel)) {
     const url = `${GIBS}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${NUBES.layer}&STYLE=default` +
       `&TILEMATRIXSET=${NUBES.matriz}&TILEMATRIX=${NUBES.nivel}&TILEROW=${t.y}&TILECOL=${t.x}&FORMAT=${encodeURIComponent(NUBES.formato)}&TIME=${fecha}`;
-    const r = await fetch(url);
+    const r = await fetch(url, { signal: AbortSignal.timeout(ESPERA_MS) });
     const [a, b, c, d] = t.p;
     if (c <= a || d <= b) continue;
     total += (c - a) * (d - b);
