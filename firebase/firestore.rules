@@ -6,15 +6,17 @@ service cloud.firestore {
     match /usuarios/{uid} {
       allow read, delete: if request.auth != null && request.auth.uid == uid;
       allow create, update: if request.auth != null && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['apodo', 'avatar', 'lecciones', 'casos', 'insignias', 'actualizado'])
+        && request.resource.data.keys().hasOnly(['apodo', 'avatar', 'lecciones', 'casos', 'insignias', 'hipotesis', 'actualizado'])
         && request.resource.data.apodo is string
         && request.resource.data.apodo.size() >= 2
         && request.resource.data.apodo.size() <= 20
         && (!('avatar' in request.resource.data)
             || (request.resource.data.avatar is string && request.resource.data.avatar.size() <= 20))
-        && request.resource.data.lecciones is list && request.resource.data.lecciones.size() <= 9
+        && request.resource.data.lecciones is list && request.resource.data.lecciones.size() <= 10
         && request.resource.data.casos is list && request.resource.data.casos.size() <= 3
-        && request.resource.data.insignias is list && request.resource.data.insignias.size() <= 15;
+        && request.resource.data.insignias is list && request.resource.data.insignias.size() <= 15
+        && (!('hipotesis' in request.resource.data)
+            || (request.resource.data.hipotesis is string && request.resource.data.hipotesis.size() <= 40));
     }
     // Todo lo demás: cerrado.
     match /{document=**} {

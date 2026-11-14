@@ -18,6 +18,10 @@ export const INSIGNIAS = [
   { id: 'periodo', nombre: 'Periodo', familia: 'aprendizaje', img: img(null), como: 'Termina la lección 3: Periodo.' },
   { id: 'serie', nombre: 'Serie de tiempo', familia: 'aprendizaje', img: img('grafico'), como: 'Termina la lección 4: Serie de tiempo.' },
   { id: 'significancia', nombre: 'Significancia', familia: 'aprendizaje', img: img('lupa'), como: 'Termina la lección 5: Significancia.' },
+  // Aprendizaje: una por bloque de la ruta de 10 lecciones (contenido/lecciones.js → BLOQUES)
+  { id: 'explorador-planeta', nombre: 'Explorador del planeta', familia: 'aprendizaje', img: img('montana-pin'), como: 'Termina el bloque A (lección 2: la lluvia).' },
+  { id: 'inspector-pixeles', nombre: 'Inspector de píxeles', familia: 'aprendizaje', img: img('lupa'), como: 'Termina el bloque B (lección 4: el índice de nieve).' },
+  { id: 'analista-tendencias', nombre: 'Analista de tendencias', familia: 'aprendizaje', img: img('grafico'), como: 'Termina el bloque C (lección 10: el veredicto).' },
   // Casos
   { id: 'caso-nieve', nombre: 'Caso de la nieve', familia: 'casos', img: img('copo'), como: 'Resuelve el Caso 01: Cordillera Real.' },
   { id: 'caso-lluvia', nombre: 'Caso de la lluvia', familia: 'casos', img: img('gota'), como: 'Resuelve el Caso 02: la lluvia.' },

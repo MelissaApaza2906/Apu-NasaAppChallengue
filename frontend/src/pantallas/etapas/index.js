@@ -1,6 +1,7 @@
 // Pantalla: etapas de aprendizaje · #/etapas · Responsable: Luis
 // Maqueta: docs/mockups/apu-etapas-v2.png. El mundo girando (con el pin rojo que late sobre Bolivia) y,
-// en su arco, las 9 lecciones de contenido/lecciones.js + la meta "Caso de la nieve".
+// en su arco, las 10 lecciones de contenido/lecciones.js (agrupadas en los bloques A, B y C de BLOQUES)
+// + la meta "Caso de la nieve".
 // El estado de cada nodo sale del id de cada lección terminada (servicios/progreso.js), no de la cantidad:
 //   hecha (✓ verde, arco verde hasta ahí) · siguiente (la primera sin terminar: grande, roja, con brillo) · bloqueada.
 // Cada nodo muestra la insignia de la lección (gris hasta ganarla) o, si no tiene dibujo, un ícono.
@@ -8,20 +9,21 @@ import './etapas.css';
 import '../carga/carga.css'; // la barra rayada (.barra .pista .relleno)
 import { ir } from '../../router.js';
 import { leerProgreso } from '../../servicios/progreso.js';
-import { LECCIONES, CASOS } from '../../contenido/lecciones.js';
+import { LECCIONES, BLOQUES, CASOS } from '../../contenido/lecciones.js';
 import { insigniaPorId } from '../../contenido/insignias.js';
-import { VISUAL } from '../leccion/visuales.js';
 
-const TOTAL = LECCIONES.length; // 9
+const TOTAL = LECCIONES.length; // 10
 // Ícono del nodo cuando la lección no tiene insignia con dibujo
-const ICONOS = { academia: '🎓', caso: '📰', variable: '❄', region: '🏔', periodo: '🌨', serie: '📊', significancia: '🔎', validacion: '🚦', veredicto: '⚖' };
+const ICONOS = { tierra: '🌎', lluvia: '🌧', ojos: '🛰', ndsi: '❄', caso: '📰', region: '🏔', periodo: '📅', serie: '🧹', significancia: '🎲', veredicto: '⚖' };
+// Cada lección dice su bloque: "Bloque A · Las variables"
+const pasoDe = (l) => `Bloque ${l.bloque} · ${BLOQUES[l.bloque]?.nombre ?? ''}`;
 const META = { id: 'meta', titulo: 'Caso de la nieve', paso: 'Etapa 2 · Detective' };
 
 // Geometría del arco (la de siempre): centro, radio del mundo y del arco
 // El arco empieza debajo del título (en pantallas bajas, un poco más abajo)
 const CX = '6cqw', CY = 50, RM = 34, RA = 44, A1 = 62;
 const bajo = window.matchMedia('(max-height: 560px)');
-const ANG = (i) => { const a0 = bajo.matches ? -36 : -48; return a0 + (A1 - a0) * i / TOTAL; }; // 10 nodos: 0…8 lecciones, 9 la meta
+const ANG = (i) => { const a0 = bajo.matches ? -36 : -48; return a0 + (A1 - a0) * i / TOTAL; }; // 11 nodos: 0…9 lecciones, 10 la meta
 const CANDADO = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -98,7 +100,6 @@ export function montar(contenedor) {
     const a = ANG(i) * Math.PI / 180;
     return { x: `calc(${CX} + ${(RA * Math.cos(a)).toFixed(2)}cqh)`, y: `${(CY + RA * Math.sin(a)).toFixed(2)}cqh` };
   };
-  const pregunta = (l) => (VISUAL[l.id]?.titulo ?? [l.titulo]).join('');
   const medallaDe = (l, conColor) => {
     const ins = l.insignia ? insigniaPorId(l.insignia) : null;
     return ins?.img
@@ -113,11 +114,11 @@ export function montar(contenedor) {
       const hecha = est === 'hecha', sig = est.startsWith('siguiente'), bloq = est.startsWith('bloqueada');
       // La insignia se ve a color si ya la ganó; la de la lección siguiente también, como adelanto (igual que la maqueta)
       const color = !meta && (ganadas.has(l.insignia) || sig);
-      const linea = meta ? META.paso : hecha ? `✓ Hecha · ${l.paso}` : sig ? `● Siguiente · ${l.paso}` : l.paso;
+      const linea = meta ? META.paso : hecha ? `✓ Hecha · ${pasoDe(l)}` : sig ? `● Siguiente · ${pasoDe(l)}` : pasoDe(l);
       const contenido = meta ? '<span class="icono" aria-hidden="true">🏁</span>' : medallaDe(l, color);
       return `
         <button type="button" class="etapa ${est}${sel === i ? ' elegida' : ''}" data-i="${i}" aria-pressed="${sel === i}"
-          aria-label="${esc(l.titulo)}, ${esc(l.paso)}, ${hecha ? 'hecha' : sig ? 'siguiente' : 'bloqueada'}" style="left:${x};top:${y};animation-delay:${(0.1 + i * 0.06).toFixed(2)}s">
+          aria-label="${esc(l.titulo)}, ${esc(meta ? META.paso : pasoDe(l))}, ${hecha ? 'hecha' : sig ? 'siguiente' : 'bloqueada'}" style="left:${x};top:${y};animation-delay:${(0.1 + i * 0.06).toFixed(2)}s">
           <span class="bola">${contenido}${hecha ? '<span class="marca" aria-hidden="true">✓</span>' : ''}</span>
           <span class="textos"><span class="nombre">${esc(l.titulo.toUpperCase())}</span><span class="paso">${esc(linea)}</span></span>
         </button>`;
@@ -148,14 +149,14 @@ export function montar(contenedor) {
            <span><span class="rotulo">${ganadas.has(ins.id) ? 'YA GANASTE LA INSIGNIA' : 'GANAS LA INSIGNIA'}</span><b>${esc(ins.img ? ins.nombre : `${ins.nombre} (dibujo pendiente)`)}</b></span>`
         : `<span class="medalla"><span class="hex sello">✓</span></span><span><span class="rotulo">GANAS EL SELLO</span><b>¡Paso superado!</b></span>`;
       panel.innerHTML = `
-        <span class="etiqueta"><span class="barras" aria-hidden="true">//</span>LECCIÓN ${l.numero} DE ${TOTAL}</span>
+        <span class="etiqueta"><span class="barras" aria-hidden="true">//</span>LECCIÓN ${l.numero} DE ${TOTAL} · ${esc(pasoDe(l).toUpperCase())}</span>
         <h2>${esc(l.titulo.toUpperCase())}</h2>
-        <p class="pregunta">${esc(pregunta(l))} ${esc(l.jukumari.inicio.replace('{apodo}', apodo))}</p>
-        <div class="fichas">${l.teoria.tarjetas.filter((t, i, a) => a.findIndex((x) => x.titulo === t.titulo) === i).slice(0, 3).map((t, i) => `
-          <div class="ficha ${colores[i]}"><span class="ficha-icono" aria-hidden="true">${t.icono}</span>
-            <b>${esc(t.titulo.split('·').pop().trim())}</b>${t.etiqueta ? `<small>${esc(t.etiqueta.toUpperCase())}</small>` : ''}</div>`).join('')}
+        <p class="pregunta">${esc(l.pregunta)} ${esc(l.jukumari.inicio.replace('{apodo}', apodo))}</p>
+        <div class="fichas">${(l.conceptos ?? []).slice(0, 3).map((c, i) => `
+          <div class="ficha ${colores[i]}"><span class="ficha-icono" aria-hidden="true">${esc(l.tarjetas[i]?.icono ?? '❄')}</span>
+            <b>${esc(c)}</b></div>`).join('')}
         </div>
-        <p class="datos-leccion">⏱ 2 min · 🃏 ${l.tarjetas.length} tarjetas · ❓ ${l.trivia.length} preguntas</p>
+        <p class="datos-leccion">📖 ${l.paginas.length} páginas · 🃏 ${l.tarjetas.length} tarjetas · ❓ ${l.trivia.length} preguntas</p>
         <div class="premio">${premio}</div>
         <div class="pie">${est === 'bloqueada'
           ? `<div class="bloqueo">${CANDADO}Termina la lección ${LECCIONES[siguiente()]?.numero ?? sel} para abrirla</div>`

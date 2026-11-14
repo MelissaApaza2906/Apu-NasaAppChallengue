@@ -1,6 +1,6 @@
 // Pantalla: perfil del detective · #/perfil (el ícono "perfil" del riel del menú lleva aquí)
 // Izquierda: el avatar de cuerpo entero, el apodo, "Animal · detective desde <fecha>" y CAMBIAR EN AJUSTES.
-// Derecha: el avance (lecciones X/9, casos X/3, insignias X/12), las 6 últimas insignias (→ #/insignias)
+// Derecha: el avance (lecciones X/10, casos X/3, insignias X/12), las 6 últimas insignias (→ #/insignias)
 // y el siguiente paso pendiente (MIS CASOS → #/casos, CONTINUAR → la lección o el caso que toca).
 // El Jukumari dice cuánto falta. Solo estilos existentes: fondo, vidrio, paneles, chips y botón de
 // etapas.css; barras de carga.css; medallas de insignias.css; figura del avatar de nueva-insignia.css.
@@ -14,10 +14,10 @@ import { leerProgreso, casosResueltos } from '../../servicios/progreso.js';
 import { usuarioActual } from '../../servicios/auth.js';
 import { avatarPorId } from '../../contenido/avatares.js';
 import { INSIGNIAS, insigniaPorId } from '../../contenido/insignias.js';
-import { LECCIONES, CASOS } from '../../contenido/lecciones.js';
+import { LECCIONES, BLOQUES, CASOS } from '../../contenido/lecciones.js';
 import { medalla } from '../insignias/index.js';
 
-const TOTAL_LECCIONES = 9;   // las 5 de hoy y las que vienen (firestore.rules guarda hasta 9)
+const TOTAL_LECCIONES = LECCIONES.length;   // 10 (firestore.rules guarda hasta 10)
 const TOTAL_CASOS = CASOS.length;           // 3
 const TOTAL_INSIGNIAS = INSIGNIAS.length;   // 12
 const FECHA = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -37,7 +37,7 @@ const barra = (clase, rotulo, total) => `
 // El siguiente paso: la primera lección sin terminar; si están todas, el primer caso; si no, nada
 function siguientePaso(p) {
   const l = LECCIONES.find((x) => !p.lecciones.includes(x.id));
-  if (l) return { titulo: `${l.paso}`, texto: `Lección ${LECCIONES.indexOf(l) + 1}: ${l.nombre ?? l.titulo}`, ruta: `leccion/${l.id}` };
+  if (l) return { titulo: `Bloque ${l.bloque} · ${BLOQUES[l.bloque]?.nombre ?? ''}`, texto: `Lección ${LECCIONES.indexOf(l) + 1}: ${l.nombre ?? l.titulo}`, ruta: `leccion/${l.id}` };
   const resueltos = casosResueltos(p);
   const c = CASOS.find((x) => !resueltos.has(x.id));
   if (c) return { titulo: 'Etapa 2 · Detective', texto: `${c.nombre} (${c.ayuda})`, ruta: `caso/${c.id}` };
@@ -124,7 +124,7 @@ export function montar(contenedor) {
     $('.perfil-desde').textContent = `${a?.nombre ?? 'Detective'} · detective${desde}`;
 
     // Derecha: barras
-    const lecciones = p.lecciones.length, casos = casosResueltos(p).size;
+    const lecciones = LECCIONES.filter((l) => p.lecciones.includes(l.id)).length, casos = casosResueltos(p).size;
     const ganadas = p.insignias.filter((id) => insigniaPorId(id));
     ponerBarra('lecciones', lecciones, TOTAL_LECCIONES);
     ponerBarra('casos', casos, TOTAL_CASOS);

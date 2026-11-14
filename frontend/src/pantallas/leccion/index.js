@@ -1,100 +1,36 @@
-// Pantalla: lección · #/leccion/<id> (id de contenido/lecciones.js)
-// Responsable: Luis
-// Igual a docs/mockups/lecciones/leccion-N-{teoria,tarjetas,trivia,meta}.png:
-//   camino de pasos arriba: Teoría → (Actividad, si la lección tiene una lista) → Tarjetas → Trivia → 🏁 Meta
-//   y el Jukumari de cuerpo entero abajo a la derecha, con un globo que "dice" y otro que "piensa".
-// Textos: contenido/lecciones.js. Lo visual de cada lección (título, qué significa, cómo se usa, dibujo): visuales.js.
-// Las marcas {p}, {pendiente_decada}… se llenan con los JSON reales (public/datos/…); si falta el dato: "—".
-// Al aprobar la trivia (3 de 5) se guarda la lección y se da su insignia (componentes/nueva-insignia.js).
+// Pantalla: lección · #/leccion/<id> (id de contenido/lecciones.js, ruta de 10 lecciones)
+// Igual a docs/mockups/lecciones-v3/nuevo-lN-{p1..p4,tar,tri,meta}.jpg:
+//   barra de arriba: TEORÍA ●●●● → TARJETAS → TRIVIA → META
+//   Teoría: 4 páginas (título, texto, visual, EJEMPLO amarillo y "¿LO ENTENDISTE?"). No se pasa de página
+//           sin acertar el chequeo (se puede reintentar). "Para curiosos" abre paraCuriosos si existe.
+//   Tarjetas: 5 que se voltean. Trivia: 5 preguntas (opciones, clasificar, ordenar, pixeles, juez).
+//   Meta: confeti, insignia del bloque (L2, L4 y L10), "AHORA SABES" y la siguiente lección (L10 → #/casos).
+// El Jukumari guía siempre (globo "dice" blanco + nube "piensa" punteada); si no pasa nada en 20 s, da un consejo.
+// Textos: contenido/lecciones.js (traen <b> y <em>: es contenido propio). Visuales: visuales.js. Datos: datos.js.
+// Avance (fase, página, chequeos, pregunta, aciertos) en el navegador; la hipótesis de la L5, en el perfil.
 import './leccion.css';
 import { ir } from '../../router.js';
-import { LECCIONES } from '../../contenido/lecciones.js';
+import { LECCIONES, BLOQUES } from '../../contenido/lecciones.js';
 import { insigniaPorId } from '../../contenido/insignias.js';
-import { leerProgreso, completarLeccion } from '../../servicios/progreso.js';
-import { cargarRegion } from '../../servicios/datos.js';
+import { leerProgreso, completarLeccion, guardarHipotesis, leerAvance, guardarAvance } from '../../servicios/progreso.js';
 import { darInsignia } from '../../componentes/nueva-insignia.js';
-import { VISUAL } from './visuales.js';
+import { cargarDatos, marcas, rellenar, esc } from './datos.js';
+import { VISUALES, MONTAR, escena, linea } from './visuales.js';
 
-const APROBAR = 3;                       // de 5 (60 %)
-const REGION = 'cordillera-real';         // la región del caso de las lecciones
-const CLAVE_HIPOTESIS = 'apu-hipotesis';  // la hipótesis elegida en la lección 2 (la lee la 9)
-const LETRAS = ['A', 'B', 'C', 'D'];
-const NOMBRE_PASO = { teoria: 'TEORÍA', actividad: 'ACTIVIDAD', tarjetas: 'TARJETAS', trivia: 'TRIVIA', meta: 'META' };
+const APROBAR = 0.6;          // 3 de 5
+const ESPERA = 20000;         // ms sin hacer nada → consejo del Jukumari
+const FASES = ['teoria', 'tarjetas', 'trivia', 'meta'];
+const NOMBRE_FASE = { teoria: 'TEORÍA', tarjetas: 'TARJETAS', trivia: 'TRIVIA', meta: 'META' };
+const LETRAS = ['A', 'B', 'C', 'D', 'E', 'F'];
+const ICONO_ETIQUETA = { Nieve: '❄', Nube: '☁', Sal: '🧂', Agua: '💧' };
 
 let vivo = false;
 let temporizadores = [];
+let quitar = [];
 
-const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const fmtNum = (v, d) => v.toFixed(d).replace('.', ',');
-const conSigno = (v, d) => `${v < 0 ? '−' : v > 0 ? '+' : ''}${fmtNum(Math.abs(v), d)}`;
-const decimales = (v) => (Math.abs(v) >= 100 ? 0 : Math.abs(v) >= 10 ? 1 : 2);
-const leer = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
-const guardarLocal = (k, v) => { try { localStorage.setItem(k, v); } catch { /* modo privado */ } };
+const sinEtiquetas = (t) => String(t ?? '').replace(/<[^>]*>/g, '');
+const mezclar = (a) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
 
-// ── Datos reales de la lección ───────────────────────────────────────
-async function leerJSON(ruta) {
-  const r = await fetch(ruta);
-  if (!r.ok) throw new Error(ruta);
-  return r.json(); // si el servidor devuelve otra cosa (index.html), esto lanza y el dato queda "—"
-}
-
-async function cargarDatos() {
-  const d = {};
-  try {
-    const r = await cargarRegion(REGION);
-    const v = r.variables?.nieve;
-    if (v) {
-      Object.assign(d, {
-        region: r.nombre, fuente: v.fuente, unidad: v.unidad,
-        desde: String(v.desde ?? '').slice(0, 4), hasta: String(v.hasta ?? '').slice(0, 4),
-        p: Number.isFinite(v.p) ? v.p : null,
-        pendiente: Number.isFinite(v.tendencia_por_decada) ? v.tendencia_por_decada : null,
-        veredicto: v.veredicto ?? null,
-        anual: Array.isArray(v.anual) && v.anual.every(Number.isFinite) ? v.anual : null
-      });
-      // Promedio de cada mes (ene…dic) con los valores mensuales reales
-      if (Array.isArray(v.meses) && Array.isArray(v.valores)) {
-        const suma = Array(12).fill(0), n = Array(12).fill(0);
-        v.meses.forEach((m, i) => {
-          const mes = Number(String(m).slice(5, 7)) - 1, val = v.valores[i];
-          if (mes >= 0 && mes < 12 && Number.isFinite(val)) { suma[mes] += val; n[mes] += 1; }
-        });
-        if (n.every((x) => x > 0)) d.mensual = suma.map((s, i) => s / n[i]);
-      }
-    }
-  } catch { /* sin datos: todo queda "—" */ }
-  try {
-    const j = await leerJSON('/datos/lecciones/pruebas.json');
-    const lista = Array.isArray(j) ? j : j?.pruebas;
-    if (Array.isArray(lista)) {
-      d.pruebas = lista.map((x) => String(typeof x === 'string' ? x : x?.resultado ?? x?.color ?? x?.estado ?? '').toLowerCase());
-      d.n_ok = Number.isFinite(j?.n_ok) ? j.n_ok : d.pruebas.filter((x) => x === 'verde').length;
-      d.n_pruebas = Number.isFinite(j?.n_pruebas) ? j.n_pruebas : d.pruebas.length;
-    }
-  } catch { /* aún no existe: {n_ok} y {n_pruebas} quedan "—" */ }
-  return d;
-}
-
-// Las marcas, ya escritas como texto (sin HTML)
-function marcas(d, apodo) {
-  const l2 = LECCIONES.find((l) => l.hipotesis);
-  const elegida = leer(CLAVE_HIPOTESIS);
-  const valida = l2?.hipotesis.opciones.includes(elegida) ? elegida : null;
-  return {
-    apodo: apodo || 'detective',
-    region: d.region, desde: d.desde || null, hasta: d.hasta || null,
-    pendiente_decada: d.pendiente != null ? conSigno(d.pendiente, decimales(d.pendiente)) : null,
-    p: d.p != null ? (d.p < 0.01 ? '< 0,01' : fmtNum(d.p, 2)) : null,
-    veredicto_texto: d.veredicto ? (d.veredicto === 'real' ? 'es muy difícil que sea solo suerte' : 'todavía no se sabe si es más que azar') : null,
-    n_ok: d.n_ok, n_pruebas: d.n_pruebas,
-    hipotesis: valida ? `${l2.hipotesis.pregunta} ${valida}` : null,
-    hipotesisCorta: valida ? `La nieve ${valida}` : '—',
-    hayDatos: d.p != null
-  };
-}
-const rellenar = (t, m, escapar) => String(t ?? '').replace(/\{(\w+)\}/g, (_, k) => (m[k] == null || m[k] === '' ? '—' : escapar ? esc(m[k]) : String(m[k])));
-
-// ── Pantalla ─────────────────────────────────────────────────────────
 export function montar(contenedor, params = []) {
   vivo = true;
   const l = LECCIONES.find((x) => x.id === params[0]);
@@ -110,113 +46,205 @@ export function montar(contenedor, params = []) {
     return;
   }
 
-  const vis = VISUAL[l.id] ?? {};
   const idx = LECCIONES.indexOf(l);
   const siguiente = LECCIONES[idx + 1] ?? null;
-  const conActividad = Boolean(l.hipotesis); // las demás actividades aún no están listas: no se muestran
-  const pasos = ['teoria', ...(conActividad ? ['actividad'] : []), 'tarjetas', 'trivia', 'meta'];
-  const est = { paso: 'teoria', hechos: new Set(), carta: 0, volteada: false, vistas: new Set([0]), pregunta: 0, aciertos: 0, respondida: false };
-  let d = {}, m = marcas({}, '');
-  const txt = (t) => esc(rellenar(t, m));      // texto plano con marcas
-  const html = (t) => rellenar(t, m, true);    // texto con <b> de lecciones.js, marcas escapadas
+  const bloque = BLOQUES[l.bloque] ?? null;
+  const previo = leerAvance(l.id) ?? {};
+  const est = {
+    fase: FASES.includes(previo.fase) && previo.fase !== 'meta' ? previo.fase : 'teoria',
+    pagina: Number.isInteger(previo.pagina) ? Math.min(3, Math.max(0, previo.pagina)) : 0,
+    chequeos: Array.isArray(previo.chequeos) ? l.paginas.map((_, i) => Boolean(previo.chequeos[i])) : l.paginas.map(() => false),
+    alcanzada: Number.isInteger(previo.alcanzada) ? previo.alcanzada : 0,
+    carta: Number.isInteger(previo.carta) ? Math.min(l.tarjetas.length - 1, previo.carta) : 0,
+    volteada: false, vistas: new Set([0]),
+    pregunta: Number.isInteger(previo.pregunta) ? previo.pregunta : 0,
+    aciertos: Number.isInteger(previo.aciertos) ? previo.aciertos : 0,
+    fallosSeguidos: 0
+  };
+  if (est.fase === 'trivia' && !Number.isInteger(previo.pregunta)) { est.pregunta = 0; est.aciertos = 0; }
+  const guardar = () => guardarAvance(l.id, {
+    fase: est.fase, pagina: est.pagina, chequeos: est.chequeos, alcanzada: est.alcanzada,
+    carta: est.carta, pregunta: est.pregunta, aciertos: est.aciertos
+  });
+
+  // Datos reales y perfil (llegan después: se vuelve a pintar con las marcas llenas)
+  let d = {}, perfil = {}, m = marcas({}, {}), cargado = false;
+  const H = (t) => rellenar(t, m, true);               // contenido de lecciones.js (con <b>/<em>), marcas escapadas
+  const T = (t) => esc(rellenar(sinEtiquetas(t), m));   // texto plano escapado
+  const listo = Promise.all([cargarDatos().catch(() => ({})), leerProgreso().catch(() => ({}))]).then(([datos, p]) => {
+    d = datos; perfil = p; m = marcas(d, p); cargado = true;
+  });
 
   raiz.innerHTML = `
     <div class="lec-fondo" aria-hidden="true"></div>
     <span class="lec-esq arriba" aria-hidden="true"></span><span class="lec-esq abajo" aria-hidden="true"></span>
     <header class="lec-cabeza">
       <button type="button" class="lec-logo" aria-label="Volver a las etapas"><img src="/img/logo-apu.png" alt=""></button>
-      <nav class="lec-camino" aria-label="Pasos de la lección"><ol></ol></nav>
+      <nav class="lec-camino" aria-label="Fases de la lección"><ol></ol></nav>
     </header>
     <main class="lec-cuerpo" tabindex="-1"></main>
-    <aside class="lec-juku">
+    <aside class="lec-juku" aria-label="El Jukumari, tu guía">
       <p class="lec-piensa" aria-live="polite"><span aria-hidden="true">💭</span> <span data-piensa></span></p>
       <p class="lec-dice" aria-live="polite"><b>JUKUMARI</b><span data-dice></span></p>
-      <img src="/img/jukumari-cuerpo.webp" alt="El Jukumari, tu guía">
+      <img src="/img/jukumari-cuerpo.webp" alt="">
     </aside>
     <div class="lec-confeti" aria-hidden="true"></div>`;
   const $ = (s) => raiz.querySelector(s);
   const cuerpo = $('.lec-cuerpo');
   $('.lec-logo').addEventListener('click', () => ir('etapas'));
 
-  const jukumari = (dice, piensa) => {
-    $('[data-dice]').textContent = rellenar(dice, m);
-    $('[data-piensa]').textContent = rellenar(piensa, m);
+  // ── El Jukumari: dice (globo blanco) y piensa (nube punteada)
+  let consejos = [], nConsejo = 0, reloj = 0;
+  const jukumari = (dice, piensa = '') => {
+    $('[data-dice]').textContent = rellenar(sinEtiquetas(dice), m);
+    $('[data-piensa]').textContent = rellenar(sinEtiquetas(piensa), m);
     $('.lec-piensa').hidden = !piensa;
+    const g = $('.lec-dice'); g.classList.remove('habla'); void g.offsetWidth; g.classList.add('habla');
   };
+  // Si no hace nada en 20 s, el globo cambia a un consejo (y vuelve a contar)
+  const esperar = () => {
+    clearTimeout(reloj);
+    if (!consejos.length || !vivo) return;
+    reloj = setTimeout(() => {
+      if (!vivo) return;
+      jukumari(consejos[nConsejo++ % consejos.length], $('[data-piensa]').textContent);
+      esperar();
+    }, ESPERA);
+  };
+  const conConsejos = (lista) => { consejos = lista; nConsejo = 0; esperar(); };
+  const alActuar = () => esperar();
+  raiz.addEventListener('pointerdown', alActuar);
+  raiz.addEventListener('keydown', alActuar);
+  quitar.push(() => clearTimeout(reloj));
 
-  // Camino de pasos
+  // ── Barra de arriba: TEORÍA ●●●● → TARJETAS → TRIVIA → META
   const pintarCamino = () => {
-    const actual = pasos.indexOf(est.paso);
-    $('.lec-camino ol').innerHTML = pasos.map((p, i) => {
-      const hecho = est.hechos.has(p) && p !== est.paso;
-      const clase = p === est.paso ? 'actual' : hecho ? 'hecho' : '';
-      const marca = hecho ? '✓' : p === 'meta' ? '🏁' : String(i + 1);
-      const une = i ? `<li class="lec-une ${est.hechos.has(pasos[i - 1]) && i <= actual ? 'hecho' : ''}" aria-hidden="true"></li>` : '';
-      return `${une}<li class="lec-paso ${clase}"><button type="button" data-paso="${p}" ${hecho ? '' : 'disabled'}
-        ${p === est.paso ? 'aria-current="step"' : ''} aria-label="${NOMBRE_PASO[p]}${hecho ? ', hecho' : ''}">
-        <span class="bola">${marca}</span><span class="nombre">${NOMBRE_PASO[p]}</span></button></li>`;
+    const actual = FASES.indexOf(est.fase);
+    $('.lec-camino ol').innerHTML = FASES.map((f, i) => {
+      const hecha = i < est.alcanzada || (f === 'meta' && est.fase === 'meta');
+      const clase = f === est.fase ? 'actual' : hecha ? 'hecha' : '';
+      const puntos = f === 'teoria' ? `<span class="puntos" aria-hidden="true">${l.paginas.map((_, k) =>
+        `<i class="${est.chequeos[k] ? 'ok' : ''}${est.fase === 'teoria' && k === est.pagina ? ' aqui' : ''}"></i>`).join('')}</span>` : '';
+      const une = i ? `<li class="lec-une ${i <= est.alcanzada ? 'hecha' : ''}" aria-hidden="true"></li>` : '';
+      const puede = i <= est.alcanzada && f !== est.fase && f !== 'meta';
+      return `${une}<li><button type="button" class="lec-fase ${clase}" data-fase="${f}" ${puede ? '' : 'disabled'}
+        ${f === est.fase ? 'aria-current="step"' : ''} aria-label="${NOMBRE_FASE[f]}${clase === 'hecha' ? ', hecha' : ''}${f === 'teoria' ? `, ${est.chequeos.filter(Boolean).length} de 4 páginas` : ''}">
+        ${clase === 'hecha' ? '<span aria-hidden="true">✓</span>' : ''}${NOMBRE_FASE[f]}${puntos}</button></li>`;
     }).join('');
+    void actual;
   };
   $('.lec-camino').addEventListener('click', (ev) => {
-    const b = ev.target.closest('[data-paso]');
-    if (b && !b.disabled) ir_a(b.dataset.paso);
+    const b = ev.target.closest('[data-fase]');
+    if (b && !b.disabled) irA(b.dataset.fase);
   });
 
-  const ir_a = (paso) => {
-    const i = pasos.indexOf(est.paso);
-    if (pasos.indexOf(paso) > i) est.hechos.add(est.paso);
-    est.paso = paso;
-    pintarCamino();
-    raiz.classList.toggle('en-meta', paso === 'meta');
+  const irA = async (fase) => {
+    const i = FASES.indexOf(fase);
+    est.alcanzada = Math.max(est.alcanzada, i);
+    est.fase = fase;
+    raiz.classList.toggle('en-meta', fase === 'meta');
     $('.lec-confeti').replaceChildren();
-    // Entrar a la trivia siempre la empieza de cero (y la meta vuelve a quedar por delante)
-    const empezarTrivia = () => { est.pregunta = 0; est.aciertos = 0; est.hechos.delete('trivia'); est.hechos.delete('meta'); pintarCamino(); pintarTrivia(); };
-    ({ teoria: pintarTeoria, actividad: pintarActividad, tarjetas: pintarTarjetas, trivia: empezarTrivia, meta: pintarMeta })[paso]();
+    if (fase === 'trivia') { est.pregunta = 0; est.aciertos = 0; est.fallosSeguidos = 0; }
+    guardar();
+    pintarCamino();
+    await pintarFase();
     cuerpo.scrollTop = 0;
     cuerpo.querySelector('h1')?.focus({ preventScroll: true });
   };
-  const despuesDe = (paso) => pasos[pasos.indexOf(paso) + 1];
-  const textoSeguir = (paso) => ({ actividad: 'IR A LA ACTIVIDAD', tarjetas: 'PRACTICAR CON TARJETAS', trivia: 'IR A LA TRIVIA', meta: 'VER MI RESULTADO' })[despuesDe(paso)];
-  const titulo = (partes) => partes ? `${esc(partes[0])}<em>${esc(partes[1])}</em>${esc(partes[2])}` : esc(l.titulo);
+  const pintarFase = async () => {
+    if (est.fase === 'trivia' || est.fase === 'meta') {
+      if (!cargado) { cuerpo.innerHTML = '<p class="lec-cargando">Cargando…</p>'; await listo; if (!vivo) return; }
+    }
+    ({ teoria: pintarTeoria, tarjetas: pintarTarjetas, trivia: pintarTrivia, meta: pintarMeta })[est.fase]();
+  };
 
   // ── Teoría
-  function pintarTeoria() {
+  function pintarTeoria(conInicio = false) {
+    const i = est.pagina, p = l.paginas[i];
+    const ultima = i === l.paginas.length - 1;
+    const ch = p.chequeo;
+    const visual = VISUALES[l.id]?.[i];
+    const curiosos = p.paraCuriosos || (i === 0 && l.fuentes);
     cuerpo.innerHTML = `
-      <p class="lec-ceja">LECCIÓN ${l.numero} · ${esc(l.titulo.toUpperCase())}</p>
-      <h1 class="lec-titulo" tabindex="-1">${titulo(vis.titulo)}</h1>
-      <div class="lec-que-como">
-        <div class="lec-que"><h2 class="lec-ceja">QUÉ SIGNIFICA</h2><p>${vis.significa ?? html(l.teoria.intro)}</p></div>
-        ${vis.como ? `<div class="lec-como"><h2 class="lec-ceja gris">CÓMO SE USA</h2><ol>${vis.como.map((c) => `<li>${esc(c)}</li>`).join('')}</ol></div>` : ''}
+      <p class="lec-ceja">LECCIÓN ${l.numero} · ${esc(l.titulo.toUpperCase())} · PÁGINA ${i + 1} DE ${l.paginas.length}</p>
+      <h1 class="lec-titulo" tabindex="-1">${H(p.titulo)}</h1>
+      <p class="lec-texto">${H(p.texto)}</p>
+      <div class="lec-teoria">
+        <div class="lec-visual">${visual ? visual({ d, m, l, perfil }) : ''}</div>
+        <div class="lec-lado">
+          <div class="lec-ejemplo"><p class="lec-ceja amarilla">EJEMPLO</p><p>${H(p.ejemplo)}</p></div>
+          <div class="lec-chequeo" role="group" aria-labelledby="lec-cheq-p">
+            <p class="lec-ceja">¿LO ENTENDISTE?</p>
+            <p id="lec-cheq-p" class="lec-cheq-pregunta">${H(ch.pregunta)}</p>
+            <div class="lec-cheq-ops">${ch.opciones.map((o, k) => `<button type="button" class="lec-opcion chica" data-k="${k}"><span class="letra">${LETRAS[k]}</span><span>${H(o)}</span></button>`).join('')}</div>
+            <p class="lec-explica" aria-live="polite"></p>
+          </div>
+        </div>
       </div>
-      <div class="lec-dibujo">${vis.dibujo ? vis.dibujo(l, d, m) : ''}</div>
       <div class="lec-pie">
-        <button type="button" class="lec-libro" aria-haspopup="dialog">📖 ¿Quieres saber más? Toca el libro</button>
-        <button type="button" class="btn-apu" data-seguir>${textoSeguir('teoria')}</button>
-      </div>`;
-    vis.alMontar?.(cuerpo, d, m);
-    cuerpo.querySelector('.lec-libro').addEventListener('click', abrirLibro);
-    cuerpo.querySelector('[data-seguir]').addEventListener('click', () => ir_a(despuesDe('teoria')));
-    jukumari(vis.dice ?? l.jukumari.inicio, vis.piensa ?? '');
+        <button type="button" class="btn-apu secundario" data-ant ${i === 0 ? 'disabled' : ''}>ANTERIOR</button>
+        ${curiosos ? `<button type="button" class="lec-libro" aria-haspopup="dialog">📖 ${p.paraCuriosos ? 'Para curiosos' : 'Fuentes'}</button>` : '<span></span>'}
+        <button type="button" class="btn-apu" data-sig ${est.chequeos[i] ? '' : 'disabled'}>${ultima ? 'IR A TARJETAS' : 'SIGUIENTE PÁGINA'}</button>
+      </div>
+      <p class="lec-nota lec-falta" ${est.chequeos[i] ? 'hidden' : ''}>Responde “¿Lo entendiste?” para seguir.</p>`;
+    if (visual) MONTAR[l.id]?.[i]?.(cuerpo.querySelector('.lec-visual'), {
+      d, m, l, perfil,
+      guardarHipotesis: (op, conf) => {
+        perfil = { ...perfil, hipotesis: [op, conf].filter(Boolean).join('|') };
+        m = marcas(d, perfil);
+        guardarHipotesis(op, conf).catch(() => {});
+        jukumari('¡Anotado! Los datos dirán si tenías razón.', `Mi corazonada: la nieve ${op}…`);
+      }
+    });
+    const ops = [...cuerpo.querySelectorAll('.lec-cheq-ops .lec-opcion')];
+    const explica = cuerpo.querySelector('.lec-chequeo .lec-explica');
+    const marcarBien = () => {
+      ops.forEach((b, k) => { b.disabled = true; if (k === ch.correcta) { b.classList.add('correcta'); b.querySelector('.letra').textContent = '✓'; } });
+      explica.innerHTML = `<b class="bien">¡Bien!</b> ${H(ch.explicacion)}`;
+      cuerpo.querySelector('[data-sig]').disabled = false;
+      cuerpo.querySelector('.lec-falta').hidden = true;
+    };
+    if (est.chequeos[i]) marcarBien();
+    ops.forEach((b) => b.addEventListener('click', () => {
+      const k = Number(b.dataset.k);
+      if (k === ch.correcta) {
+        est.chequeos[i] = true; guardar(); pintarCamino();
+        marcarBien();
+        jukumari(l.jukumari.acierto, p.jukumari.piensa);
+        cuerpo.querySelector('[data-sig]').focus();
+      } else {
+        b.disabled = true; b.classList.add('mal'); b.querySelector('.letra').textContent = '✕';
+        explica.innerHTML = `<b class="mal">Casi.</b> ${H(ch.explicacion)} <span class="lec-reintenta">Prueba otra vez.</span>`;
+        jukumari(l.jukumari.fallo, p.jukumari.piensa);
+      }
+    }));
+    cuerpo.querySelector('[data-ant]').addEventListener('click', () => { est.pagina -= 1; guardar(); pintarCamino(); pintarTeoria(); cuerpo.scrollTop = 0; });
+    cuerpo.querySelector('[data-sig]').addEventListener('click', () => {
+      if (!est.chequeos[i]) return;
+      if (ultima) { irA('tarjetas'); return; }
+      est.pagina += 1; guardar(); pintarCamino(); pintarTeoria(); cuerpo.scrollTop = 0;
+      cuerpo.querySelector('h1')?.focus({ preventScroll: true });
+    });
+    cuerpo.querySelector('.lec-libro')?.addEventListener('click', () => abrirCuriosos(p));
+    if (conInicio) jukumari(l.jukumari.inicio, p.jukumari.piensa);
+    else jukumari(p.jukumari.dice, p.jukumari.piensa);
+    const hayDibujo = Boolean(visual);
+    conConsejos(['¿Te ayudo? Lee el ejemplo amarillo: ahí está la idea con algo de todos los días.',
+      hayDibujo ? 'Mira el gráfico de la izquierda: cuenta lo mismo con un dibujo.' : 'Lee el texto despacio, una frase a la vez.',
+      est.chequeos[i] ? '¡Ya respondiste! Toca el botón para seguir.' : 'Cuando estés listo, responde “¿Lo entendiste?”.']);
   }
 
-  // El libro 📖: la idea completa, para curiosos, vocabulario y fuentes
-  function abrirLibro() {
-    const t = l.teoria;
+  // "Para curiosos" (y las fuentes de las noticias de la L5)
+  function abrirCuriosos(p) {
     const v = document.createElement('dialog');
     v.className = 'panel-apu lec-ventana';
-    v.setAttribute('aria-labelledby', 'lec-libro-titulo');
+    v.setAttribute('aria-labelledby', 'lec-cur-titulo');
     v.innerHTML = `
-      <header><h2 id="lec-libro-titulo">📖 ${esc(l.titulo)}</h2>
+      <header><h2 id="lec-cur-titulo">📖 ${p.paraCuriosos ? 'Para curiosos' : 'Fuentes'}</h2>
         <button type="button" class="lec-cerrar" aria-label="Cerrar">✕</button></header>
       <div class="lec-ventana-cuerpo">
-        <p>${html(t.intro)}</p>
-        ${t.paraPensar ? `<h3>PARA PENSAR</h3><p>${txt(t.paraPensar)}</p>` : ''}
-        ${t.paraCuriosos ? `<h3>PARA CURIOSOS</h3><p>${txt(t.paraCuriosos)}</p>` : ''}
-        ${t.metodo ? `<h3>${esc(t.metodo.toUpperCase())}</h3><ol>${t.pasos.map((p) => `<li>${esc(p)}</li>`).join('')}</ol>` : ''}
-        ${l.satelites ? `<h3>LOS SATÉLITES</h3><ul>${l.satelites.map((s) => `<li><b>${esc(s.nombre)}</b>${s.enApu ? ' <span class="lec-chip verde">EN APU</span>' : ''} — ${esc(s.mide)} (desde ${esc(s.desde)}). ${esc(s.detalle)}.</li>`).join('')}</ul>${l.nota3d ? `<p>${esc(l.nota3d)}</p>` : ''}` : ''}
-        ${t.vocabulario ? `<h3>VOCABULARIO</h3><dl>${t.vocabulario.map((x) => `<dt>${esc(x.palabra)}</dt><dd>${esc(x.significa)}</dd>`).join('')}</dl>` : ''}
-        ${t.fuentes ? `<h3>FUENTES</h3><ul>${t.fuentes.map((f) => `<li><a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.texto)}</a></li>`).join('')}</ul>` : ''}
-        ${d.fuente && (l.datos || /\{(p|pendiente_decada|hipotesis)\}/.test(JSON.stringify(l))) ? `<h3>DATOS</h3><p>${esc(d.fuente)} · ${esc(d.region)} · ${esc(d.desde)}–${esc(d.hasta)}.</p>` : ''}
+        ${p.paraCuriosos ? `<p>${H(p.paraCuriosos)}</p>` : ''}
+        ${l.fuentes && est.pagina === 0 ? `<h3>FUENTES DEL EXPEDIENTE</h3><ul>${l.fuentes.map((f) => `<li><a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.texto)}</a></li>`).join('')}</ul>` : ''}
       </div>`;
     raiz.append(v);
     v.querySelector('.lec-cerrar').addEventListener('click', () => v.close());
@@ -225,165 +253,285 @@ export function montar(contenedor, params = []) {
     v.showModal();
   }
 
-  // ── Actividad (lección 2: tu hipótesis)
-  function pintarActividad() {
-    const h = l.hipotesis;
-    const elegida = leer(CLAVE_HIPOTESIS);
-    cuerpo.innerHTML = `
-      <p class="lec-ceja">LECCIÓN ${l.numero} · ACTIVIDAD</p>
-      <h1 class="lec-titulo" tabindex="-1">Elige tu <em>hipótesis</em></h1>
-      <p class="lec-pregunta">${esc(h.pregunta)}</p>
-      <div class="lec-opciones tres" role="radiogroup" aria-label="Tu hipótesis">
-        ${h.opciones.map((o, i) => `<button type="button" role="radio" class="lec-opcion ${o === elegida ? 'elegida' : ''}" aria-checked="${o === elegida}" data-o="${esc(o)}"><span class="letra">${LETRAS[i]}</span><span>${esc(o)}</span></button>`).join('')}
-      </div>
-      <p class="lec-nota">Puede estar equivocada, ¡y eso está bien! En la lección 9 la comparamos con los datos.</p>
-      <div class="lec-pie derecha"><button type="button" class="btn-apu" data-seguir ${h.opciones.includes(elegida) ? '' : 'disabled'}>${textoSeguir('actividad')}</button></div>`;
-    cuerpo.querySelectorAll('.lec-opcion').forEach((b) => b.addEventListener('click', () => {
-      guardarLocal(CLAVE_HIPOTESIS, b.dataset.o);
-      m = marcas(d, m.apodo);
-      cuerpo.querySelectorAll('.lec-opcion').forEach((x) => { x.classList.toggle('elegida', x === b); x.setAttribute('aria-checked', String(x === b)); });
-      cuerpo.querySelector('[data-seguir]').disabled = false;
-      jukumari('¡Anotado! Los datos dirán si tenías razón.', `Mi corazonada: la nieve ${b.dataset.o}…`);
-    }));
-    cuerpo.querySelector('[data-seguir]').addEventListener('click', () => ir_a(despuesDe('actividad')));
-    jukumari(l.jukumari.inicio, '¿Qué crees que pasó con la nieve?');
-  }
-
   // ── Tarjetas
   function pintarTarjetas() {
     const total = l.tarjetas.length;
     cuerpo.innerHTML = `
       <p class="lec-ceja" data-cont></p>
       <h1 class="lec-titulo" tabindex="-1">Voltea y <em>memoriza</em></h1>
-      <div class="lec-mazo-zona">
-        <div class="lec-mazo">
-          <span class="capa c3" aria-hidden="true"></span><span class="capa c2" aria-hidden="true"></span>
-          <button type="button" class="lec-carta"></button>
-        </div>
-        <ol class="lec-avance" aria-label="Tarjetas">${l.tarjetas.map((_, i) => `<li><button type="button" data-c="${i}" aria-label="Tarjeta ${i + 1}">${i + 1}</button></li>`).join('')}</ol>
+      <div class="lec-mazo">
+        <span class="capa c3" aria-hidden="true"></span><span class="capa c2" aria-hidden="true"></span>
+        <button type="button" class="lec-carta"></button>
       </div>
-      <div class="lec-pie derecha">
-        <button type="button" class="btn-apu secundario" data-ant>ANTERIOR</button>
-        <button type="button" class="btn-apu" data-sig>SIGUIENTE</button>
+      <div class="lec-pie">
+        <ol class="lec-puntitos" aria-label="Tarjetas">${l.tarjetas.map((_, i) => `<li><button type="button" data-c="${i}" aria-label="Tarjeta ${i + 1}"></button></li>`).join('')}</ol>
+        <span class="lec-pie-der">
+          <button type="button" class="btn-apu secundario" data-ant>ANTERIOR</button>
+          <button type="button" class="btn-apu" data-sig>SIGUIENTE</button>
+        </span>
       </div>`;
     const carta = cuerpo.querySelector('.lec-carta');
     const pintar = (animar) => {
       const t = l.tarjetas[est.carta];
-      const icono = vis.iconos?.[est.carta] ?? '❄';
       cuerpo.querySelector('[data-cont]').textContent = `LECCIÓN ${l.numero} · TARJETA ${est.carta + 1} DE ${total}`;
       carta.classList.toggle('volteada', est.volteada);
-      carta.setAttribute('aria-label', est.volteada ? `Respuesta: ${rellenar(t.respuesta, m)}. Toca para volver a la pregunta.` : `Pregunta: ${rellenar(t.pregunta, m)}. Toca para voltear.`);
+      carta.setAttribute('aria-label', est.volteada ? `Respuesta: ${sinEtiquetas(rellenar(t.respuesta, m))}. Toca para volver a la pregunta.` : `Pregunta: ${sinEtiquetas(rellenar(t.pregunta, m))}. Toca para voltear.`);
       carta.innerHTML = `
-        <span class="cara frente" aria-hidden="true"><span class="lec-ceja">PREGUNTA</span><span class="lec-icono-carta">${icono}</span>
-          <span class="lec-carta-texto">${txt(t.pregunta)}</span><span class="lec-voltear">↻ Toca para voltear</span></span>
-        <span class="cara dorso" aria-hidden="true"><span class="lec-ceja">RESPUESTA</span>
-          <span class="lec-carta-texto">${txt(t.respuesta)}</span><span class="lec-voltear">↻ Toca para volver</span></span>`;
+        <span class="cara frente" aria-hidden="true"><span class="lec-ceja">PREGUNTA</span><span class="lec-icono-carta">${esc(t.icono ?? '❄')}</span>
+          <span class="lec-carta-texto">${H(t.pregunta)}</span><span class="lec-voltear">↻ Toca para voltear</span></span>
+        <span class="cara dorso" aria-hidden="true"><span class="lec-ceja rosa">RESPUESTA</span>
+          <span class="lec-carta-texto">${H(t.respuesta)}</span><span class="lec-voltear">↻ Toca para volver</span></span>`;
       if (animar) { const mazo = cuerpo.querySelector('.lec-mazo'); mazo.classList.remove('gira'); void mazo.offsetWidth; mazo.classList.add('gira'); }
-      cuerpo.querySelectorAll('.lec-avance button').forEach((b, i) => {
-        b.classList.toggle('actual', i === est.carta);
-        b.classList.toggle('vista', est.vistas.has(i) && i !== est.carta);
+      cuerpo.querySelectorAll('.lec-puntitos button').forEach((b, i) => {
+        b.className = i === est.carta ? 'actual' : est.vistas.has(i) ? 'vista' : '';
         if (i === est.carta) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
       });
       cuerpo.querySelector('[data-ant]').disabled = est.carta === 0;
       cuerpo.querySelector('[data-sig]').textContent = est.carta === total - 1 ? 'IR A LA TRIVIA' : 'SIGUIENTE';
-      jukumari(est.volteada ? '¡Eso es! Léela otra vez en voz alta.' : 'Gira la tarjeta para memorizar la idea.',
-        est.volteada ? '¿La podría explicar con mis palabras?' : `La respuesta: ${recortar(rellenar(t.respuesta, m), 70)}`);
+      if (est.volteada) jukumari('¡Eso es! Léela otra vez en voz alta.', '¿La podría explicar con mis palabras?');
+      else jukumari('Gira la tarjeta. ¡Te servirá en la trivia!', est.carta < total - 1 ? `Faltan ${total - est.carta - 1} tarjetas más…` : '¡La última! Después, la trivia.');
     };
-    const mover = (i) => { est.carta = i; est.volteada = false; est.vistas.add(i); pintar(true); };
+    const mover = (i) => { est.carta = i; est.volteada = false; est.vistas.add(i); guardar(); pintar(true); };
     carta.addEventListener('click', () => { est.volteada = !est.volteada; pintar(false); });
-    cuerpo.querySelector('.lec-avance').addEventListener('click', (e) => { const b = e.target.closest('[data-c]'); if (b) mover(Number(b.dataset.c)); });
+    cuerpo.querySelector('.lec-puntitos').addEventListener('click', (e) => { const b = e.target.closest('[data-c]'); if (b) mover(Number(b.dataset.c)); });
     cuerpo.querySelector('[data-ant]').addEventListener('click', () => est.carta > 0 && mover(est.carta - 1));
-    cuerpo.querySelector('[data-sig]').addEventListener('click', () => (est.carta < total - 1 ? mover(est.carta + 1) : ir_a('trivia')));
+    cuerpo.querySelector('[data-sig]').addEventListener('click', () => (est.carta < total - 1 ? mover(est.carta + 1) : irA('trivia')));
+    est.vistas.add(est.carta);
     pintar(false);
+    conConsejos(['Toca la tarjeta para ver la respuesta.', 'Lee la pregunta y trata de responder antes de voltear.']);
   }
 
   // ── Trivia
+  // "juez" necesita la serie real (series.json); si no está, esa pregunta se salta
+  const preguntas = () => l.trivia.filter((q) => q.tipo !== 'juez' || d.serie);
   function pintarTrivia() {
-    const total = l.trivia.length;
-    est.respondida = false;
-    const q = l.trivia[est.pregunta];
+    const lista = preguntas(), total = lista.length;
+    if (est.pregunta >= total) { irA('meta'); return; }
+    const q = lista[est.pregunta];
+    let respondida = false;
     cuerpo.innerHTML = `
       <div class="lec-trivia-cabeza">
         <p class="lec-ceja">TRIVIA · PREGUNTA ${est.pregunta + 1} DE ${total}</p>
-        <span class="lec-copos" role="img" aria-label="${est.aciertos} aciertos de ${total}">${l.trivia.map((_, i) => `<span class="${i < est.aciertos ? 'lleno' : ''}">❄</span>`).join('')}</span>
+        <span class="lec-copos" role="img" aria-label="${est.aciertos} aciertos de ${total}">${lista.map((_, i) => `<span class="${i < est.aciertos ? 'lleno' : ''}">❄</span>`).join('')}</span>
       </div>
-      <h1 class="lec-titulo chico" tabindex="-1">${txt(q.pregunta)}</h1>
-      <div class="lec-opciones">
-        ${q.opciones.map((o, i) => `<button type="button" class="lec-opcion" data-i="${i}"><span class="letra">${LETRAS[i]}</span><span>${txt(o)}</span></button>`).join('')}
-      </div>
+      <h1 class="lec-titulo chico" tabindex="-1">${H(q.pregunta)}</h1>
+      <div class="lec-q"></div>
       <div class="lec-explica-fila">
         <p class="lec-explica" aria-live="polite"></p>
-        <button type="button" class="btn-apu" data-sig hidden>${est.pregunta === total - 1 ? 'VER MI RESULTADO' : 'SIGUIENTE'}</button>
+        <span class="lec-pie-der">
+          <button type="button" class="btn-apu secundario lec-pista" hidden>💡 PISTA</button>
+          <button type="button" class="btn-apu" data-sig hidden>${est.pregunta === total - 1 ? 'VER MI RESULTADO' : 'SIGUIENTE'}</button>
+        </span>
       </div>`;
-    const ops = [...cuerpo.querySelectorAll('.lec-opcion')];
+    const zona = cuerpo.querySelector('.lec-q');
+    const explica = cuerpo.querySelector('.lec-explica');
+    const botonPista = cuerpo.querySelector('.lec-pista');
+    const mostrarPista = () => {
+      if (!q.pista || explica.querySelector('.lec-pista-texto')) return;
+      explica.insertAdjacentHTML('beforeend', ` <span class="lec-pista-texto">💡 Pista: ${H(q.pista)}</span>`);
+      botonPista.hidden = true;
+      jukumari(l.jukumari.fallo, `Pista: ${q.pista}`);
+    };
+    botonPista.addEventListener('click', mostrarPista);
+
+    // Al responder: copos, explicación, Jukumari y (si falla) la pista
+    const responder = (bien, prefijo = '') => {
+      if (respondida) return;
+      respondida = true;
+      if (bien) { est.aciertos += 1; est.fallosSeguidos = 0; } else est.fallosSeguidos += 1;
+      cuerpo.querySelectorAll('.lec-copos span').forEach((c, k) => c.classList.toggle('lleno', k < est.aciertos));
+      cuerpo.querySelector('.lec-copos').setAttribute('aria-label', `${est.aciertos} aciertos de ${total}`);
+      explica.innerHTML = `<b class="${bien ? 'bien' : 'mal'}">${prefijo || (bien ? '¡Bien!' : 'Casi.')}</b> ${H(q.explicacion)}`;
+      const sig = cuerpo.querySelector('[data-sig]');
+      sig.hidden = false;
+      if (bien) jukumari(l.jukumari.acierto, est.pregunta < total - 1 ? 'Otra más…' : '¡Vamos a ver tu resultado!');
+      else {
+        jukumari(l.jukumari.fallo, q.pista ? 'Toca “Pista” si quieres una ayuda.' : '¡Así se aprende!');
+        if (q.pista) botonPista.hidden = false;
+        if (est.fallosSeguidos >= 2) mostrarPista(); // dos fallos seguidos: la pista aparece sola
+      }
+      est.pregunta += 1; guardar(); est.pregunta -= 1; // si sale ahora, vuelve a la siguiente pregunta
+      sig.focus();
+    };
+    cuerpo.querySelector('[data-sig]').addEventListener('click', () => {
+      est.pregunta += 1; guardar();
+      if (est.pregunta < total) { pintarTrivia(); cuerpo.scrollTop = 0; cuerpo.querySelector('h1')?.focus({ preventScroll: true }); }
+      else irA('meta');
+    });
+
+    const TIPOS = { opciones: triviaOpciones, pixeles: triviaOpciones, clasificar: triviaClasificar, ordenar: triviaOrdenar, juez: triviaJuez };
+    (TIPOS[q.tipo] ?? triviaOpciones)(q, zona, responder);
+    jukumari(est.pregunta === 0 ? 'Si fallas, te explico por qué. ¡Así se aprende!' : '¡Otra más! Tú puedes.', 'Lee todas las opciones antes de tocar…');
+    conConsejos(['Lee la pregunta otra vez, despacio.', 'Si dudas, piensa en las tarjetas que volteaste.']);
+  }
+
+  function triviaOpciones(q, zona, responder) {
+    const pix = q.tipo === 'pixeles' && Array.isArray(q.valores)
+      ? `<div class="lec-pixeles" role="img" aria-label="Píxeles: ${q.valores.join(', ')}">${q.valores.map((v) => `<span class="${v > 100 ? 'aviso' : v >= (q.umbral ?? 40) ? 'si' : 'no'}" style="--v:${Math.min(100, v)}">${v}</span>`).join('')}</div>` : '';
+    zona.innerHTML = `${pix}<div class="lec-opciones">${q.opciones.map((o, i) => `<button type="button" class="lec-opcion" data-i="${i}"><span class="letra">${LETRAS[i]}</span><span>${H(o)}</span></button>`).join('')}</div>`;
+    const ops = [...zona.querySelectorAll('.lec-opcion')];
     ops.forEach((b) => b.addEventListener('click', () => {
-      if (est.respondida) return;
-      est.respondida = true;
       const i = Number(b.dataset.i), bien = i === q.correcta;
-      if (bien) est.aciertos += 1;
       ops.forEach((x, j) => {
         x.disabled = true;
         if (j === q.correcta) { x.classList.add('correcta'); x.querySelector('.letra').textContent = '✓'; }
         else if (x === b) { x.classList.add('mal'); x.querySelector('.letra').textContent = '✕'; }
       });
-      cuerpo.querySelectorAll('.lec-copos span').forEach((c, k) => c.classList.toggle('lleno', k < est.aciertos));
-      cuerpo.querySelector('.lec-copos').setAttribute('aria-label', `${est.aciertos} aciertos de ${total}`);
-      cuerpo.querySelector('.lec-explica').innerHTML = `<b class="${bien ? 'bien' : 'mal'}">${bien ? '¡Bien!' : 'Casi.'}</b> ${txt(q.explicacion)}`;
-      const sig = cuerpo.querySelector('[data-sig]');
-      sig.hidden = false; sig.focus();
-      jukumari(bien ? l.jukumari.acierto : 'Si fallas, te explico por qué. ¡Así se aprende!', bien ? '' : `Pista: ${l.jukumari.fallo}`);
+      responder(bien);
     }));
-    cuerpo.querySelector('[data-sig]').addEventListener('click', () => {
-      if (est.pregunta < total - 1) { est.pregunta += 1; pintarTrivia(); cuerpo.querySelector('h1')?.focus({ preventScroll: true }); }
-      else ir_a('meta');
+  }
+
+  // Clasificar: toca una etiqueta y luego la escena (o el recorte) donde va
+  function triviaClasificar(q, zona, responder) {
+    const asignadas = q.escenas.map(() => null);
+    let elegida = null;
+    zona.innerHTML = `
+      <p class="lec-instruccion">Toca una etiqueta y luego ${q.escenas[0]?.img ? 'la foto' : 'el recorte'} donde va. Mira la forma, no solo el color.</p>
+      <div class="lec-escenas ${q.escenas[0]?.img ? '' : 'textos'}">${q.escenas.map((e, i) => `
+        <button type="button" class="lec-escena" data-e="${i}" aria-label="${e.img ? `Escena ${i + 1}` : esc(sinEtiquetas(e.texto))}: sin etiqueta">
+          ${e.img ? escena(e.img) : `<span class="lec-recorte-texto">${H(e.texto)}</span>`}
+          <span class="lec-escena-pie"><span>${e.img ? `Escena ${i + 1}` : ''}</span><b data-asig></b></span>
+        </button>`).join('')}</div>
+      <div class="lec-etiquetas" role="radiogroup" aria-label="Etiquetas">${q.etiquetas.map((t) => `<button type="button" role="radio" aria-checked="false" class="lec-etiqueta" data-t="${esc(t)}">${ICONO_ETIQUETA[t] ? `<span aria-hidden="true">${ICONO_ETIQUETA[t]}</span> ` : ''}${esc(t)}</button>`).join('')}</div>
+      <div class="lec-pie derecha"><button type="button" class="btn-apu" data-revisar disabled>REVISAR</button></div>`;
+    const etiquetas = [...zona.querySelectorAll('.lec-etiqueta')];
+    const escenas = [...zona.querySelectorAll('.lec-escena')];
+    const revisar = zona.querySelector('[data-revisar]');
+    etiquetas.forEach((b) => b.addEventListener('click', () => {
+      elegida = b.dataset.t;
+      etiquetas.forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+    }));
+    escenas.forEach((b, i) => b.addEventListener('click', () => {
+      if (!elegida) { jukumari('Primero toca una etiqueta de abajo.', 'Después, la escena donde va.'); return; }
+      asignadas[i] = elegida;
+      b.querySelector('[data-asig]').textContent = elegida;
+      b.classList.add('con-etiqueta');
+      b.setAttribute('aria-label', `${q.escenas[i].img ? `Escena ${i + 1}` : sinEtiquetas(q.escenas[i].texto)}: ${elegida}`);
+      revisar.disabled = asignadas.some((x) => !x);
+    }));
+    revisar.addEventListener('click', () => {
+      let ok = 0;
+      escenas.forEach((b, i) => {
+        const bien = asignadas[i] === q.escenas[i].correcta;
+        if (bien) ok += 1;
+        b.disabled = true;
+        b.classList.add(bien ? 'bien' : 'mal');
+        b.querySelector('[data-asig]').textContent = `${bien ? '✓' : '✕'} ${asignadas[i]}${bien ? '' : ` → ${q.escenas[i].correcta}`}`;
+      });
+      etiquetas.forEach((x) => { x.disabled = true; });
+      revisar.hidden = true;
+      responder(ok === q.escenas.length, `${ok} de ${q.escenas.length}.`);
     });
-    jukumari(est.pregunta === 0 ? 'Si fallas, te explico por qué. ¡Así se aprende!' : 'Otra más. ¡Tú puedes!', 'Lee todas las opciones antes de tocar…');
+  }
+
+  // Ordenar: arrastra (o usa ↑ ↓) y toca "Revisar"
+  function triviaOrdenar(q, zona, responder) {
+    const correcto = q.pasos;
+    let orden = mezclar(correcto.map((_, i) => i));
+    if (orden.every((x, i) => x === i)) orden = [...orden.slice(1), orden[0]];
+    let arrastrado = null;
+    zona.innerHTML = `<p class="lec-instruccion">Arrastra las tarjetas al orden correcto (o usa las flechas) y toca “Revisar”.</p>
+      <ol class="lec-orden"></ol><div class="lec-pie derecha"><button type="button" class="btn-apu" data-revisar>REVISAR</button></div>`;
+    const ol = zona.querySelector('.lec-orden');
+    const pintar = (revisado = false) => {
+      ol.innerHTML = orden.map((k, pos) => {
+        const bien = k === pos;
+        return `<li class="lec-paso-orden ${revisado ? (bien ? 'bien' : 'mal') : ''}" draggable="${!revisado}" data-pos="${pos}">
+          <span class="num">${pos + 1}</span><span class="txt">${H(correcto[k])}</span>
+          ${revisado ? `<span class="marca">${bien ? '✓' : `va en el ${k + 1}`}</span>`
+            : `<span class="flechas"><button type="button" data-sube="${pos}" aria-label="Subir" ${pos === 0 ? 'disabled' : ''}>↑</button><button type="button" data-baja="${pos}" aria-label="Bajar" ${pos === orden.length - 1 ? 'disabled' : ''}>↓</button></span>`}</li>`;
+      }).join('');
+    };
+    const mover = (de, a) => { const [x] = orden.splice(de, 1); orden.splice(a, 0, x); pintar(); };
+    // Tras mover, el foco sigue a la tarjeta (en la misma flecha si se puede)
+    const enfocar = (pos, prefiere) => {
+      const [a, b] = prefiere === 'sube' ? ['sube', 'baja'] : ['baja', 'sube'];
+      const boton = [ol.querySelector(`[data-${a}="${pos}"]`), ol.querySelector(`[data-${b}="${pos}"]`)].find((x) => x && !x.disabled);
+      boton?.focus();
+    };
+    ol.addEventListener('click', (e) => {
+      const s = e.target.closest('[data-sube]'), b = e.target.closest('[data-baja]');
+      if (s) { const p = Number(s.dataset.sube); mover(p, p - 1); enfocar(p - 1, 'sube'); }
+      if (b) { const p = Number(b.dataset.baja); mover(p, p + 1); enfocar(p + 1, 'baja'); }
+    });
+    ol.addEventListener('dragstart', (e) => { const li = e.target.closest('[data-pos]'); if (li) { arrastrado = Number(li.dataset.pos); e.dataTransfer.effectAllowed = 'move'; } });
+    ol.addEventListener('dragover', (e) => { if (arrastrado !== null) e.preventDefault(); });
+    ol.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const li = e.target.closest('[data-pos]');
+      if (li && arrastrado !== null) mover(arrastrado, Number(li.dataset.pos));
+      arrastrado = null;
+    });
+    pintar();
+    zona.querySelector('[data-revisar]').addEventListener('click', (e) => {
+      e.currentTarget.hidden = true;
+      pintar(true);
+      const ok = orden.filter((k, pos) => k === pos).length;
+      responder(ok === orden.length, ok === orden.length ? '¡Perfecto!' : `${ok} de ${orden.length}.`);
+    });
+  }
+
+  // Juez: 5 series de pura suerte (los mismos valores reales, en otro orden) + la real
+  function triviaJuez(q, zona, responder) {
+    const s = d.serie;
+    const real = s.valores.filter(Number.isFinite);
+    const suertes = Array.from({ length: 5 }, () => { let v; do v = mezclar(real); while (v.every((x, i) => x === real[i])); return v; });
+    const pos = Math.floor(Math.random() * 6);
+    const series = [...suertes.slice(0, pos), real, ...suertes.slice(pos)];
+    zona.innerHTML = `<p class="lec-instruccion">5 gráficos son suerte (los mismos valores, en otro orden) y 1 es tu serie real de ${s.desde}–${s.hasta}.</p>
+      <div class="lec-juez">${series.map((v, i) => `<button type="button" class="lec-mini-juez" data-i="${i}" aria-label="Gráfico ${LETRAS[i]}">${linea(v, 160, 56)}<span>${LETRAS[i]}</span></button>`).join('')}</div>`;
+    const bs = [...zona.querySelectorAll('.lec-mini-juez')];
+    bs.forEach((b) => b.addEventListener('click', () => {
+      const i = Number(b.dataset.i);
+      bs.forEach((x, j) => { x.disabled = true; if (j === pos) x.classList.add('real'); else if (x === b) x.classList.add('mal'); });
+      bs[pos].querySelector('span').textContent = `${LETRAS[pos]} · la real`;
+      responder(i === pos);
+    }));
   }
 
   // ── Meta
   function pintarMeta() {
-    const total = l.trivia.length;
-    const aprobo = est.aciertos >= APROBAR;
+    const total = preguntas().length;
+    const aprobo = est.aciertos >= Math.ceil(total * APROBAR);
     const ins = l.insignia ? insigniaPorId(l.insignia) : null;
-    const medalla = !ins
-      ? `<svg class="lec-sello" viewBox="0 0 200 220" role="img" aria-label="Sello: paso superado"><path d="M100 6 190 58v104l-90 52-90-52V58Z" fill="#0F2150" stroke="var(--dato-lluvia)" stroke-width="8"/><path d="M100 30 168 70v80l-68 40-68-40V70Z" fill="none" stroke="var(--rojo-apu)" stroke-width="4"/><path d="m62 112 26 26 52-56" fill="none" stroke="var(--nieve)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-      : ins.img ? `<img src="${esc(ins.img)}" alt="Insignia ${esc(ins.nombre)}">`
-        : '<span class="lec-hex-pendiente" role="img" aria-label="Insignia con dibujo pendiente">?</span>';
-    const nombre = !ins ? '¡Paso superado!' : ins.img ? ins.nombre : `${ins.nombre} (dibujo pendiente)`;
+    const medalla = ins?.img
+      ? `<img src="${esc(ins.img)}" alt="Insignia ${esc(ins.nombre)}">`
+      : `<svg class="lec-sello" viewBox="0 0 200 220" role="img" aria-label="Sello: lección superada"><path d="M100 6 190 58v104l-90 52-90-52V58Z" fill="#0F2150" stroke="var(--dato-lluvia)" stroke-width="8"/><path d="M100 30 168 70v80l-68 40-68-40V70Z" fill="none" stroke="var(--rojo-apu)" stroke-width="4"/><path d="m62 112 26 26 52-56" fill="none" stroke="var(--nieve)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    const nombre = ins ? ins.nombre : '¡Lección superada!';
     const ultimo = !siguiente;
     cuerpo.innerHTML = `
       <div class="lec-meta ${aprobo ? '' : 'sin-aprobar'}">
-        <p class="lec-ceja">${aprobo ? `LECCIÓN ${l.numero} COMPLETADA` : `LECCIÓN ${l.numero} · NECESITAS ${APROBAR} DE ${total}`} · ${esc(l.titulo.toUpperCase())}</p>
+        <p class="lec-ceja">${aprobo ? `LECCIÓN ${l.numero} COMPLETADA` : `LECCIÓN ${l.numero} · NECESITAS ${Math.ceil(total * APROBAR)} DE ${total}`}${bloque ? ` · BLOQUE ${esc(l.bloque)}` : ''}</p>
         <h1 class="lec-titulo grande" tabindex="-1">${aprobo ? '¡MISIÓN CUMPLIDA!' : '¡CASI LO LOGRAS!'}</h1>
         <div class="lec-medalla"><span class="lec-brillo" aria-hidden="true"></span>${medalla}</div>
         <h2 class="lec-medalla-nombre">${esc(nombre)}</h2>
-        <p class="lec-medalla-frase">${aprobo ? txt(l.jukumari.acierto) : 'Repasa la teoría y vuelve a intentarlo.'}</p>
-        <p class="lec-puntaje"><span class="lec-copos grandes" aria-hidden="true">${l.trivia.map((_, i) => `<span class="${i < est.aciertos ? 'lleno' : ''}">❄</span>`).join('')}</span><b>${est.aciertos} de ${total}</b></p>
+        <p class="lec-puntaje"><span class="lec-copos grandes" aria-hidden="true">${Array.from({ length: total }, (_, i) => `<span class="${i < est.aciertos ? 'lleno' : ''}">❄</span>`).join('')}</span><b>${est.aciertos} de ${total}</b></p>
+        ${aprobo ? `<div class="lec-sabes"><p class="lec-ceja verde">AHORA SABES</p><ul>${l.meta.ahoraSabes.map((x) => `<li>${H(x)}</li>`).join('')}</ul></div>` : ''}
         <div class="lec-pie centro">
           ${aprobo
             ? `<button type="button" class="btn-apu secundario" data-repetir>REPETIR TRIVIA</button>
-               <button type="button" class="btn-apu" data-seguir>${ultimo ? 'VER MI INFORME' : `IR A LA LECCIÓN ${siguiente.numero}`}</button>`
+               <button type="button" class="btn-apu" data-seguir>${ultimo ? '¡IR A LOS CASOS!' : `LECCIÓN ${siguiente.numero}: ${esc((siguiente.titulo_corto ?? siguiente.titulo).toUpperCase())}`}</button>`
             : `<button type="button" class="btn-apu secundario" data-teoria>VOLVER A LA TEORÍA</button>
                <button type="button" class="btn-apu" data-repetir>REPETIR TRIVIA</button>`}
         </div>
       </div>`;
-    cuerpo.querySelector('[data-repetir]').addEventListener('click', () => ir_a('trivia'));
-    cuerpo.querySelector('[data-teoria]')?.addEventListener('click', () => ir_a('teoria'));
-    cuerpo.querySelector('[data-seguir]')?.addEventListener('click', () => ir(ultimo ? 'casos' : `leccion/${siguiente.id}`));
-    jukumari(aprobo ? '¡Lo lograste, {apodo}!' : l.jukumari.fallo,
-      aprobo ? (ultimo ? 'Lo que viene: tu informe del caso' : `Lo que viene: ${siguiente.titulo}`) : '¿Qué parte me costó más?');
+    cuerpo.querySelector('[data-repetir]').addEventListener('click', () => irA('trivia'));
+    cuerpo.querySelector('[data-teoria]')?.addEventListener('click', () => { est.pagina = 0; irA('teoria'); });
+    cuerpo.querySelector('[data-seguir]')?.addEventListener('click', () => ir(ultimo || l.meta.abreCasos ? 'casos' : `leccion/${siguiente.id}`));
     if (aprobo) {
-      est.hechos.add('meta');
+      jukumari(l.jukumari.final, ultimo ? '¡A los casos!' : `Lo que viene: ${siguiente.titulo}`);
       echarConfeti();
       completarLeccion(l.id).catch(() => {});
       if (l.insignia) temporizadores.push(setTimeout(() => { if (vivo) darInsignia(l.insignia); }, 1600));
+    } else {
+      jukumari(l.jukumari.fallo, '¿Qué parte me costó más? Repaso y vuelvo.');
     }
+    conConsejos([]);
   }
 
   function echarConfeti() {
     const colores = ['var(--bandera-rojo)', 'var(--bandera-amarillo)', 'var(--bandera-verde)', 'var(--dato-lluvia)', 'var(--nieve)'];
-    const caja = $('.lec-confeti');
-    caja.replaceChildren(...Array.from({ length: 46 }, (_, i) => {
+    $('.lec-confeti').replaceChildren(...Array.from({ length: 46 }, (_, i) => {
       const s = document.createElement('i');
       const dur = 7 + Math.random() * 7;
       s.style.cssText = `left:${(8 + Math.random() * 62).toFixed(1)}%;background:${colores[i % colores.length]};animation-duration:${dur.toFixed(1)}s;animation-delay:-${(Math.random() * dur).toFixed(1)}s;--giro:${Math.round(Math.random() * 720 - 360)}deg;--dx:${((Math.random() - 0.5) * 8).toFixed(1)}cqw;width:${(5 + Math.random() * 6).toFixed(0)}px`;
@@ -391,20 +539,21 @@ export function montar(contenedor, params = []) {
     }));
   }
 
-  ir_a('teoria');
-  // Los datos llegan después: se vuelve a pintar el paso actual con las marcas llenas
-  Promise.all([cargarDatos(), leerProgreso().catch(() => ({}))]).then(([datos, p]) => {
+  // Arranque: la fase guardada; al entrar, el Jukumari saluda con jukumari.inicio
+  pintarCamino();
+  if (est.fase === 'teoria') pintarTeoria(true); else pintarFase();
+  listo.then(() => {
     if (!vivo) return;
-    d = datos; m = marcas(d, String(p.apodo || '').trim());
-    if (est.paso === 'teoria') ir_a('teoria');
-    else if (est.paso === 'meta') jukumari(est.aciertos >= APROBAR ? '¡Lo lograste, {apodo}!' : l.jukumari.fallo, $('[data-piensa]').textContent);
+    // Con los datos y el perfil, se repinta lo que muestra marcas o datos (sin perder la respuesta en curso)
+    if (est.fase === 'teoria') { const dice = $('[data-dice]').textContent; pintarTeoria(); $('[data-dice]').textContent = rellenar(dice, m); }
+    else if (est.fase === 'tarjetas') pintarTarjetas();
   });
 }
-
-function recortar(t, n) { return t.length > n ? `${t.slice(0, n).trimEnd()}…` : t; }
 
 export function desmontar() {
   vivo = false;
   temporizadores.forEach(clearTimeout);
   temporizadores = [];
+  quitar.forEach((f) => f());
+  quitar = [];
 }

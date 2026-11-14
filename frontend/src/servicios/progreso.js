@@ -5,7 +5,7 @@ import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firest
 import { auth, db } from './firebase.js';
 
 const CLAVE_LOCAL = 'apu-progreso';
-const VACIO = { apodo: '', avatar: '', lecciones: [], casos: [], insignias: [] };
+const VACIO = { apodo: '', avatar: '', lecciones: [], casos: [], insignias: [], hipotesis: '' };
 
 function leerLocal() {
   try { return { ...VACIO, ...JSON.parse(localStorage.getItem(CLAVE_LOCAL) || '{}') }; } catch { return { ...VACIO }; }
@@ -44,9 +44,11 @@ async function guardar(cambios) {
     await setDoc(ref, {
       apodo: String(datos.apodo || 'Detective').slice(0, 20),
       avatar: String(datos.avatar || '').slice(0, 20), // id de contenido/avatares.js
-      lecciones: datos.lecciones.slice(0, 9),   // mismos topes que firebase/firestore.rules
+      lecciones: datos.lecciones.slice(0, 10),  // mismos topes que firebase/firestore.rules
       casos: datos.casos.slice(0, 3),
       insignias: datos.insignias.slice(0, 15),
+      // "bajó|Muy seguro" (lección 5 → lección 10). Solo si hay: así las reglas viejas no rechazan lo demás
+      ...(datos.hipotesis ? { hipotesis: String(datos.hipotesis).slice(0, 40) } : {}),
       actualizado: serverTimestamp()
     });
   } catch (e) {
@@ -72,6 +74,24 @@ export function guardarPerfil({ apodo, avatar } = {}) {
 export async function completarLeccion(id) {
   const p = leerLocal();
   return guardar({ lecciones: [...new Set([...p.lecciones, id])] });
+}
+
+// Hipótesis de la lección 5 ("bajó" / "no cambió" / "subió" y qué tan seguro): va al perfil y la usa la lección 10
+export function guardarHipotesis(opcion, confianza = '') {
+  return guardar({ hipotesis: [opcion, confianza].filter(Boolean).join('|') });
+}
+
+// Por dónde va cada lección (fase, página, chequeos, pregunta y aciertos de la trivia): solo en el navegador
+const CLAVE_AVANCE = 'apu-lecciones-avance';
+export function leerAvance(id) {
+  try { const t = JSON.parse(localStorage.getItem(CLAVE_AVANCE) || '{}'); return t && typeof t[id] === 'object' ? t[id] : null; } catch { return null; }
+}
+export function guardarAvance(id, avance) {
+  try {
+    const t = JSON.parse(localStorage.getItem(CLAVE_AVANCE) || '{}') || {};
+    t[id] = avance;
+    localStorage.setItem(CLAVE_AVANCE, JSON.stringify(t));
+  } catch { /* modo privado */ }
 }
 // Casos resueltos: cada uno se guarda como "id|AAAA-MM-DD" (el día en que se resolvió). Es un texto de la
 // misma lista "casos" de siempre (firestore.rules: lista de hasta 3), así que las reglas no cambian.
@@ -115,7 +135,7 @@ export async function verGlaciar(id, meta = 11) {
 }
 
 export async function borrarDatosUsuario() {
-  try { localStorage.removeItem(CLAVE_LOCAL); localStorage.removeItem(CLAVE_GLACIARES); } catch {}
+  try { localStorage.removeItem(CLAVE_LOCAL); localStorage.removeItem(CLAVE_GLACIARES); localStorage.removeItem(CLAVE_AVANCE); } catch {}
   const ref = refUsuario();
   if (ref) await deleteDoc(ref);
 }
