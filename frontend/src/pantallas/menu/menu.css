@@ -54,7 +54,7 @@
 @keyframes menuDer { from { opacity: 0; translate: 4cqh 0; } to { opacity: 1; translate: 0 0; } }
 @keyframes menuIzq { from { opacity: 0; translate: -4cqh 0; } to { opacity: 1; translate: 0 0; } }
 @keyframes menuAbajo { from { opacity: 0; translate: 0 3cqh; } to { opacity: 1; translate: 0 0; } } /* la usan el recuadro de la montaña y el carrusel */
-.entra-abajo { animation: menuAbajo .8s cubic-bezier(.2, .8, .2, 1) .3s both; }
+.entra-abajo { animation: menuAbajo .8s cubic-bezier(.2, .8, .2, 1) .3s backwards; } /* sin "both": al terminar no fija la opacidad (el fundido de la vista 3D la cambia) */
 .solo-lector { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* ---------- Órbita y planeta (se corren a la izquierda al abrir la pestaña) ---------- */
@@ -115,7 +115,9 @@
 .menu-titulo { position: absolute; z-index: 3; top: 2.4cqh; left: var(--riel-der); right: calc(var(--margen) + var(--borde-der) + 76px); text-align: center; pointer-events: none; transition: right .6s cubic-bezier(.2, .8, .2, 1), opacity .3s; }
 .menu-modo { margin: 0; font: 400 clamp(9px, 1.5cqh, 14px) var(--letra-titulo); letter-spacing: .32em; color: #A9C8FF; }
 .menu-modo .barras { color: var(--rojo-apu); font-style: italic; letter-spacing: -.1em; }
-.menu-h1 { margin: .8cqh 0 0; font: 400 clamp(15px, 4cqh, 38px) / 1.15 var(--letra-titulo); letter-spacing: .08em; text-wrap: balance; }
+/* Una sola línea: el tamaño sale del ancho libre entre el riel y las capas (el título mide ~31 em) */
+.menu-h1 { margin: .8cqh 0 0; font: 400 clamp(10px, min(4cqh, calc((100cqw - var(--riel-der) - var(--margen) - var(--borde-der) - 76px) / 33)), 38px) / 1.15 var(--letra-titulo); letter-spacing: .08em; white-space: nowrap; }
+.menu-modo, .menu-pista { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .menu-h1 b { font-weight: 700; }
 /* Brillo que recorre el título una sola vez al entrar */
 .menu-h1 .brillo {
@@ -306,7 +308,12 @@
 .menu-volver:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
 /* Con la vista de la montaña, la pestaña y el botón de capas se esconden */
 .pantalla-menu.con-montana .menu-pestana,
-.pantalla-menu.con-montana .capas,
+.pantalla-menu.con-montana .capas { display: none; }
+/* Título, subtítulo y carrusel: solo en la vista del planeta. En la vista 3D se van con un fundido
+   (visibility cambia al final del fundido) y vuelven igual con "Volver al planeta" */
+.menu-titulo, .menu-carrusel { transition: right .6s cubic-bezier(.2, .8, .2, 1), opacity .35s ease, visibility 0s linear 0s; }
+.pantalla-menu.con-montana .menu-titulo,
+.pantalla-menu.con-montana .menu-carrusel { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .35s ease, visibility 0s linear .35s; }
 
 /* ---------- Panel de datos y máquina del tiempo de la vista de la montaña ---------- */
 .menu-panel { position: absolute; z-index: 5; right: 2.6cqh; top: 11.4cqh; bottom: var(--carrusel-arriba); width: var(--ancho-panel); padding: 2.6cqh; border-radius: 2.2cqh; display: flex; flex-direction: column; gap: 1.6cqh; overflow-y: auto; }
@@ -379,7 +386,23 @@
   .pantalla-menu { --ancho-pestana: 50cqw; }
   .pantalla-menu.con-pestana { --diam: min(92cqh, var(--libre)); --planeta-arriba: calc((100cqh - var(--diam)) / 2); }
   .pantalla-menu { --arriba: 62px; --abajo: 96px; }
-  .pantalla-menu.con-pestana .menu-titulo { opacity: 0; } /* con la ficha abierta no entra */
+  .pantalla-menu.con-pestana .menu-titulo { opacity: 0; } /* con la ficha abierta no entran */
+  .pantalla-menu.con-pestana .menu-carrusel { opacity: 0; visibility: hidden; }
+  .menu-riel { gap: 1cqh; padding: 1.2cqh 0; }
+  .riel-item { gap: 2px; font-size: 10px; }
+  .menu-h1 { margin-top: 2px; }
+  .menu-pista { margin-top: 2px; font-size: 11px; }
+  .capas-circulo { width: 46px; height: 46px; }
+  .capas-op .circulo { width: 44px; height: 44px; }
+  .capas-lista, .capas-lista > div { gap: 5px; }
+  /* Tarjetas horizontales: foto a la izquierda */
+  .tarjeta-glaciar { flex-direction: row; width: 168px; }
+  .tarjeta-glaciar.elegida { width: 190px; }
+  .tg-foto { flex: none; width: 38%; height: 100%; }
+  .tg-caso { left: 3px; top: 3px; padding: 1px 3px; font-size: 6.5px; }
+  .tg-texto { flex: 1; justify-content: center; padding: 4px 7px; }
+  .tg-nombre { font-size: 12px; }
+  .tg-lugar, .tg-ver { font-size: 10px; }
   .pestana-portada { min-height: 104px; }
   .menu-panel .grafico svg text { font-size: 15.5px; } /* el panel mide 260 px: 15,5 unidades = 12 px */
   .menu-panel select { font-size: 12px; }
@@ -398,15 +421,15 @@
 
 /* ---------- Celular vertical: barra inferior con ícono y nombre; la ficha sube desde abajo ---------- */
 @media (orientation: portrait) and (max-width: 600px) {
-  .pantalla-menu { --barra: calc(66px + env(safe-area-inset-bottom)); --riel-der: var(--margen); --margen: 10px; --arriba: 138px; --abajo: calc(var(--barra) + 136px); --ancho-pestana: 0px; }
+  .pantalla-menu { --barra: calc(66px + env(safe-area-inset-bottom)); --riel-der: var(--margen); --margen: 10px; --arriba: 162px; --abajo: calc(var(--barra) + 136px); --ancho-pestana: 0px; }
   .pantalla-menu.con-pestana { --borde-der: 0px; }
   .menu-logo { left: 12px; top: 10px; }
   .logo-btn img { height: 44px; }
   .menu-logo .separador { display: none; }
   .menu-arriba-der { top: 8px; right: 10px; }
-  .menu-titulo { top: 62px; left: 12px; right: 12px; }
+  .menu-titulo { top: 92px; left: 12px; right: 12px; }
   .menu-modo { font-size: 9px; }
-  .menu-h1 { margin-top: 4px; font-size: 17px; }
+  .menu-h1 { margin-top: 4px; font-size: calc((100cqw - 24px) / 32); }
   .menu-pista { margin-top: 4px; font-size: 12px; }
   .menu-riel {
     left: 0; right: 0; top: auto; bottom: 0; width: auto; height: var(--barra); padding: 6px 8px env(safe-area-inset-bottom);

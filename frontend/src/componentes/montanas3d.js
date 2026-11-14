@@ -317,6 +317,9 @@ async function irAPico(viewer, region, i, duracion = 2.5) {
   vista.pico = i;
   vista.alElegirPico?.(i);
   const scene = viewer.scene;
+  // Solo la etiqueta del pico elegido: la del anterior se borra (los puntos de los demás siguen)
+  vista.fuentePicos?.entities.values.forEach((e) => { if (e.label) e.label.show = e.properties?.picoIndice?.getValue?.() === i; });
+  scene.requestRender();
   const f = { ...FRENTE_DEFECTO, ...region.frente };
   const pedido = ++vista.pedidoPico;
   await vista.relieveListo; // para medir el suelo hace falta saber si hay relieve
@@ -477,6 +480,7 @@ function aplicarModoMontana(viewer, region, fecha, glaciar) {
   // Letra grande y poca reducción con la distancia: se leen de cerca y de lejos.
   const fuenteDatos = new Cesium.CustomDataSource('montanas3d-picos');
   viewer.dataSources.add(fuenteDatos);
+  vista.fuentePicos = fuenteDatos;
   region.picos?.forEach(({ n, h, lat, lon }, i) => {
     fuenteDatos.entities.add({
       id: `montanas3d-pico-${i}`,
