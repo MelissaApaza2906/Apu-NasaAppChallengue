@@ -3,7 +3,7 @@
 // Vive en una capa fija detrás de #app; las pantallas de los casos tienen fondo transparente.
 //   planeta()             el globo girando lento (archivo, caso resuelto) · volarA(lat, lon) · marcadores(lista)
 //   montana(caso, op)     la vista de cerca de la cordillera (relieve e imagen de la lupa: vista-realista.js)
-//   recuadros(caso, cual) el recuadro de la escena como entidad Cesium
+//   escenaEntrar/escenaElegir/escenaSalir  los recuadros grande y medio y los contornos GLIMS (capas-escena.js)
 //   nieve(caso, fechas)   la capa de nieve MODIS de NASA GIBS del primer día de la lista con imagen
 //   captura()             la foto del canvas (para el informe)
 // Sin WebGL, sin token de Cesium o si Cesium falla: montana() devuelve false y la pantalla usa su foto.
@@ -17,10 +17,13 @@ import { CAPAS, proveedor } from './nasa-gibs.js';
 import { CESIUM_TOKEN } from './config.js';
 import { GLACIARES } from '../contenido/glaciares.js';
 import { registrarEscena3d } from './escena3d-estado.js';
+import { CAJAS, dibujarBorde, dibujarGlims, limpiarEscena } from '../componentes/casos/capas-escena.js';
 
 const GIBS = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/wmts.cgi';
 let capaDom = null, globo = null, vr = null, enMontana = false;
-let entidades = [], recuadro = [], capaNieve = null, orbita = null, girar = false, quitarPre = null, quitarToque = null;
+// sinIon: Cesium ion no dio el relieve (token vencido, sin cuota, 403…): la montaña pasa a la foto de respaldo
+let sinIon = false, ultimo = null;
+let entidades = [], capaNieve = null, orbita = null, girar = false, quitarPre = null, quitarToque = null;
 const sinMovimiento = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function asegurar() {
@@ -47,7 +50,7 @@ function asegurar() {
     quitarToque = () => v.canvas.removeEventListener('pointerdown', parar);
   }
   registrarEscena3d(() => api.apagar());
-  if (import.meta.env.DEV) window.__escena3d = api;
+  if (import.meta.env.DEV) { window.__escena3d = api; window.__escena3dViewer = () => viewer(); } // para las pruebas
   return globo;
 }
 
@@ -62,7 +65,7 @@ function clases(extra) {
 
 function limpiarMontana() {
   const v = viewer();
-  recuadro.forEach((e) => v?.entities.remove(e)); recuadro = [];
+  if (v) limpiarEscena(v);
   if (capaNieve && v) v.imageryLayers.remove(capaNieve, true);
   capaNieve = null;
   orbita = null;
@@ -74,6 +77,7 @@ function salirMontana() {
   limpiarMontana();
   try { vr?.restaurar(); } catch (e) { console.error(e); }
   vr = null;
+  if (v && !v.scene.terrainProvider) v.scene.terrainProvider = new Cesium.EllipsoidTerrainProvider(); // nunca sin terreno
   enMontana = false;
   document.body.classList.remove('modo-montana', 'escena3d-montana');
   if (v) {
@@ -122,13 +126,26 @@ export const api = {
     capaDom.hidden = false;
     const v = viewer();
     const region = regionDe(caso);
-    if (!v || !CESIUM_TOKEN || !region) { capaDom.style.setProperty('--foto', `url(${api.foto(caso)})`); clases(`foto ${clase}`); return false; }
+    ultimo = { caso, op: { girar: gira, interactivo, clase, frente } };
+    if (!v || !CESIUM_TOKEN || !region || sinIon) { capaDom.style.setProperty('--foto', `url(${api.foto(caso)})`); clases(`foto ${clase}`); return false; }
     v.useDefaultRenderLoop = true;
     if (!enMontana) {
       enMontana = true;
       document.body.classList.add('modo-montana', 'escena3d-montana'); // el globo deja de mover la cámara
       entidades.forEach((e) => v.entities.remove(e)); entidades = [];
+      // Si el relieve de Cesium ion todavía no llegó (entrar directo a un caso), el globo no tiene terreno y
+      // no dibuja nada; en modo montaña su respaldo no actúa. Se pone el elipsoide liso y vista-realista
+      // pide el relieve real por su cuenta.
+      if (!v.scene.terrainProvider) v.scene.terrainProvider = new Cesium.EllipsoidTerrainProvider();
       try { vr = aplicarVistaRealista(v, { regionId: caso.glaciar, lon: region.lon, creditos: capaDom.querySelector('.escena3d-creditos-cesium') }); } catch (e) { console.warn(e); }
+      // Sin relieve, la montaña sería un planeta liso y borroso: mejor la foto de la cordillera (como sin token)
+      vr?.relieveListo?.then((r) => {
+        if (r !== 'sin' || !enMontana || !ultimo) return;
+        console.info('APU: Cesium ion no dio el relieve; la montaña usa la foto de respaldo.');
+        sinIon = true;
+        salirMontana();
+        api.montana(ultimo.caso, ultimo.op);
+      });
       v.scene.requestRenderMode = false;
     }
     clases(`montana ${clase}`);
@@ -150,22 +167,31 @@ export const api = {
     else v.camera.flyToBoundingSphere(new Cesium.BoundingSphere(target, 1), { offset: hpr, duration: 2.4, complete: fin, cancel: fin });
     return true;
   },
-  // El recuadro de la escena: 'grande' (la caja de nieve_regiones.js). Medio y GLIMS: sin geometría en el repo.
-  recuadros(caso, cual = 'grande') {
-    const v = viewer(); if (!v || !enMontana) return;
-    recuadro.forEach((x) => v.entities.remove(x)); recuadro = [];
-    const [o, s, e, n] = caso.caja;
-    const elegido = cual === 'grande';
-    recuadro.push(v.entities.add({
-      polyline: {
-        positions: Cesium.Cartesian3.fromDegreesArray([o, s, e, s, e, n, o, n, o, s]),
-        clampToGround: true, width: elegido ? 5 : 2.5,
-        material: elegido ? new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.25, color: Cesium.Color.WHITE })
-          : new Cesium.PolylineDashMaterialProperty({ color: Cesium.Color.WHITE.withAlpha(0.7), dashLength: 16 })
-      }
-    }));
-    if (elegido && orbita) { orbita.hpr.range = Math.max(orbita.hpr.range, (e - o) * 111_000 * 1.25); orbita.hpr.pitch = Cesium.Math.toRadians(-45); }
+  // La pista Escena (componentes/casos/capas-escena.js): grande punteado blanco, medio ámbar y GLIMS.
+  // Devuelve { medio, glims } (qué se pudo dibujar).
+  async escenaEntrar(caso) {
+    const v = viewer(); if (!v || !enMontana) return { medio: false, glims: false };
+    const cajas = CAJAS[caso.id] ?? {};
+    dibujarBorde(v, cajas.grande ?? caso.caja, '#F2F4F8', 'caja-grande', true);
+    if (cajas.medio) dibujarBorde(v, cajas.medio, '#F2B90C', 'caja-medio');
+    const glims = await dibujarGlims(v, caso.id);
+    return { medio: Boolean(cajas.medio), glims: Boolean(glims) };
   },
+  // Elegir un recuadro: su borde se resalta y la cámara vuela a encuadrarlo
+  escenaElegir(caso, cual) {
+    const v = viewer(); if (!v || !enMontana) return;
+    const cajas = CAJAS[caso.id] ?? {};
+    const grande = cajas.grande ?? caso.caja;
+    dibujarBorde(v, grande, '#F2F4F8', 'caja-grande', cual !== 'grande');
+    if (cajas.medio) dibujarBorde(v, cajas.medio, '#F2B90C', 'caja-medio', cual !== 'medio');
+    const caja = cual === 'medio' && cajas.medio ? cajas.medio : grande;
+    orbita = null; girar = false;
+    v.camera.cancelFlight(); // si la montaña todavía estaba volando, su vuelo termina aquí
+    orbita = null;
+    v.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+    v.camera.flyTo({ destination: Cesium.Rectangle.fromDegrees(...caja), duration: sinMovimiento() ? 0 : 1.5 });
+  },
+  escenaSalir() { const v = viewer(); if (v) limpiarEscena(v); },
   // Capa de nieve MODIS (GIBS): el primer día de `fechas` con imagen sobre la cordillera. Devuelve el día usado o null.
   async nieve(caso, fechas) {
     const v = viewer(); if (!v || !enMontana) return null;

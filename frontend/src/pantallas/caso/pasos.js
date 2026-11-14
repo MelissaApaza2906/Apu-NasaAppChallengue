@@ -2,9 +2,11 @@
 // ctx: { caso, datos (servicios/casos-datos.js), est, juku, escena, ceja(), pie(), conectarPie(), completar(k, elecciones) }
 // Ayuda del Jukumari: juku.decir() habla solo con ayuda 'con'; juku.pista() da el texto del botón "💡 Pistas" ('poca').
 import { ir } from '../../router.js';
-import { MESES_CORTOS, MESES_NOMBRES } from '../../contenido/casos.js';
+import { MESES_CORTOS, MESES_NOMBRES, recortesDe } from '../../contenido/casos.js';
 import { GLACIARES, HISTORIAS, historiaDe } from '../../contenido/glaciares.js';
-import { completarCaso } from '../../servicios/progreso.js';
+import { completarCaso, ganarInsignia } from '../../servicios/progreso.js';
+import { pixelesDeCaja } from '../../servicios/casos-datos.js';
+import { CAJAS } from '../../componentes/casos/capas-escena.js';
 import { esc, fmt, fmtP, miles, rumboDatos, ICONO_RUMBO, sinMovimiento } from './comun.js';
 
 const TIPOS = { dato: ['DATO', 'verde'], aclarar: ['HAY QUE ACLARAR', 'amarillo'], suposicion: ['SUPOSICIÓN', 'rojo'] };
@@ -29,7 +31,7 @@ export const PASOS = [
   // ── 0 · Expediente: recortes con fuente para clasificar, la misión, la sospecha y la historia
   (ctx) => {
     const { caso, cuerpo, juku, est } = ctx;
-    const recs = caso.recortes ?? [];
+    const recs = recortesDe(caso); // 01: los de la lección 5 · 02–11: los de su historia con fuente (todos DATO)
     const elegidos = recs.map((_, i) => est.elecciones.recortes?.[i] ?? null);
     const g = GLACIARES.find((x) => x.id === caso.glaciar);
     const historia = HISTORIAS[caso.id] ?? historiaDe(g);
@@ -138,11 +140,16 @@ export const PASOS = [
     ctx.escena?.montana(caso, { girar: true, clase: 'oscura' });
   },
 
-  // ── 2 · Escena: la montaña 3D con los recuadros
+  // ── 2 · Escena: la montaña 3D con los recuadros (componentes/casos/capas-escena.js)
+  //   Medio: se activa si hay caja medio Y series.json trae "medio". Solo glaciares: si hay contornos GLIMS
+  //   Y series.json trae "glaciares". Si falta alguno, "datos en camino".
   (ctx) => {
     const { caso, cuerpo, juku, est, datos } = ctx;
+    const cajas = CAJAS[caso.id] ?? {};
+    let hayGlims = false;
+    const disponible = (e) => e === 'grande' || (e === 'medio' && Boolean(cajas.medio && datos.escenas.medio)) || (e === 'glaciares' && hayGlims && Boolean(datos.escenas.glaciares));
     let escena = est.elecciones.escena ?? 'grande';
-    if (!datos.escenas[escena]) escena = 'grande';
+    if (escena !== 'grande' && !datos.escenas[escena]) escena = 'grande';
     const nombre = { grande: 'Grande', medio: 'Medio', glaciares: 'Solo glaciares' };
     cuerpo.innerHTML = `
       <p class="caso-ceja">${esc(ctx.ceja('PISTA 2 · ESCENA'))}</p>
@@ -154,29 +161,43 @@ export const PASOS = [
       </div>
       <div class="escena-botones" role="radiogroup" aria-label="Recuadro">
         <button type="button" role="radio" data-e="grande">Grande</button>
-        ${datos.tieneMedio ? `<button type="button" role="radio" data-e="medio" ${datos.escenas.medio ? '' : 'disabled'}>Medio${datos.escenas.medio ? '' : ' · datos en camino'}</button>` : ''}
-        <button type="button" role="radio" data-e="glaciares" ${datos.escenas.glaciares ? '' : 'disabled'}>Solo glaciares${datos.escenas.glaciares ? ' · GLIMS' : ' · datos en camino'}</button>
+        ${cajas.medio ? '<button type="button" role="radio" data-e="medio">Medio</button>' : ''}
+        <button type="button" role="radio" data-e="glaciares">Solo glaciares</button>
         <small data-fuente3d>Montaña 3D real (Cesium)</small>
       </div>
       ${ctx.pie('SIGUIENTE: TIEMPO')}`;
     const pintar = () => {
-      cuerpo.querySelectorAll('[data-e]').forEach((b) => { b.setAttribute('aria-pressed', String(b.dataset.e === escena)); b.setAttribute('aria-checked', String(b.dataset.e === escena)); b.textContent = `${b.dataset.e === escena ? '✓ ' : ''}${b.textContent.replace(/^✓ /, '')}`; });
+      if (!disponible(escena)) escena = 'grande';
+      cuerpo.querySelectorAll('[data-e]').forEach((b) => {
+        const e = b.dataset.e, ok = disponible(e), elegido = e === escena;
+        b.disabled = !ok;
+        b.setAttribute('aria-pressed', String(elegido)); b.setAttribute('aria-checked', String(elegido));
+        b.textContent = `${elegido ? '✓ ' : ''}${nombre[e]}${ok ? (e === 'glaciares' ? ' · GLIMS' : '') : ' · datos en camino'}`;
+      });
       const s = datos.escenas[escena];
-      cuerpo.querySelector('[data-rotulo]').textContent = escena === 'grande' ? `GRANDE · ≈${miles(s.pixeles)} PÍXELES` : `${nombre[escena].toUpperCase()} · ${s.anios.length} AÑOS`;
-      ctx.escena?.recuadros(caso, escena);
+      const px = escena === 'grande' ? s.pixeles : escena === 'medio' ? pixelesDeCaja(cajas.medio) : null;
+      cuerpo.querySelector('[data-rotulo]').textContent = px ? `${nombre[escena].toUpperCase()} · ≈${miles(px)} PÍXELES` : `${nombre[escena].toUpperCase()} · ${s.anios.length} AÑOS`;
       const real = s.stats?.p < 0.05;
       juku.decir(escena === 'grande' ? (real ? 'El grande diluye la señal… ¡y aun así se nota!' : 'El grande diluye la señal: mira bien.') : 'Más ajustado: casi todo es hielo.', '¿Qué meses vamos a comparar?');
     };
-    cuerpo.querySelectorAll('[data-e]').forEach((b) => b.addEventListener('click', () => { if (!b.disabled) { escena = b.dataset.e; pintar(); } }));
+    cuerpo.querySelectorAll('[data-e]').forEach((b) => b.addEventListener('click', () => {
+      if (b.disabled) return;
+      escena = b.dataset.e;
+      pintar();
+      ctx.escena?.escenaElegir(caso, escena); // resalta su borde y vuela a encuadrarlo
+    }));
     const hay3d = ctx.escena?.montana(caso, { girar: false, interactivo: true, clase: 'clara' });
-    if (hay3d) document.body.classList.add('escena3d-interactiva');
-    else { cuerpo.querySelector('[data-ayuda3d]').textContent = 'Foto de la cordillera (sin 3D)'; cuerpo.querySelector('[data-fuente3d]').textContent = 'Foto de respaldo'; }
-    ctx.alSalir(() => document.body.classList.remove('escena3d-interactiva'));
+    if (hay3d) {
+      document.body.classList.add('escena3d-interactiva');
+      // Al entrar: grande punteado, medio ámbar y los contornos GLIMS (si el archivo existe)
+      ctx.escena.escenaEntrar(caso).then((r) => { if (!ctx.vivo()) return; hayGlims = r.glims; pintar(); });
+    } else { cuerpo.querySelector('[data-ayuda3d]').textContent = 'Foto de la cordillera (sin 3D)'; cuerpo.querySelector('[data-fuente3d]').textContent = 'Foto de respaldo'; }
+    const salir = () => { document.body.classList.remove('escena3d-interactiva'); ctx.escena?.escenaSalir(); };
+    ctx.alSalir(salir);
     pintar();
     juku.pista('El recuadro grande mete roca y pasto que no cambian: la señal se diluye. Si hay datos, el ajustado a los glaciares la muestra más fuerte.');
-    ctx.conectarPie(() => { document.body.classList.remove('escena3d-interactiva'); ctx.completar(2, { escena }); });
+    ctx.conectarPie(() => { salir(); ctx.completar(2, { escena }); });
   },
-
   // ── 3 · Tiempo: anillo de 12 meses (la ventana resaltada) + los años
   (ctx) => {
     const { caso, cuerpo, juku, est, datos } = ctx;
@@ -409,6 +430,7 @@ export const PASOS = [
       try { if (foto) sessionStorage.setItem(`apu-informe-foto-${caso.id}`, foto); } catch { /* sin espacio: el informe usa la foto de respaldo */ }
       ctx.est.resuelto = true; ctx.est.veredicto = veredicto; ctx.est.pista = 7;
       completarCaso(caso.id, veredicto).catch(() => {});
+      ganarInsignia(`guardian-${caso.id}`).catch(() => {}); // "Guardián de …" (contenido/insignias.js); la anima la pantalla de caso resuelto
       ir(`caso/${caso.id}/resuelto`);
     });
     ctx.escena?.montana(caso, { girar: true, clase: 'desenfocada' });

@@ -6,6 +6,8 @@
 // Desbloqueo: el 01 al terminar las 10 lecciones; resolver un caso abre los 2 siguientes.
 // Los números (serie, pendiente, p, pruebas) se LEEN de los JSON reales (servicios/casos-datos.js).
 
+import { HISTORIAS } from './glaciares.js';
+
 const c = (numero, id, nombre, lugar, ayuda, glaciar, caja, meses, extra = {}) => ({
   id, numero, nombre, lugar, ayuda, glaciar, caja, meses,
   exp: String(numero).padStart(2, '0'),
@@ -43,6 +45,22 @@ export const CASOS = [
 ];
 
 export const casoPorId = (id) => CASOS.find((x) => x.id === id) ?? null;
+
+// Recortes del expediente: el caso 01 conserva los de la lección 5; los demás salen de HISTORIAS
+// (contenido/glaciares.js), solo los que tienen fuente y todos con el sello DATO. No se inventan suposiciones.
+export function recortesDe(caso) {
+  if (!caso) return [];
+  if (caso.id === 'cordillera-real') return caso.recortes ?? [];
+  const h = HISTORIAS[caso.id];
+  if (!h) return [];
+  const linea = h.linea
+    .filter((x) => x.fuente)
+    .map((x) => ({ cuando: x.cuando, texto: x.texto, fuente: x.fuente, tipo: 'dato' }));
+  const grande = h.datoGrande
+    ? [{ cuando: 'Dato clave', texto: `${h.datoGrande.numero} ${h.datoGrande.unidad} ${h.datoGrande.texto}`, fuente: h.datoGrande.fuente, tipo: 'dato' }]
+    : [];
+  return [...linea, ...grande];
+}
 
 // Las 7 estrellas de la constelación (pasos 1–5 del Dr. Aker: variable, región, periodo, serie, ¿real?)
 export const PISTAS = [

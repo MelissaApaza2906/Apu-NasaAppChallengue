@@ -83,9 +83,9 @@ export function cargarDatosCaso(caso) {
       medio: series ? conStats(serieDeCombo(comboDe('medio'))) : null,
       glaciares: series ? conStats(serieDeCombo(comboDe('glaciares'))) : null
     };
-    // Sin recuadro medio propio (nieve_regiones.js: solo la Cordillera Real lo tiene) → se oculta su botón
-    const tieneMedio = caso.id === 'cordillera-real';
-    if (!tieneMedio) escenas.medio = undefined;
+    // Si la región tiene caja medio la decide la pista Escena (componentes/casos/capas-escena.js → CAJAS);
+    // aquí solo se dice si series.json trae la serie. (No se importa capas-escena: cargaría Cesium en las lecciones.)
+    const tieneMedio = Boolean(escenas.medio);
 
     // Las 5 pruebas
     const pr = new Map((Array.isArray(pruebasJ?.pruebas) ? pruebasJ.pruebas : []).map((p) => [p.id, p]));

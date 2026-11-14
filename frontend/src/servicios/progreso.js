@@ -47,7 +47,7 @@ async function guardar(cambios) {
       avatar: String(datos.avatar || '').slice(0, 20), // id de contenido/avatares.js
       lecciones: datos.lecciones.slice(0, 10),  // mismos topes que firebase/firestore.rules
       casos: Object.fromEntries(Object.entries(comoMapa(datos.casos)).slice(0, 11)), // usuarios/{uid}.casos[id]
-      insignias: datos.insignias.slice(0, 15),
+      insignias: datos.insignias.slice(0, 30),
       // "bajó|Muy seguro" (lección 5 → lección 10). Solo si hay: así las reglas viejas no rechazan lo demás
       ...(datos.hipotesis ? { hipotesis: String(datos.hipotesis).slice(0, 40) } : {}),
       actualizado: serverTimestamp()
@@ -133,7 +133,7 @@ export function completarCaso(id, veredicto = null) {
 }
 // Guarda la insignia en el campo insignias, sin duplicarla. Devuelve true si es nueva
 // (así quien la da sabe si debe mostrar el aviso de componentes/nueva-insignia.js).
-// En el navegador quedan todas; en Firestore hasta 15 (firebase/firestore.rules).
+// En el navegador quedan todas; en Firestore hasta 30 (firebase/firestore.rules).
 export async function ganarInsignia(id) {
   const p = leerLocal();
   if (p.insignias.includes(id)) return false;

@@ -2,6 +2,8 @@
 // img: imagen en public/img/insignias/; si es null, la pantalla muestra un hexágono con "?".
 // Las ganadas se guardan con ganarInsignia(id) (servicios/progreso.js).
 // "caminante" tiene contador (glaciares visitados, en localStorage): meta = cuántos hacen falta.
+import { CASOS } from './casos.js';
+
 const img = (nombre) => (nombre ? `/img/insignias/${nombre}.png` : null);
 
 export const FAMILIAS = [
@@ -26,6 +28,8 @@ export const INSIGNIAS = [
   { id: 'caso-nieve', nombre: 'Caso de la nieve', familia: 'casos', img: img('copo'), como: 'Resuelve el Caso 01: Cordillera Real.' },
   { id: 'caso-lluvia', nombre: 'Caso de la lluvia', familia: 'casos', img: img('gota'), como: 'Resuelve el Caso 02: la lluvia.' },
   { id: 'caso-final', nombre: 'Caso final', familia: 'casos', img: img(null), como: 'Resuelve el caso final, sin ayuda.' },
+  // Casos: una por cordillera ("Guardián de …"), se gana al firmar el veredicto (imagen provisoria hasta que Karen dibuje las propias)
+  ...CASOS.map((c) => ({ id: `guardian-${c.id}`, nombre: c.insignia, familia: 'casos', img: img('montanas-oro'), como: `Resuelve el caso ${c.exp}: ${c.nombre}.` })),
   // Especiales
   { id: 'explorador', nombre: 'Explorador', familia: 'especiales', img: img('montanas-oro'), como: 'Abre la montaña en 3D de un glaciar.' },
   { id: 'capas', nombre: 'Capas', familia: 'especiales', img: img('capas-oro'), como: 'Mira el planeta con una capa de datos de NASA.' },

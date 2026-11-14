@@ -76,7 +76,7 @@
 .sm-anio-valor { font: 700 32px/1 var(--letra-dato); color: #FFFFFF; letter-spacing: .02em; font-variant-numeric: tabular-nums; text-shadow: 0 0 14px rgba(79, 176, 255, .8); }
 .sm-paso { flex: none; width: 36px; height: var(--toque-minimo); display: grid; place-items: center; padding: 0; border: 0; background: none; color: var(--azul); font-size: 15px; cursor: pointer; transition: transform .12s ease, color .12s ease; }
 .sm-paso:hover:not(:disabled) { transform: scale(1.15); }
-.sm-paso:disabled { color: var(--apagado); cursor: not-allowed; }
+.sm-paso:disabled, .sm-paso[aria-disabled="true"] { color: var(--apagado); cursor: not-allowed; }
 
 /* Meses */
 .sm-rejilla { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -90,7 +90,7 @@
 .sm-mes[aria-pressed="true"] { --fondo: var(--rojo); --borde: var(--rojo-borde); color: #FFFFFF; filter: drop-shadow(0 0 7px rgba(209, 32, 33, .65)); }
 /* Sin datos: además del color, tachado suave (no depende solo del color). Al estar disabled no se elige
    ni recibe foco: el teclado se lo salta. */
-.sm-mes:disabled { color: var(--apagado); cursor: not-allowed; text-decoration: line-through; text-decoration-color: rgba(138, 148, 168, .6); text-decoration-thickness: 1.5px; }
+.sm-mes:disabled, .sm-mes[aria-disabled="true"] { color: var(--apagado); cursor: not-allowed; text-decoration: line-through; text-decoration-color: rgba(138, 148, 168, .6); text-decoration-thickness: 1.5px; }
 
 /* Botones de abajo */
 .sm-acciones { display: flex; justify-content: center; gap: 12px; margin-top: 14px; }
