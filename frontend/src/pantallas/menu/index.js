@@ -15,7 +15,9 @@ import { ir } from '../../router.js';
 import { cargarRegion } from '../../servicios/datos.js';
 import { GLACIARES, historiaDe } from '../../contenido/glaciares.js';
 import { abrirMontana } from './montanas-puente.js';
-import { leerProgreso, verGlaciar } from '../../servicios/progreso.js';
+import { leerProgreso, verGlaciar, casosResueltos } from '../../servicios/progreso.js';
+import { CASOS } from '../../contenido/casos.js';
+import { apagarEscena3d } from '../../servicios/escena3d-estado.js';
 import { darInsignia } from '../../componentes/nueva-insignia.js';
 import { avatarPorId } from '../../contenido/avatares.js';
 import { crearEnVivo } from '../../componentes/en-vivo.js';
@@ -64,6 +66,7 @@ let quitarAlSalir = null; // listeners y temporizadores que hay que quitar al sa
 
 export function montar(contenedor) {
   vivo = true;
+  apagarEscena3d(); // el globo de los casos se apaga: el menú crea el suyo (un solo Cesium a la vez)
   let elegido = null;  // glaciar abierto en la pestaña (null: ninguno)
   const sinMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -198,6 +201,15 @@ export function montar(contenedor) {
   // Planeta: globo 3D de Cesium o, si no está, el planeta de la maqueta
   // ---------------------------------------------------------------
   const ranura = $('.menu-planeta');
+  // Caso resuelto → su glaciar brilla verde en el planeta
+  let resueltos = null;
+  const marcarResueltos = () => {
+    if (!vivo || !resueltos) return;
+    for (const c of CASOS) {
+      if (resueltos.has(c.id)) ranura.querySelector(`.globo3d-pin[data-id="${c.glaciar}"]`)?.classList.add('resuelto');
+    }
+  };
+  leerProgreso().then((p) => { resueltos = casosResueltos(p); marcarResueltos(); }).catch(() => {});
   // En vivo: satélite Terra (chip abajo a la derecha) y eventos de NASA EONET (pines en el globo)
   const ponerEnVivo = () => {
     if (!vivo || enVivo) return;
@@ -222,6 +234,7 @@ export function montar(contenedor) {
       });
       if (import.meta.env.DEV) window.__globo = globo; // para las pruebas en el navegador
       ponerEnVivo();
+      marcarResueltos();
     })
     .catch((e) => {
       console.info('APU: se usa el planeta de la maqueta.', e.message);

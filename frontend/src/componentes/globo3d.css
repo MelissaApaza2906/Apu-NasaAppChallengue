@@ -190,6 +190,10 @@
 .globo3d-pin:focus-visible .disco { outline: 3px solid #8FDBFF; outline-offset: 2px; }
 /* Cordillera Real: fondo rojo y dos anillos finos que se abren */
 .globo3d-pin.principal .disco { background: #D12021; }
+/* Caso resuelto (#/casos): su glaciar brilla verde con un pulso de luz */
+.globo3d-pin.resuelto .disco { background: #2BC56B; box-shadow: 0 0 0 2px rgba(255, 255, 255, .85), 0 0 14px 4px rgba(43, 197, 107, .75); animation: globo-pin-resuelto 2.4s ease-in-out infinite; }
+@keyframes globo-pin-resuelto { 50% { box-shadow: 0 0 0 2px rgba(255, 255, 255, .85), 0 0 26px 10px rgba(43, 197, 107, .35); } }
+@media (prefers-reduced-motion: reduce) { .globo3d-pin.resuelto .disco { animation: none; } }
 .globo3d-pin .anillo {
   position: absolute;
   left: 50%;

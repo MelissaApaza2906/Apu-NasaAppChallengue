@@ -224,6 +224,7 @@
 /* L10: pruebas y veredicto */
 .lv-pruebas { display: flex; flex-direction: column; gap: .8cqh; margin: 0; padding: 0; list-style: none; }
 .lv-pruebas li { display: flex; align-items: center; gap: .8cqw; padding: 1cqh .8cqw; border-radius: 8px; background: rgba(11, 25, 46, .7); font-size: var(--t-texto); }
+.lv-camino { margin-left: auto; font-size: var(--t-chico); color: var(--nieve-sombra); }
 .lv-luz { flex: none; width: clamp(14px, 2.4cqh, 22px); aspect-ratio: 1; border-radius: 50%; background: #5B6578; border: 1px solid rgba(242, 244, 248, .3); }
 .lv-luz.verde { background: var(--verde-ok); } .lv-luz.amarillo { background: var(--dato-tendencia); } .lv-luz.rojo { background: var(--rojo-apu); }
 .lv-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

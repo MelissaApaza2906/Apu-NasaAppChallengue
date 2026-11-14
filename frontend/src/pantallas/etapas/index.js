@@ -138,7 +138,7 @@ export function montar(contenedor) {
       panel.innerHTML = `
         <span class="etiqueta"><span class="barras" aria-hidden="true">//</span>META · ETAPA 2</span>
         <h2>CASO DE LA NIEVE</h2>
-        <p class="pregunta">${esc(caso?.nombre ?? '')}. Con todo lo aprendido, investigas la nieve de la Cordillera Real con datos reales de NASA.</p>
+        <p class="pregunta">${esc(caso?.corto ?? '')}. Con todo lo aprendido, investigas la nieve de la Cordillera Real con datos reales de NASA.</p>
         <div class="pie">${todas()
           ? '<button type="button" class="btn-empezar" data-ir="casos">MIS CASOS</button>'
           : `<div class="bloqueo">${CANDADO}Termina las ${TOTAL} lecciones para abrirlo</div>`}</div>`;

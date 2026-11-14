@@ -5,10 +5,10 @@ import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firest
 import { auth, db } from './firebase.js';
 
 const CLAVE_LOCAL = 'apu-progreso';
-const VACIO = { apodo: '', avatar: '', lecciones: [], casos: [], insignias: [], hipotesis: '' };
+const VACIO = { apodo: '', avatar: '', lecciones: [], casos: {}, insignias: [], hipotesis: '' };
 
 function leerLocal() {
-  try { return { ...VACIO, ...JSON.parse(localStorage.getItem(CLAVE_LOCAL) || '{}') }; } catch { return { ...VACIO }; }
+  try { const d = { ...VACIO, ...JSON.parse(localStorage.getItem(CLAVE_LOCAL) || '{}') }; d.casos = comoMapa(d.casos); return d; } catch { return { ...VACIO, casos: {} }; }
 }
 function escribirLocal(datos) {
   try { localStorage.setItem(CLAVE_LOCAL, JSON.stringify(datos)); } catch { /* modo privado: se ignora */ }
@@ -22,12 +22,13 @@ export async function leerProgreso() {
   const ref = refUsuario();
   if (!ref) return local;
   try {
-    const snap = await getDoc(ref);
+    // Sin conexión, Firestore tarda ~10 s en rendirse: a los 4 s sigue con lo del navegador
+    const snap = await Promise.race([getDoc(ref), new Promise((_, no) => setTimeout(() => no(new Error('Firestore no responde')), 4000))]);
     const nube = snap.exists() ? snap.data() : {};
     const datos = { ...VACIO, ...local, ...nube };
     // Las listas se unen: en la nube caben menos (reglas de Firestore) y no deben pisar lo del navegador
-    for (const k of ['lecciones', 'casos', 'insignias']) datos[k] = [...new Set([...(local[k] ?? []), ...(nube[k] ?? [])])];
-    datos.casos = normalizarCasos(datos.casos); // "id" y "id|fecha" del mismo caso → uno solo
+    for (const k of ['lecciones', 'insignias']) datos[k] = [...new Set([...(local[k] ?? []), ...(nube[k] ?? [])])];
+    datos.casos = unirCasos(comoMapa(local.casos), comoMapa(nube.casos));
     escribirLocal(datos);
     return datos;
   } catch {
@@ -45,7 +46,7 @@ async function guardar(cambios) {
       apodo: String(datos.apodo || 'Detective').slice(0, 20),
       avatar: String(datos.avatar || '').slice(0, 20), // id de contenido/avatares.js
       lecciones: datos.lecciones.slice(0, 10),  // mismos topes que firebase/firestore.rules
-      casos: datos.casos.slice(0, 3),
+      casos: Object.fromEntries(Object.entries(comoMapa(datos.casos)).slice(0, 11)), // usuarios/{uid}.casos[id]
       insignias: datos.insignias.slice(0, 15),
       // "bajó|Muy seguro" (lección 5 → lección 10). Solo si hay: así las reglas viejas no rechazan lo demás
       ...(datos.hipotesis ? { hipotesis: String(datos.hipotesis).slice(0, 40) } : {}),
@@ -93,25 +94,42 @@ export function guardarAvance(id, avance) {
     localStorage.setItem(CLAVE_AVANCE, JSON.stringify(t));
   } catch { /* modo privado */ }
 }
-// Casos resueltos: cada uno se guarda como "id|AAAA-MM-DD" (el día en que se resolvió). Es un texto de la
-// misma lista "casos" de siempre (firestore.rules: lista de hasta 3), así que las reglas no cambian.
-// Los guardados antes, solo con el id, se siguen entendiendo (sin fecha).
-export function casosResueltos(p) {
-  const m = new Map();
-  for (const e of p?.casos ?? []) {
+// Casos: usuarios/{uid}.casos[id] = { pista, elecciones, veredicto, resuelto, fecha }
+//   pista: la estrella hasta la que llegó (0 = expediente … 7 = todas) · elecciones: lo que eligió en cada pista
+//   veredicto: { rumbo, palabras } · resuelto: true al firmar · fecha: 'AAAA-MM-DD' del día en que lo cerró
+// La lista vieja ("id" o "id|AAAA-MM-DD", hasta 3) se convierte sola: esos casos quedan resueltos.
+function comoMapa(casos) {
+  if (casos && !Array.isArray(casos) && typeof casos === 'object') return { ...casos };
+  const m = {};
+  for (const e of Array.isArray(casos) ? casos : []) {
     const [id, fecha = null] = String(e).split('|');
-    if (id && (!m.has(id) || (fecha && !m.get(id)))) m.set(id, fecha);
+    if (id) m[id] = { ...(m[id] ?? {}), resuelto: true, fecha: fecha ?? m[id]?.fecha ?? null };
   }
-  return m; // Map id → fecha ('AAAA-MM-DD' o null)
+  return m;
 }
-function normalizarCasos(lista) {
-  return [...casosResueltos({ casos: lista })].map(([id, fecha]) => (fecha ? `${id}|${fecha}` : id));
+// Navegador + nube: se queda lo más avanzado de cada caso
+function unirCasos(a, b) {
+  const m = { ...a };
+  for (const [id, v] of Object.entries(b)) {
+    const x = m[id] ?? {};
+    m[id] = { ...x, ...v, pista: Math.max(x.pista ?? 0, v.pista ?? 0), resuelto: Boolean(x.resuelto || v.resuelto), fecha: v.fecha ?? x.fecha ?? null };
+  }
+  return m;
 }
-export async function completarCaso(id) {
+export function casosResueltos(p) {
+  return new Map(Object.entries(comoMapa(p?.casos)).filter(([, v]) => v?.resuelto).map(([id, v]) => [id, v.fecha ?? null]));
+}
+export const estadoCaso = (p, id) => comoMapa(p?.casos)[id] ?? null;
+// Guarda lo nuevo de un caso (se une con lo que ya había)
+export function guardarCaso(id, cambios) {
   const p = leerLocal();
-  const m = casosResueltos(p);
-  if (!m.get(id)) m.set(id, new Date().toISOString().slice(0, 10));
-  return guardar({ casos: [...m].map(([i, f]) => (f ? `${i}|${f}` : i)) });
+  const antes = p.casos[id] ?? {};
+  const nuevo = { ...antes, ...cambios, elecciones: { ...(antes.elecciones ?? {}), ...(cambios.elecciones ?? {}) }, pista: Math.max(antes.pista ?? 0, cambios.pista ?? 0) };
+  return guardar({ casos: { ...p.casos, [id]: nuevo } });
+}
+export function completarCaso(id, veredicto = null) {
+  const antes = leerLocal().casos[id];
+  return guardarCaso(id, { resuelto: true, pista: 7, fecha: antes?.fecha ?? new Date().toISOString().slice(0, 10), ...(veredicto ? { veredicto } : {}) });
 }
 // Guarda la insignia en el campo insignias, sin duplicarla. Devuelve true si es nueva
 // (así quien la da sabe si debe mostrar el aviso de componentes/nueva-insignia.js).

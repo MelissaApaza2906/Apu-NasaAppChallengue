@@ -1,30 +1,36 @@
-/* Pantalla mis casos. Lo visual sale de etapas.css (fondo, marco, panel, chips, bloqueo, botones), carga.css
-   (barra rayada) e insignias.css (título, ventana y medidas de la barra);
-   aquí solo va dónde está cada cosa y su tamaño, con esos mismos valores. */
+/* Archivo de casos (#/casos) · docs/mockups/casos/casoV-0-archivo.jpg */
+.archivo-cuerpo { width: min(68cqw, 1000px); }
+.archivo-grilla { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.6cqh 1.1cqw; margin-top: 2.6cqh; }
+.expediente { position: relative; display: flex; flex-direction: column; gap: 1cqh; padding: 1.2cqh .9cqw 1.4cqh; border: 1.5px solid rgba(91, 160, 255, .55); border-radius: 14px; background: linear-gradient(160deg, rgba(20, 40, 90, .78), rgba(8, 18, 48, .82)); backdrop-filter: blur(6px); color: var(--nieve); font: inherit; text-align: left; cursor: pointer; transition: transform .25s cubic-bezier(.2, .8, .2, 1), box-shadow .25s, border-color .25s; }
+.expediente:not(:disabled):hover, .expediente:not(:disabled):focus-visible { transform: translateY(-.8cqh); box-shadow: 0 1.2cqh 3cqh rgba(0, 0, 0, .5), 0 0 2.4cqh rgba(79, 141, 255, .55); }
+.expediente:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
+.expediente:disabled { cursor: default; }
+.expediente.resuelto { border-color: var(--verde-ok); box-shadow: 0 0 1.6cqh rgba(43, 197, 107, .35); }
+.expediente.resuelto:hover { box-shadow: 0 1.2cqh 3cqh rgba(0, 0, 0, .5), 0 0 2.6cqh rgba(43, 197, 107, .6); }
+.expediente.abierto { border-color: var(--dato-lluvia); }
+.expediente.clasificado, .expediente.camino { border-color: rgba(169, 180, 204, .3); opacity: .82; }
+.expediente-foto { display: grid; place-items: center; height: clamp(54px, 10cqh, 96px); overflow: hidden; border-radius: 8px; border: 1px solid rgba(91, 160, 255, .35); background: repeating-linear-gradient(0deg, rgba(91, 160, 255, .08) 0 2px, transparent 2px 6px), rgba(11, 25, 46, .8); }
+.expediente-foto img { width: 100%; height: 100%; object-fit: cover; }
+.expediente-icono { font-size: clamp(20px, 3.6cqh, 34px); filter: drop-shadow(0 0 .8cqh rgba(255, 255, 255, .4)); }
+.expediente.clasificado .expediente-icono { filter: drop-shadow(0 0 1cqh rgba(209, 32, 33, .9)); }
+.expediente-sello { position: absolute; top: 1.4cqh; right: .5cqw; padding: .25em .7em; border: 2px solid currentColor; border-radius: 999px; font: 700 clamp(8px, 1.25cqh, 12px) var(--letra-texto); letter-spacing: .12em; transform: rotate(-8deg); text-shadow: 0 0 .6em currentColor; box-shadow: 0 0 .8em currentColor, inset 0 0 .5em currentColor; background: rgba(11, 25, 46, .55); }
+.expediente.resuelto .expediente-sello { color: #47E08A; }
+.expediente.abierto .expediente-sello { color: #6FB0FF; }
+.expediente.clasificado .expediente-sello { color: #FF5A5F; }
+.expediente.camino .expediente-sello { color: var(--dato-tendencia); font-size: clamp(7px, 1.05cqh, 10px); }
+.expediente-pie { display: grid; grid-template-columns: 1fr auto; gap: .2cqh .4cqw; font-size: clamp(9px, 1.25cqh, 12px); color: #C9D2E3; }
+.expediente-pie b { grid-column: 1 / -1; font: 700 clamp(13px, 2.2cqh, 20px) var(--letra-texto); color: var(--nieve); }
+.expediente-pie small { grid-column: 1 / -1; color: #C9D2E3; }
+.expediente-exp { font-weight: 700; letter-spacing: .16em; color: var(--dato-lluvia); }
+.expediente.clasificado .expediente-pie b, .expediente.camino .expediente-pie b { color: #C9D2E3; }
+.archivo-progreso { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: .4cqh; padding: 1.4cqh 1cqw; border: 1.5px solid var(--dato-tendencia); border-radius: 14px; background: linear-gradient(160deg, rgba(40, 40, 60, .7), rgba(8, 18, 48, .85)); box-shadow: 0 0 2cqh rgba(248, 174, 5, .25); text-align: center; }
+.archivo-cuenta { margin: 0; font: 800 clamp(26px, 6cqh, 58px) / 1 var(--letra-texto); color: var(--dato-tendencia); text-shadow: 0 0 1.4cqh rgba(248, 174, 5, .6); }
+.archivo-barra { display: block; width: 90%; height: 8px; border-radius: 999px; background: rgba(169, 180, 204, .25); overflow: hidden; }
+.archivo-barra i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--dato-tendencia); transition: width .8s; }
 
-/* Título arriba, entre "volver" y el logo; debajo, las 3 tarjetas en fila */
-.pantalla-casos .casos-titulo { position: absolute; z-index: 2; left: calc(3.4cqh + var(--volver) + 2cqh); top: 4.4cqh; }
-.pantalla-casos .casos-grilla {
-  position: absolute; z-index: 2; top: 15cqh; bottom: 4cqh; left: calc(3.4cqh + var(--volver) + 2cqh); right: 3.4cqh;
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2cqh;
+@media (max-width: 1000px), (max-height: 560px) {
+  .archivo-cuerpo { width: auto; }
+  .archivo-grilla { gap: 1.2cqh .8cqw; }
+  .expediente-foto { height: clamp(34px, 9cqh, 60px); }
 }
-/* Cada tarjeta es un .etapas-panel, en su celda de la grilla */
-.pantalla-casos .caso-tarjeta { position: relative; inset: auto; width: auto; min-width: 0; }
-.pantalla-casos .caso-tarjeta .rotulo { margin-bottom: -.8cqh; }
-.pantalla-casos .caso-dato { font-weight: 600; }
-.pantalla-casos .caso-tarjeta .pie .btn-apu { --alto: var(--toque-minimo); font-size: clamp(10px, 1.6cqh, 13px); justify-content: center; }
-/* Bloqueado: borde punteado, como el chip de una insignia bloqueada */
-.pantalla-casos .caso-tarjeta.bloqueado { border: 1.5px dashed rgba(169, 180, 204, .6); }
-.pantalla-casos .caso-tarjeta.bloqueado h2, .pantalla-casos .caso-tarjeta.bloqueado .pregunta { color: #A9B4CC; }
-
-/* El informe: rótulos y párrafos de la ventana */
-.casos-informe .informe-cuerpo { display: flex; flex-direction: column; gap: 6px; }
-.casos-informe .informe-cuerpo .rotulo { margin-top: 8px; font: 500 12px var(--letra-dato); letter-spacing: .14em; color: #A9B4CC; }
-.casos-informe .informe-cuerpo p { font-size: 15px; }
-.casos-informe { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; }
-
-/* Pantallas angostas o bajas: las tarjetas se deslizan en fila */
-@media (max-width: 900px), (max-height: 500px) {
-  .pantalla-casos .casos-grilla { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(240px, 34cqw); overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: 6px; }
-  body:has(.pantalla-casos) .asistente-nube { display: none; }
-}
+@media (max-width: 700px) { .archivo-grilla { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

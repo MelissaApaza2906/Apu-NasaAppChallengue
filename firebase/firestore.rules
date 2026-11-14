@@ -13,7 +13,7 @@ service cloud.firestore {
         && (!('avatar' in request.resource.data)
             || (request.resource.data.avatar is string && request.resource.data.avatar.size() <= 20))
         && request.resource.data.lecciones is list && request.resource.data.lecciones.size() <= 10
-        && request.resource.data.casos is list && request.resource.data.casos.size() <= 3
+        && request.resource.data.casos is map && request.resource.data.casos.size() <= 11
         && request.resource.data.insignias is list && request.resource.data.insignias.size() <= 15
         && (!('hipotesis' in request.resource.data)
             || (request.resource.data.hipotesis is string && request.resource.data.hipotesis.size() <= 40));

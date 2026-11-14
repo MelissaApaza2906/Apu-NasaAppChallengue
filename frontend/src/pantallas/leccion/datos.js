@@ -7,6 +7,8 @@
 //   public/datos/lecciones/dias_ejemplo.json → 61 días de un año (L8 p1)
 // Los JSON de lecciones/ los escribe backend/scripts/generar_lecciones.py.
 import { cargarRegion } from '../../servicios/datos.js';
+import { cargarDatosCaso } from '../../servicios/casos-datos.js';
+import { casoPorId } from '../../contenido/casos.js';
 
 const REGION = 'cordillera-real';
 let cache = null;
@@ -72,6 +74,24 @@ export function cargarDatos() {
     d.pruebas = Array.isArray(pruebas?.pruebas)
       ? { lista: pruebas.pruebas.map((p) => ({ nombre: String(p.nombre ?? ''), semaforo: String(p.semaforo ?? '') })), nOk: numero(pruebas.n_ok), n: numero(pruebas.n_pruebas), sugerido: pruebas.veredicto_sugerido ?? null }
       : null;
+
+    // Sin series.json: los mismos números reales del caso 01 (cordillera-real.json, ago–sep, recuadro grande)
+    if (!d.serie || !d.pruebas) {
+      const caso = await intentar(cargarDatosCaso(casoPorId('cordillera-real')));
+      if (caso && !d.serie) {
+        d.serie = {
+          anios: caso.serie.anios, valores: caso.serie.valores,
+          pendienteAnio: caso.stats.pendientePorAnio, intercepto: caso.stats.intercepto,
+          pendienteDecada: caso.stats.pendientePorDecada, p: caso.stats.p, veredicto: caso.stats.veredicto,
+          fuente: `${caso.fuente} · ${caso.region} · recuadro grande`, unidad: caso.unidad,
+          desde: caso.desde, hasta: caso.hasta
+        };
+      }
+      if (caso && !d.pruebas) {
+        const COLOR = { verde: 'verde', amarillo: 'amarillo', rojo: 'rojo' };
+        d.pruebas = { lista: caso.pruebas.map((p) => ({ nombre: p.nombre, semaforo: COLOR[p.estado] ?? '' })), nOk: caso.nOk, n: caso.nPruebas, sugerido: null };
+      }
+    }
 
     // 61 días de ejemplo
     d.dias = Array.isArray(dias?.dias) && dias.dias.length

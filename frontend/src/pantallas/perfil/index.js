@@ -1,6 +1,6 @@
 // Pantalla: perfil del detective · #/perfil (el ícono "perfil" del riel del menú lleva aquí)
 // Izquierda: el avatar de cuerpo entero, el apodo, "Animal · detective desde <fecha>" y CAMBIAR EN AJUSTES.
-// Derecha: el avance (lecciones X/10, casos X/3, insignias X/12), las 6 últimas insignias (→ #/insignias)
+// Derecha: el avance (lecciones X/10, casos X/11, insignias X/12), las 6 últimas insignias (→ #/insignias)
 // y el siguiente paso pendiente (MIS CASOS → #/casos, CONTINUAR → la lección o el caso que toca).
 // El Jukumari dice cuánto falta. Solo estilos existentes: fondo, vidrio, paneles, chips y botón de
 // etapas.css; barras de carga.css; medallas de insignias.css; figura del avatar de nueva-insignia.css.
@@ -19,7 +19,7 @@ import { CASOS } from '../../contenido/casos.js';
 import { medalla } from '../insignias/index.js';
 
 const TOTAL_LECCIONES = LECCIONES.length;   // 10 (firestore.rules guarda hasta 10)
-const TOTAL_CASOS = CASOS.length;           // 3
+const TOTAL_CASOS = CASOS.length;           // 11
 const TOTAL_INSIGNIAS = INSIGNIAS.length;   // 12
 const FECHA = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', year: 'numeric' });
 let vivo = false;
@@ -41,7 +41,7 @@ function siguientePaso(p) {
   if (l) return { titulo: `Bloque ${l.bloque} · ${BLOQUES[l.bloque]?.nombre ?? ''}`, texto: `Lección ${LECCIONES.indexOf(l) + 1}: ${l.nombre ?? l.titulo}`, ruta: `leccion/${l.id}` };
   const resueltos = casosResueltos(p);
   const c = CASOS.find((x) => !resueltos.has(x.id));
-  if (c) return { titulo: 'Etapa 2 · Detective', texto: `${c.nombre} (${c.ayuda})`, ruta: `caso/${c.id}` };
+  if (c) return { titulo: 'Etapa 2 · Detective', texto: `${c.corto} (${{ con: 'con ayuda', poca: 'poca ayuda', sin: 'sin ayuda' }[c.ayuda] ?? c.ayuda})`, ruta: `caso/${c.id}` };
   return null;
 }
 

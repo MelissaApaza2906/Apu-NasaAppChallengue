@@ -619,6 +619,7 @@ export function crearGlobo(contenedor, opciones = {}) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = `globo3d-pin${g.principal ? ' principal' : ''} oculto`;
+    b.dataset.id = g.id;
     b.setAttribute('aria-label', `${g.nombre}, ${g.pais}`);
     b.tabIndex = -1;
     b.innerHTML = `${g.principal ? '<span class="anillo"></span><span class="anillo"></span>' : ''}<span class="disco">${COPO}</span>`;

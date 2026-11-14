@@ -1,0 +1,50 @@
+/* Capa 3D fija detrás de #app (servicios/escena3d.js): el cielo de la galaxia + el globo o la montaña */
+.escena3d {
+  position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+  background:
+    radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, .8), transparent 60%),
+    radial-gradient(1px 1px at 72% 12%, rgba(255, 255, 255, .7), transparent 60%),
+    radial-gradient(1.5px 1.5px at 38% 64%, rgba(255, 255, 255, .7), transparent 60%),
+    radial-gradient(1px 1px at 86% 48%, rgba(255, 255, 255, .6), transparent 60%),
+    radial-gradient(1px 1px at 22% 86%, rgba(255, 255, 255, .6), transparent 60%),
+    radial-gradient(1.5px 1.5px at 58% 32%, rgba(255, 255, 255, .5), transparent 60%),
+    radial-gradient(ellipse at 70% 30%, rgba(68, 60, 140, .45), transparent 60%),
+    radial-gradient(ellipse at 20% 80%, rgba(31, 65, 108, .5), transparent 55%),
+    var(--noche);
+  background-size: 210px 210px, 260px 260px, 330px 330px, 180px 180px, 240px 240px, 300px 300px, 100% 100%, 100% 100%, 100% 100%;
+}
+.escena3d[hidden] { display: none; }
+.escena3d-marco { position: absolute; transition: inset .9s cubic-bezier(.2, .8, .2, 1), width .9s, height .9s, filter .6s; }
+.escena3d-velo { position: absolute; inset: 0; pointer-events: none; transition: background .6s; }
+.escena3d-credito { position: absolute; left: 16px; bottom: 8px; margin: 0; font: 500 10px var(--letra-texto); color: rgba(169, 180, 204, .75); }
+.escena3d-creditos-cesium { position: absolute; right: 12px; bottom: 6px; max-width: 40vw; font: 500 9px var(--letra-texto); color: rgba(169, 180, 204, .75); }
+.escena3d-creditos-cesium img { height: 14px; width: auto; }
+.escena3d-creditos-cesium a { color: inherit; }
+/* Sin satélite, haz, pines ni lente del menú */
+.escena3d .globo3d-capa, .escena3d .globo3d-lente, .escena3d .globo3d-creditos { display: none !important; }
+
+/* El planeta abajo a la derecha (archivo) o al centro (caso resuelto) */
+.escena3d.planeta.derecha .escena3d-marco { width: 100vh; height: 100vh; right: -30vh; bottom: -36vh; }
+.escena3d.planeta.centro .escena3d-marco { width: 150vh; height: 150vh; left: calc(50% - 75vh); top: 6vh; }
+.escena3d.planeta.centro .escena3d-velo { background: radial-gradient(ellipse at 50% 40%, transparent 30%, rgba(11, 25, 46, .55) 80%); }
+
+/* La montaña: el visor llena la pantalla */
+.escena3d.montana .escena3d-marco, .escena3d.foto .escena3d-marco { inset: 0; width: auto; height: auto; }
+.escena3d.montana .globo3d-flotante { clip-path: none !important; animation: none; }
+.escena3d.montana .globo3d-halo, .escena3d.montana .globo3d-anillo { display: none; }
+.escena3d.montana .escena3d-credito { display: none; }
+.escena3d.oscura .escena3d-velo { background: linear-gradient(90deg, rgba(11, 25, 46, .82) 0%, rgba(11, 25, 46, .55) 55%, rgba(11, 25, 46, .3) 100%); }
+.escena3d.clara .escena3d-velo { background: linear-gradient(90deg, rgba(11, 25, 46, .55), rgba(11, 25, 46, .15)); }
+.escena3d.desenfocada .escena3d-marco { filter: blur(7px) brightness(.55); }
+.escena3d.desenfocada .escena3d-velo { background: rgba(11, 25, 46, .45); }
+/* Sin 3D: la foto de la cordillera (Wikimedia Commons, contenido/glaciares.js) */
+.escena3d.foto .escena3d-marco { background: var(--noche) var(--foto) center / cover no-repeat; }
+.escena3d.foto .escena3d-marco > * { display: none; }
+
+/* En la escena (paso 2) se puede girar la montaña: la capa recibe el puntero donde la pantalla no lo usa */
+body.escena3d-interactiva .escena3d { pointer-events: auto; }
+body.escena3d-interactiva #app, body.escena3d-interactiva .pantalla-caso, body.escena3d-interactiva .caso-cuerpo { pointer-events: none; }
+body.escena3d-interactiva .caso-cuerpo > *:not(.caso-ventana3d), body.escena3d-interactiva .caso-cabeza, body.escena3d-interactiva .caso-juku,
+body.escena3d-interactiva .lec-logo, body.escena3d-interactiva .caso-ventana3d * { pointer-events: auto; }
+
+@media (prefers-reduced-motion: reduce) { .escena3d-marco { transition: none; } }

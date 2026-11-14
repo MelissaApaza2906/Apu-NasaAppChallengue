@@ -290,7 +290,7 @@ export const VISUALES = {
     ({ d }) => {
       const pr = d.pruebas;
       const lista = pr ? pr.lista : ['Umbral 30', 'Umbral 50', 'Cielo despejado 70 %', 'Años que se copian', 'Sin El Niño fuerte'].map((nombre) => ({ nombre, semaforo: '' }));
-      return caja(`<ul class="lv-pruebas">${lista.map((x) => `<li><i class="lv-luz ${esc(x.semaforo)}" aria-hidden="true"></i>${esc(x.nombre)}${x.semaforo ? `<span class="lv-oculto">: ${esc(x.semaforo)}</span>` : ''}</li>`).join('')}</ul>
+      return caja(`<ul class="lv-pruebas">${lista.map((x) => `<li><i class="lv-luz ${esc(x.semaforo)}" aria-hidden="true"></i>${esc(x.nombre)}${x.semaforo ? `<span class="lv-oculto">: ${esc(x.semaforo)}</span>` : (pr ? '<small class="lv-camino">datos en camino</small>' : '')}</li>`).join('')}</ul>
         ${pr ? '' : ilus('ilustración: la app pinta el semáforo con pruebas.json')}`);
     },
     () => caja(`<div class="lv-cuadros">${[['🍦', 'Más helados', 'amarillo'], ['🔥', 'Más quemaduras', 'rosa']].map(([i, t, c]) => `<div class="lv-cuadro ${c} centro"><span class="lv-cuadro-ico grande" aria-hidden="true">${i}</span><b>${t}</b></div>`).join('')}</div>
