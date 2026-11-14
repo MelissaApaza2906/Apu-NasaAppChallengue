@@ -47,4 +47,9 @@ body.escena3d-interactiva #app, body.escena3d-interactiva .pantalla-caso, body.e
 body.escena3d-interactiva .caso-cuerpo > *:not(.caso-ventana3d), body.escena3d-interactiva .caso-cabeza, body.escena3d-interactiva .caso-juku,
 body.escena3d-interactiva .lec-logo, body.escena3d-interactiva .caso-ventana3d * { pointer-events: auto; }
 
+/* Celular: el crédito de NASA arriba a la derecha (abajo quedaba detrás de los expedientes) */
+@media (max-width: 1000px), (max-height: 560px) {
+  .escena3d-credito { left: auto; right: 12px; top: 6px; bottom: auto; }
+}
+
 @media (prefers-reduced-motion: reduce) { .escena3d-marco { transition: none; } }

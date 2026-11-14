@@ -7,7 +7,7 @@
   position: absolute; inset: 0; overflow: hidden; color: var(--nieve); font-family: var(--letra-texto); background: transparent;
 }
 .caso-cabeza { position: absolute; z-index: 3; top: 2.6cqh; left: 2cqw; right: 30cqw; display: flex; align-items: flex-start; gap: 3cqw; }
-.caso-logo { flex: none; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 12px; }
+.caso-logo { flex: none; padding: 7px; margin: -7px; border: 0; background: none; cursor: pointer; border-radius: 12px; } /* el relleno agranda el área táctil, no el logo */
 .caso-logo img { display: block; height: clamp(36px, 7cqh, 64px); width: auto; }
 .caso-logo:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 4px; }
 .caso-cuerpo { position: absolute; z-index: 2; top: 10cqh; bottom: 0; left: 10.4cqw; width: min(60cqw, 900px); overflow-y: auto; padding: 0 1cqw 6cqh 0; scrollbar-width: thin; }
@@ -57,7 +57,8 @@
 .caso-une.hecha { border-top-color: var(--dato-lluvia); box-shadow: 0 0 .8cqh rgba(79, 141, 255, .8); }
 
 /* ── Constelación ── */
-.constelacion { position: absolute; z-index: 2; left: 9cqw; top: 22cqh; width: min(56cqw, 86cqh); aspect-ratio: 1000 / 700; }
+/* La constelación ocupa una caja fija (no crece hacia abajo en pantallas bajas): de 9cqw a 66cqw y de 21cqh a 85cqh */
+.constelacion { position: absolute; z-index: 2; left: 9cqw; top: 21cqh; width: 57cqw; height: 64cqh; }
 .constelacion svg.lineas { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .constelacion .linea { stroke: rgba(169, 180, 204, .45); stroke-width: 2; stroke-dasharray: 6 7; fill: none; }
 .constelacion .linea.luz { stroke: #5BA0FF; stroke-width: 3.5; stroke-dasharray: none; filter: drop-shadow(0 0 6px #4F8DFF); }
@@ -307,14 +308,24 @@
   .caso-dice { padding: 1.2cqh 1.4cqw; font-size: clamp(10px, 2.8cqh, 13px); }
   .caso-piensa { font-size: clamp(9px, 2.5cqh, 12px); padding: .8cqh 1cqw; }
   .caso-piensa::after { display: none; }
-  .constelacion { left: 33cqw; top: 20cqh; width: min(40cqw, 96cqh); }
+  .constelacion { left: 33cqw; top: 20cqh; width: min(40cqw, 96cqh); height: auto; aspect-ratio: 1000 / 700; }
   .caso-estrella .bola { width: 9cqh; font-size: 3.6cqh; }
   .caso-estrella .paso { display: none; }
   .caso-estrella b { font-size: clamp(9px, 2.6cqh, 13px); }
   .constelacion-pregunta { left: 3cqw; bottom: 3cqh; width: 28cqw; }
   .constelacion-pregunta .vidrio-caso { padding: 1cqh 1.2cqw; }
   .exp-grilla { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .exp-mision, .exp-historia { grid-column: 1 / -1; }
+  /* Las posiciones de escritorio (style en línea) aquí se anulan: recortes en 2 columnas, misión e historia debajo */
+  .exp-grilla > * { grid-column: auto !important; grid-row: auto !important; }
+  .exp-grilla > .exp-mision, .exp-grilla > .exp-historia { grid-column: 1 / -1 !important; }
+  /* Objetivos táctiles más grandes sin cambiar cómo se ven */
+  .recorte button.chip-neon { min-height: 36px; }
+  .recorte .fuente a, .enlace { display: inline-block; padding: 12px 8px; margin: -12px -8px; }
+  /* Anillo de meses: cada mes al menos 36 px, centrado en su punto */
+  .anillo button.mes { min-width: 36px; min-height: 36px; margin: 0; transform: translate(-50%, -50%); }
+  .anillo button.mes:hover { transform: translate(-50%, -50%) scale(1.1); }
+  /* Desplegables del veredicto: altura cómoda para el dedo */
+  .vered-hoja select { min-height: 34px; }
   .tiempo-grilla, .huellas-grilla, .vered-grilla { grid-template-columns: minmax(0, 1fr); }
   .anillo { max-width: 60cqh; margin: 0 auto; width: 100%; }
   .interro-grilla { grid-template-columns: repeat(2, minmax(0, 1fr)); }

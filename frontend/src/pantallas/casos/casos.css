@@ -21,7 +21,7 @@
 .expediente-pie { display: grid; grid-template-columns: 1fr auto; gap: .2cqh .4cqw; font-size: clamp(9px, 1.25cqh, 12px); color: #C9D2E3; }
 .expediente-pie b { grid-column: 1 / -1; font: 700 clamp(13px, 2.2cqh, 20px) var(--letra-texto); color: var(--nieve); }
 .expediente-pie small { grid-column: 1 / -1; color: #C9D2E3; }
-.expediente-exp { font-weight: 700; letter-spacing: .16em; color: var(--dato-lluvia); }
+.expediente-exp { font-weight: 700; letter-spacing: .16em; color: var(--dato-lluvia); white-space: nowrap; }
 .expediente.clasificado .expediente-pie b, .expediente.camino .expediente-pie b { color: #C9D2E3; }
 .archivo-progreso { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: .4cqh; padding: 1.4cqh 1cqw; border: 1.5px solid var(--dato-tendencia); border-radius: 14px; background: linear-gradient(160deg, rgba(40, 40, 60, .7), rgba(8, 18, 48, .85)); box-shadow: 0 0 2cqh rgba(248, 174, 5, .25); text-align: center; }
 .archivo-cuenta { margin: 0; font: 800 clamp(26px, 6cqh, 58px) / 1 var(--letra-texto); color: var(--dato-tendencia); text-shadow: 0 0 1.4cqh rgba(248, 174, 5, .6); }
@@ -32,5 +32,8 @@
   .archivo-cuerpo { width: auto; }
   .archivo-grilla { gap: 1.2cqh .8cqw; }
   .expediente-foto { height: clamp(34px, 9cqh, 60px); }
+  /* "EXP. 02" en una línea y la ayuda debajo (no se parte en dos) */
+  .expediente-pie { grid-template-columns: minmax(0, 1fr); }
+  .expediente-ayuda { font-size: clamp(8px, 2.4cqh, 11px); }
 }
 @media (max-width: 700px) { .archivo-grilla { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

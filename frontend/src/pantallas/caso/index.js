@@ -118,7 +118,9 @@ function pintarPista(ctx, k) {
 }
 
 // La constelación (casoG-1)
-const POS = [[9, 33], [30, 20], [52, 31], [75, 20], [79, 57], [60, 80], [42, 61]]; // % de la caja (1000 × 700)
+// % de la caja de la constelación. Las 3 últimas (Huellas, Interrogatorio, Veredicto) van arriba y a la
+// derecha de la tarjeta de la pregunta (abajo a la izquierda) para que nunca las tape.
+const POS = [[6, 30], [26, 12], [46, 28], [68, 12], [90, 42], [78, 80], [58, 58]];
 function pintarConstelacion(ctx) {
   const { caso, est, raiz, escena: es } = ctx;
   const pista = Math.min(7, est.pista ?? 0);

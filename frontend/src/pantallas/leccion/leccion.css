@@ -19,7 +19,7 @@
 
 /* ── Cabeza: logo + fases en píldoras (TEORÍA ●●●● — TARJETAS — TRIVIA — META) ── */
 .lec-cabeza { position: absolute; z-index: 3; top: 2.6cqh; left: 2cqw; right: 30cqw; display: flex; align-items: center; gap: 4cqw; }
-.lec-logo { flex: none; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 12px; }
+.lec-logo { flex: none; padding: 7px; margin: -7px; border: 0; background: none; cursor: pointer; border-radius: 12px; } /* el relleno agranda el área táctil, no el logo */
 .lec-logo img { display: block; height: clamp(36px, 7cqh, 64px); width: auto; }
 .lec-logo:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 4px; }
 .lec-camino ol { display: flex; align-items: center; flex-wrap: wrap; gap: .6cqh 0; margin: 0; padding: 0; list-style: none; }
@@ -257,6 +257,8 @@
 .lec-puntitos button.vista { background: var(--verde-ok); }
 .lec-puntitos button.actual { width: clamp(28px, 4cqh, 40px); background: var(--rojo-apu); }
 .lec-puntitos button:focus-visible { outline: 3px solid var(--nieve); outline-offset: 2px; }
+/* El punto se ve igual, pero el área que se toca mide 12 px más por lado (el relleno no se pinta) */
+.lec-puntitos button { box-sizing: content-box; padding: 12px 10px; background-clip: content-box; }
 .lec-puntitos li { display: grid; place-items: center; min-width: 24px; min-height: var(--toque-minimo); }
 
 /* ── Trivia ── */
@@ -391,7 +393,7 @@
   .pantalla-leccion { --t-chico: clamp(10px, 2.6cqh, 13px); --t-texto: clamp(11px, 3cqh, 15px); }
   .lec-cabeza { top: 1.6cqh; left: 2cqw; right: 26cqw; gap: 2cqw; }
   .lec-logo img { height: clamp(28px, 9cqh, 44px); }
-  .lec-fase { min-height: 28px; padding: 0 .8em; font-size: clamp(8px, 2.2cqh, 11px); letter-spacing: .08em; }
+  .lec-fase { min-height: 34px; padding: 0 .8em; font-size: clamp(8px, 2.2cqh, 11px); letter-spacing: .08em; }
   .lec-une { width: 1.4cqw; margin: 0 .4cqw; }
   .lec-cuerpo { top: 15cqh; left: 3cqw; width: auto; right: 27cqw; padding-bottom: 4cqh; }
   .lec-titulo { font-size: clamp(18px, 6.4cqh, 30px); margin-bottom: 1cqh; }

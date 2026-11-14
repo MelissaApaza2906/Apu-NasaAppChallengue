@@ -146,6 +146,9 @@
   .etapa .paso { display: none; }
   .etapa.siguiente .paso, .etapa.elegida .paso { display: block; }
   .pantalla-etapas > .etapas-panel { top: 3cqh; bottom: 3cqh; max-height: none; width: clamp(240px, 36cqw, 340px); right: 2cqw; }
+  /* Celular: los nombres largos terminan en "…" antes del panel (no quedan cortados debajo) */
+  .etapa .textos { max-width: 30cqw; }
+  .etapa .nombre { overflow: hidden; text-overflow: ellipsis; }
   .etapas-logo { display: none; }
   .etapas-cabeza { top: 1.6cqh; }
   .etapas-cabeza .eyebrow { display: none; }
