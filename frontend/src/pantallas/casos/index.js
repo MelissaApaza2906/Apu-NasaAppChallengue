@@ -15,7 +15,8 @@ import './casos.css';
 import { ir } from '../../router.js';
 import { leerProgreso, casosResueltos } from '../../servicios/progreso.js';
 import { cargarRegion } from '../../servicios/datos.js';
-import { LECCIONES, CASOS } from '../../contenido/lecciones.js';
+import { LECCIONES } from '../../contenido/lecciones.js';
+import { CASOS } from '../../contenido/casos.js';
 
 const CANDADO = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 const CLAVE_AVANCE = 'apu-casos-avance'; // { id: 0..100 } que escribe la pantalla del caso; si no hay, 0

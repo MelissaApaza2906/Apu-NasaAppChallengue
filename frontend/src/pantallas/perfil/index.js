@@ -14,7 +14,8 @@ import { leerProgreso, casosResueltos } from '../../servicios/progreso.js';
 import { usuarioActual } from '../../servicios/auth.js';
 import { avatarPorId } from '../../contenido/avatares.js';
 import { INSIGNIAS, insigniaPorId } from '../../contenido/insignias.js';
-import { LECCIONES, BLOQUES, CASOS } from '../../contenido/lecciones.js';
+import { LECCIONES, BLOQUES } from '../../contenido/lecciones.js';
+import { CASOS } from '../../contenido/casos.js';
 import { medalla } from '../insignias/index.js';
 
 const TOTAL_LECCIONES = LECCIONES.length;   // 10 (firestore.rules guarda hasta 10)

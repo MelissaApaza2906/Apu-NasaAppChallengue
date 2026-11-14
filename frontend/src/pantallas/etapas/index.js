@@ -9,7 +9,8 @@ import './etapas.css';
 import '../carga/carga.css'; // la barra rayada (.barra .pista .relleno)
 import { ir } from '../../router.js';
 import { leerProgreso } from '../../servicios/progreso.js';
-import { LECCIONES, BLOQUES, CASOS } from '../../contenido/lecciones.js';
+import { LECCIONES, BLOQUES } from '../../contenido/lecciones.js';
+import { CASOS } from '../../contenido/casos.js';
 import { insigniaPorId } from '../../contenido/insignias.js';
 
 const TOTAL = LECCIONES.length; // 10
