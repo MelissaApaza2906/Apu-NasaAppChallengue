@@ -11,7 +11,7 @@ import { LECCIONES } from '../../contenido/lecciones.js';
 import { CASOS } from '../../contenido/casos.js';
 import { GLACIARES } from '../../contenido/glaciares.js';
 import { cargarDatosCaso } from '../../servicios/casos-datos.js';
-import { esc, logo, crearJukumari } from '../caso/comun.js';
+import { esc, cabeza, crearJukumari } from '../caso/comun.js';
 
 let vivo = false;
 let escena = null;
@@ -59,7 +59,7 @@ export function montar(contenedor) {
       </div>
     </main>`;
   contenedor.append(raiz);
-  raiz.querySelector('.caso-cabeza').append(logo('menu', 'Volver al menú'));
+  cabeza(raiz.querySelector('.caso-cabeza'), 'Menú', 'menu', 'Volver al menú principal');
   const juku = crearJukumari(raiz, { ayuda: 'con' });
   juku.decir('¡Bienvenido al archivo, detective!', 'Cada cordillera esconde su propio misterio…');
 

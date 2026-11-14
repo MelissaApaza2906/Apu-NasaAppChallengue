@@ -20,8 +20,11 @@ const RUTAS = {
 
 let actual = null;
 let turno = 0; // cada cambio de ruta tiene su turno: si llega otro mientras este espera, este no monta nada
+let rutaMontada = '', rutaPrevia = '';
 
 export function ir(ruta) { location.hash = '#/' + ruta; }
+// La ruta que estaba montada antes de la actual (p. ej. 'casos' o 'caso/01-cordillera-real/3')
+export const rutaAnterior = () => rutaPrevia;
 
 export function iniciarRutas(contenedor) {
   const mostrar = async () => {
@@ -38,6 +41,7 @@ export function iniciarRutas(contenedor) {
     if (yo !== turno) return;
     if (actual?.desmontar) actual.desmontar();
     contenedor.replaceChildren();
+    rutaPrevia = rutaMontada; rutaMontada = pedida;
     actual = pantalla;
     actual.montar(contenedor, params);
   };

@@ -29,6 +29,8 @@ export async function leerProgreso() {
     // Las listas se unen: en la nube caben menos (reglas de Firestore) y no deben pisar lo del navegador
     for (const k of ['lecciones', 'insignias']) datos[k] = [...new Set([...(local[k] ?? []), ...(nube[k] ?? [])])];
     datos.casos = unirCasos(comoMapa(local.casos), comoMapa(nube.casos));
+    unirAvance(nube.avance);
+    delete datos.avance; // el avance de las lecciones vive en su propia clave (CLAVE_AVANCE)
     escribirLocal(datos);
     return datos;
   } catch {
@@ -42,6 +44,7 @@ async function guardar(cambios) {
   const ref = refUsuario();
   if (!ref) return datos;
   try {
+    // merge: así no se borra el avance de las lecciones (campo "avance", que se sube aparte)
     await setDoc(ref, {
       apodo: String(datos.apodo || 'Detective').slice(0, 20),
       avatar: String(datos.avatar || '').slice(0, 20), // id de contenido/avatares.js
@@ -51,7 +54,7 @@ async function guardar(cambios) {
       // "bajó|Muy seguro" (lección 5 → lección 10). Solo si hay: así las reglas viejas no rechazan lo demás
       ...(datos.hipotesis ? { hipotesis: String(datos.hipotesis).slice(0, 40) } : {}),
       actualizado: serverTimestamp()
-    });
+    }, { merge: true });
   } catch (e) {
     console.warn('APU: no se pudo guardar en la nube; queda en el navegador.', e);
   }
@@ -82,17 +85,44 @@ export function guardarHipotesis(opcion, confianza = '') {
   return guardar({ hipotesis: [opcion, confianza].filter(Boolean).join('|') });
 }
 
-// Por dónde va cada lección (fase, página, chequeos, pregunta y aciertos de la trivia): solo en el navegador
+// Por dónde va cada lección (fase, página, chequeos, tarjeta, pregunta y respuestas de la trivia).
+// Cada paso se guarda en el navegador; al salir de la lección, subirAvance() lo copia a Firestore
+// (usuarios/{uid}.avance[id]). Al leer el progreso, gana el avance más nuevo (campo t).
 const CLAVE_AVANCE = 'apu-lecciones-avance';
+function leerTodoAvance() {
+  try { const t = JSON.parse(localStorage.getItem(CLAVE_AVANCE) || '{}'); return t && typeof t === 'object' && !Array.isArray(t) ? t : {}; } catch { return {}; }
+}
 export function leerAvance(id) {
-  try { const t = JSON.parse(localStorage.getItem(CLAVE_AVANCE) || '{}'); return t && typeof t[id] === 'object' ? t[id] : null; } catch { return null; }
+  const t = leerTodoAvance();
+  return t[id] && typeof t[id] === 'object' ? t[id] : null;
 }
 export function guardarAvance(id, avance) {
   try {
-    const t = JSON.parse(localStorage.getItem(CLAVE_AVANCE) || '{}') || {};
-    t[id] = avance;
+    const t = leerTodoAvance();
+    t[id] = { ...avance, t: Date.now() };
     localStorage.setItem(CLAVE_AVANCE, JSON.stringify(t));
   } catch { /* modo privado */ }
+}
+function unirAvance(nube) {
+  if (!nube || typeof nube !== 'object') return;
+  const t = leerTodoAvance();
+  let cambio = false;
+  for (const [id, v] of Object.entries(nube)) {
+    if (v && typeof v === 'object' && (v.t ?? 0) > (t[id]?.t ?? 0)) { t[id] = v; cambio = true; }
+  }
+  if (cambio) { try { localStorage.setItem(CLAVE_AVANCE, JSON.stringify(t)); } catch { /* modo privado */ } }
+}
+// Copia el avance de las lecciones a Firestore. Va en su propia escritura (merge): si las reglas
+// publicadas todavía no aceptan "avance", solo falla esto y el resto del progreso no se pierde.
+export async function subirAvance() {
+  const ref = refUsuario();
+  if (!ref) return;
+  const todo = Object.entries(leerTodoAvance()).sort((a, b) => (b[1]?.t ?? 0) - (a[1]?.t ?? 0)).slice(0, 10);
+  try {
+    await setDoc(ref, { avance: Object.fromEntries(todo), actualizado: serverTimestamp() }, { merge: true });
+  } catch (e) {
+    console.warn('APU: el avance de la lección quedó solo en el navegador.', e?.code ?? e);
+  }
 }
 // Casos: usuarios/{uid}.casos[id] = { pista, elecciones, veredicto, resuelto, fecha }
 //   pista: la estrella hasta la que llegó (0 = expediente … 7 = todas) · elecciones: lo que eligió en cada pista

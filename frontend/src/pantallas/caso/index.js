@@ -7,19 +7,22 @@
 // Progreso: usuarios/{uid}.casos[id] = { pista, elecciones, veredicto, resuelto } (servicios/progreso.js).
 // 3D: servicios/escena3d.js (un solo Cesium para todas las pantallas de los casos).
 import './caso.css';
-import { ir } from '../../router.js';
+import { ir, rutaAnterior } from '../../router.js';
 import { CASOS, casoPorId, PISTAS } from '../../contenido/casos.js';
 import { LECCIONES } from '../../contenido/lecciones.js';
 import { leerProgreso, estadoCaso, guardarCaso, guardarHipotesis } from '../../servicios/progreso.js';
 import { cargarDatosCaso } from '../../servicios/casos-datos.js';
 import { estadosCasos } from '../casos/index.js';
-import { esc, logo, crearJukumari, ICONO_RUMBO } from './comun.js';
+import { avisar } from '../../componentes/navegacion.js';
+import { esc, cabeza, crearJukumari, ICONO_RUMBO } from './comun.js';
 import { PASOS } from './pasos.js';
 import { pintarResuelto, pintarInforme } from './final.js';
 
 let vivo = false;
 let limpiezas = [];
 let escena = null;
+let alSalir = null;        // guarda la pista actual y lo elegido a medias (navegador → Firestore)
+let avisarAlMontar = false; // al reanudar un caso: el aviso sale en la pista a la que se saltó
 const CLAVE_ENCIENDE = 'apu-caso-enciende'; // "id:n": la línea que se enciende al volver a la constelación
 
 export function montar(contenedor, params = []) {
@@ -45,9 +48,22 @@ export function montar(contenedor, params = []) {
     if (!datos || estado === 'clasificado' || estado === 'camino') { ir('casos'); return; }
     const est = estadoCaso(p, caso.id) ?? { pista: 0, elecciones: {} };
     est.elecciones = est.elecciones ?? {};
+    // Al entrar desde fuera (archivo, menú, otra pantalla) a un caso sin terminar: sigue donde lo dejó
+    if (sub === null && !est.resuelto && !rutaAnterior().startsWith(`caso/${caso.id}`)) {
+      const a = est.actual;
+      if (Number.isInteger(a) && a >= 0 && a <= Math.min(6, est.pista ?? 0)) {
+        avisarAlMontar = true;
+        location.replace(`#/caso/${caso.id}/${a}`); // replace: "atrás" vuelve al archivo, no a la constelación
+        return;
+      }
+      if ((est.pista ?? 0) > 0) avisarAlMontar = true;
+    }
     const l5 = LECCIONES.find((l) => l.hipotesis);
+    const pendiente = {}; // lo elegido en la pista y aún sin confirmar (se guarda al salir)
     const ctx = {
       caso, datos, perfil: p, est, raiz, escena,
+      actual: null, // la pista abierta (null = constelación, resuelto o informe)
+      anotar: (elecciones) => Object.assign(pendiente, elecciones),
       apodo: String(p.apodo || '').trim() || 'detective',
       opcionesHipotesis: l5?.hipotesis?.opciones ?? ['bajó', 'no cambió', 'subió'],
       limites: LECCIONES.find((l) => l.limites)?.limites ?? [],
@@ -62,13 +78,29 @@ export function montar(contenedor, params = []) {
       completar(k, elecciones = {}) {
         const nueva = Math.max(est.pista ?? 0, k + 1);
         if (nueva > (est.pista ?? 0)) { try { sessionStorage.setItem(CLAVE_ENCIENDE, `${caso.id}:${nueva}`); } catch { /* modo privado */ } }
-        ctx.guardar({ pista: nueva, elecciones });
+        ctx.actual = null;
+        for (const k2 of Object.keys(pendiente)) delete pendiente[k2];
+        ctx.guardar({ pista: nueva, elecciones, actual: null });
         ir(`caso/${caso.id}`);
       },
       alSalir: (fn) => limpiezas.push(fn),
       vivo: () => vivo
     };
+    // Al salir (botón, logo, atrás del navegador o cerrar la pestaña): primero el navegador, luego Firestore
+    alSalir = () => {
+      const cambios = { actual: est.resuelto ? null : ctx.actual };
+      if (Object.keys(pendiente).length) cambios.elecciones = { ...pendiente };
+      if (cambios.actual === (est.actual ?? null) && !cambios.elecciones) return;
+      est.actual = cambios.actual;
+      for (const k2 of Object.keys(pendiente)) delete pendiente[k2];
+      guardarCaso(caso.id, cambios).catch(() => {});
+    };
+    const alOcultar = (e) => { if (vivo && (e.type === 'pagehide' || document.visibilityState === 'hidden')) alSalir?.(); };
+    document.addEventListener('visibilitychange', alOcultar);
+    window.addEventListener('pagehide', alOcultar);
+    limpiezas.push(() => { document.removeEventListener('visibilitychange', alOcultar); window.removeEventListener('pagehide', alOcultar); });
     raiz.innerHTML = '';
+    if (avisarAlMontar) { avisarAlMontar = false; avisar('Seguiste donde lo dejaste'); }
     if (sub === 'resuelto' || sub === 'informe') {
       if (!est.resuelto) { ir(`caso/${caso.id}`); return; }
       (sub === 'resuelto' ? pintarResuelto : pintarInforme)(ctx);
@@ -87,14 +119,15 @@ export function montar(contenedor, params = []) {
 // Cabecera con la mini-constelación (hecha ✓, actual roja, el resto apagado) + Jukumari con la ayuda del caso
 function pintarPista(ctx, k) {
   const { caso, est, raiz } = ctx;
+  ctx.actual = k;
   raiz.innerHTML = `
-    <header class="caso-cabeza"><nav aria-label="Pistas del caso"><ol class="caso-pasos">${PISTAS.map((p, i) => {
+    <header class="caso-cabeza con-pasos"><nav aria-label="Pistas del caso"><ol class="caso-pasos">${PISTAS.map((p, i) => {
       const hecha = i < (est.pista ?? 0) && i !== k, actual = i === k;
       return `${i ? `<li class="caso-une ${i <= (est.pista ?? 0) ? 'hecha' : ''}" aria-hidden="true"></li>` : ''}<li><button type="button" class="caso-paso ${hecha ? 'hecho' : ''} ${actual ? 'actual' : ''}" data-k="${i}"
         ${i <= (est.pista ?? 0) && !actual ? '' : 'disabled'} ${actual ? 'aria-current="step"' : ''} aria-label="${p.nombre}${hecha ? ', hecha' : ''}"><span class="bola" aria-hidden="true">${p.icono}</span>${p.corto}</button></li>`;
     }).join('')}</ol></nav></header>
     <main class="caso-cuerpo con-pasos"></main>`;
-  raiz.querySelector('.caso-cabeza').prepend(logo(`caso/${caso.id}`, 'Volver a la constelación'));
+  cabeza(raiz.querySelector('.caso-cabeza'));
   raiz.querySelector('.caso-pasos').addEventListener('click', (e) => {
     const b = e.target.closest('[data-k]');
     if (b && !b.disabled) ir(`caso/${caso.id}/${b.dataset.k}`);
@@ -159,7 +192,7 @@ function pintarConstelacion(ctx) {
       </div>
       <button type="button" class="btn-apu" data-seguir>${pista >= 7 ? (est.resuelto ? 'VER EL INFORME' : 'VER EL VEREDICTO') : `CONTINUAR: ${sig.pregunta.toUpperCase()}`}</button>
     </div>`;
-  raiz.querySelector('.caso-cabeza').append(logo('casos', 'Volver al archivo de casos'));
+  cabeza(raiz.querySelector('.caso-cabeza'));
   raiz.querySelector('.constelacion').addEventListener('click', (e) => {
     const b = e.target.closest('.caso-estrella');
     if (b && !b.disabled) ir(`caso/${caso.id}/${b.dataset.k}`);
@@ -174,6 +207,8 @@ function pintarConstelacion(ctx) {
 }
 
 export function desmontar() {
+  try { if (vivo) alSalir?.(); } catch { /* nada */ }
+  alSalir = null;
   vivo = false;
   limpiezas.forEach((f) => { try { f(); } catch { /* nada */ } });
   limpiezas = [];

@@ -76,7 +76,9 @@
 .etapas-volver svg { width: 42%; height: 42%; }
 .etapas-volver:hover { background: rgba(31, 65, 108, .9); }
 .etapas-volver:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
-.etapas-logo { position: absolute; right: 3.4cqh; top: 2.4cqh; z-index: 3; height: clamp(40px, 10cqh, 92px); width: auto; }
+.etapas-logo { position: absolute; right: 3.4cqh; top: 2.4cqh; z-index: 3; padding: 6px; margin: -6px; border: 0; border-radius: 12px; background: none; cursor: pointer; }
+.etapas-logo img { display: block; height: clamp(40px, 10cqh, 92px); width: auto; }
+.etapas-logo:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
 
 /* Panel de la etapa elegida */
 .etapas-panel { position: absolute; right: 3.4cqh; top: 15cqh; bottom: 4cqh; width: clamp(240px, 28cqw, 420px); padding: 2.6cqh; border-radius: 2.4cqh; display: flex; flex-direction: column; gap: 1.6cqh; overflow-y: auto; }

@@ -34,7 +34,7 @@ export function montar(contenedor) {
     <button type="button" class="etapas-volver vidrio" aria-label="Volver al menú">
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"/></svg>
     </button>
-    <img class="etapas-logo" src="/img/logo-apu.png" alt="APU">
+    <button type="button" class="etapas-logo" aria-label="Ir al menú principal"><img src="/img/logo-apu.png" alt="APU"></button>
 
     <form class="acceso-tarjeta ajustes-tarjeta" novalidate aria-labelledby="ajustes-titulo">
       <h1 id="ajustes-titulo"><span class="barras" aria-hidden="true">//</span> AJUSTES</h1>
@@ -82,6 +82,7 @@ export function montar(contenedor) {
   contenedor.append(raiz);
   const $ = (s) => raiz.querySelector(s);
   $('.etapas-volver').addEventListener('click', () => ir('menu'));
+  $('.etapas-logo').addEventListener('click', () => ir('menu'));
 
   // Nieve (igual que etapas, insignias y perfil)
   const nieve = $('.etapas-nieve');

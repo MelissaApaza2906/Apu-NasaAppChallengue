@@ -88,6 +88,7 @@ export const PASOS = [
     cuerpo.querySelectorAll('[data-r]').forEach((b) => b.addEventListener('click', () => {
       const i = Number(b.dataset.r);
       elegidos[i] = ORDEN[(ORDEN.indexOf(elegidos[i]) + 1) % ORDEN.length];
+      ctx.anotar?.({ recortes: [...elegidos] }); // si sale a mitad, al volver siguen clasificados
       pintar(elegidos.every(Boolean));
     }));
     pintar(false);
@@ -129,7 +130,7 @@ export const PASOS = [
     cuerpo.querySelectorAll('.evid').forEach((b) => b.addEventListener('click', () => {
       b.dataset.girada = b.dataset.girada === '1' ? '0' : '1';
       const t = T.find((x) => x.id === b.dataset.v);
-      if (b.dataset.girada === '1') { if (t.id === 'nieve') elegida = 'nieve'; juku.decir(t.dice, t.id === 'nieve' ? '¿Dónde miramos?' : '¿Recuerdas por qué no sirven los litros?'); }
+      if (b.dataset.girada === '1') { if (t.id === 'nieve') { elegida = 'nieve'; ctx.anotar?.({ variable: 'nieve' }); } juku.decir(t.dice, t.id === 'nieve' ? '¿Dónde miramos?' : '¿Recuerdas por qué no sirven los litros?'); }
       pintar();
     }));
     if (elegida === 'nieve') cuerpo.querySelector('[data-v="nieve"]').dataset.girada = '1';
@@ -183,6 +184,7 @@ export const PASOS = [
     cuerpo.querySelectorAll('[data-e]').forEach((b) => b.addEventListener('click', () => {
       if (b.disabled) return;
       escena = b.dataset.e;
+      ctx.anotar?.({ escena });
       pintar();
       ctx.escena?.escenaElegir(caso, escena); // resalta su borde y vuela a encuadrarlo
     }));
@@ -232,6 +234,7 @@ export const PASOS = [
     let pedido = 0;
     const elegir = async (m) => {
       mes = m;
+      ctx.anotar?.({ mes: m });
       cuerpo.querySelectorAll('.mes').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.m) === m)));
       const dentro = v.includes(m);
       if (dentro) { juku.decir('Misma ventana cada año = comparación justa.', `Ahora juntamos ${conDato} años de datos…`); trampa.innerHTML = avisoBase; }

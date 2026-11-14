@@ -6,7 +6,7 @@ service cloud.firestore {
     match /usuarios/{uid} {
       allow read, delete: if request.auth != null && request.auth.uid == uid;
       allow create, update: if request.auth != null && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['apodo', 'avatar', 'lecciones', 'casos', 'insignias', 'hipotesis', 'actualizado'])
+        && request.resource.data.keys().hasOnly(['apodo', 'avatar', 'lecciones', 'casos', 'insignias', 'hipotesis', 'avance', 'actualizado'])
         && request.resource.data.apodo is string
         && request.resource.data.apodo.size() >= 2
         && request.resource.data.apodo.size() <= 20
@@ -16,7 +16,10 @@ service cloud.firestore {
         && request.resource.data.casos is map && request.resource.data.casos.size() <= 11
         && request.resource.data.insignias is list && request.resource.data.insignias.size() <= 30
         && (!('hipotesis' in request.resource.data)
-            || (request.resource.data.hipotesis is string && request.resource.data.hipotesis.size() <= 40));
+            || (request.resource.data.hipotesis is string && request.resource.data.hipotesis.size() <= 40))
+        // avance[id] de cada lección (fase, página, respuestas…): hasta 10
+        && (!('avance' in request.resource.data)
+            || (request.resource.data.avance is map && request.resource.data.avance.size() <= 10));
     }
     // Todo lo demás: cerrado.
     match /{document=**} {

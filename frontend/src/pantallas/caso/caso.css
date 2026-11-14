@@ -6,7 +6,11 @@
   --t-chico: clamp(11px, 1.5cqh, 14px); --t-texto: clamp(12px, 1.9cqh, 17px);
   position: absolute; inset: 0; overflow: hidden; color: var(--nieve); font-family: var(--letra-texto); background: transparent;
 }
-.caso-cabeza { position: absolute; z-index: 3; top: 2.6cqh; left: 2cqw; right: 30cqw; display: flex; align-items: flex-start; gap: 3cqw; }
+.caso-cabeza { position: absolute; z-index: 3; top: 2.6cqh; left: 2cqw; right: 30cqw; display: flex; align-items: center; gap: 1.4cqw; }
+.caso-cabeza .btn-volver { margin-right: 1.6cqw; }
+/* En las pistas: logo, "‹ Archivo" y la mini-constelación (más ancha: llega casi al borde derecho) */
+.caso-cabeza.con-pasos { right: 4cqw; align-items: flex-start; }
+.caso-cabeza.con-pasos .btn-volver { margin-top: calc((clamp(28px, 4.6cqh, 42px) - var(--alto)) / 2); }
 .caso-logo { flex: none; padding: 7px; margin: -7px; border: 0; background: none; cursor: pointer; border-radius: 12px; } /* el relleno agranda el área táctil, no el logo */
 .caso-logo img { display: block; height: clamp(36px, 7cqh, 64px); width: auto; }
 .caso-logo:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 4px; }
@@ -293,6 +297,9 @@
 @media (max-width: 1000px), (max-height: 560px) {
   .pantalla-caso { --t-chico: clamp(10px, 2.6cqh, 13px); --t-texto: clamp(11px, 3cqh, 15px); }
   .caso-cabeza { top: 1.4cqh; left: 2cqw; right: 26cqw; gap: 1.6cqw; }
+  .caso-cabeza .btn-volver { margin-right: 0; }
+  .caso-cabeza.con-pasos { right: 26cqw; }
+  .caso-cabeza.con-pasos .btn-volver { margin-top: 0; }
   .caso-logo img { height: clamp(28px, 9cqh, 44px); }
   .caso-cuerpo { top: 12cqh; left: 3cqw; width: auto; right: 27cqw; padding-bottom: 4cqh; }
   .caso-cuerpo.con-pasos { top: 18cqh; }

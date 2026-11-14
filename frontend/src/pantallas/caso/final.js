@@ -9,8 +9,17 @@ import { GLACIARES } from '../../contenido/glaciares.js';
 import { leerProgreso } from '../../servicios/progreso.js';
 import { cargarDatosCaso } from '../../servicios/casos-datos.js';
 import { estadosCasos } from '../casos/index.js';
-import { esc, fmt, fmtP, logo, crearJukumari, sinMovimiento } from './comun.js';
+import { esc, fmt, fmtP, cabeza, crearJukumari, sinMovimiento } from './comun.js';
 import { serieElegida } from './pasos.js';
+
+// "Siguiente caso ›": el primer expediente abierto que no sea este (si no hay, el archivo)
+async function irAlSiguiente(ctx) {
+  const p = await leerProgreso().catch(() => ctx.perfil);
+  const conDatos = await Promise.all(CASOS.map((c) => cargarDatosCaso(c).then(Boolean)));
+  const est2 = estadosCasos(p, conDatos);
+  const i = CASOS.findIndex((c, k) => est2[k] === 'abierto' && c.id !== ctx.caso.id);
+  ir(i >= 0 ? `caso/${CASOS[i].id}` : 'casos');
+}
 
 const INSIGNIA_IMG = '/img/insignias/montanas-oro.png';
 const fechaCorta = (iso) => (iso ? iso.split('-').reverse().join(' · ') : '');
@@ -54,10 +63,11 @@ export function pintarResuelto(ctx) {
         <span class="ic" aria-hidden="true">⚖</span>
         <p><b>Veredicto: <em>la nieve ${esc(f.rumbo)}</em></b><br>${esc(f.palabras[0].toUpperCase() + f.palabras.slice(1))} ${esc(f.consecuencia)} · firmado: <i>${esc(ctx.apodo)}</i></p>
         <button type="button" class="btn-apu secundario" data-informe>VER INFORME</button>
+        <button type="button" class="btn-apu secundario" data-archivo>VOLVER AL ARCHIVO</button>
         <button type="button" class="btn-apu" data-siguiente>SIGUIENTE CASO ›</button>
       </div>
     </main>`;
-  raiz.querySelector('.caso-cabeza').append(logo('casos', 'Volver al archivo de casos'));
+  cabeza(raiz.querySelector('.caso-cabeza'));
   // Partículas de colores
   const colores = ['#D52B1E', '#F8AE05', '#3B6C24', '#4F8DFF', '#A06BFF', '#F2F4F8'];
   raiz.querySelector('.particulas').replaceChildren(...Array.from({ length: sinMovimiento() ? 0 : 36 }, (_, i) => {
@@ -85,13 +95,8 @@ export function pintarResuelto(ctx) {
   const juku = crearJukumari(raiz, { ayuda: 'con' });
   juku.decir('¡Caso cerrado, detective! 🎉', '');
   raiz.querySelector('[data-informe]').addEventListener('click', () => ir(`caso/${caso.id}/informe`));
-  raiz.querySelector('[data-siguiente]').addEventListener('click', async () => {
-    const p = await leerProgreso().catch(() => ctx.perfil);
-    const conDatos = await Promise.all(CASOS.map((c) => cargarDatosCaso(c).then(Boolean)));
-    const est2 = estadosCasos(p, conDatos);
-    const i = CASOS.findIndex((c, k) => est2[k] === 'abierto' && c.id !== caso.id);
-    ir(i >= 0 ? `caso/${CASOS[i].id}` : 'casos');
-  });
+  raiz.querySelector('[data-archivo]').addEventListener('click', () => ir('casos'));
+  raiz.querySelector('[data-siguiente]').addEventListener('click', () => irAlSiguiente(ctx));
   // El globo 3D reemplaza al planeta: vuela a la cordillera y su marcador se enciende verde con un pulso
   if (ctx.escena) {
     ctx.escena.planeta('centro');
@@ -166,13 +171,14 @@ export function pintarInforme(ctx) {
       </article>
     </div>
     <aside class="informe-acciones">
-      <button type="button" class="btn-apu" data-png>⬇ DESCARGAR PNG</button>
+      <button type="button" class="btn-apu secundario" data-png>⬇ DESCARGAR PNG</button>
       <button type="button" class="btn-apu secundario" data-compartir>↗ COMPARTIR</button>
       <button type="button" class="btn-apu secundario" data-archivo>VOLVER AL ARCHIVO</button>
+      <button type="button" class="btn-apu" data-siguiente>SIGUIENTE CASO ›</button>
       <p class="informe-estado" aria-live="polite"></p>
       <div class="informe-insignia"><img src="${INSIGNIA_IMG}" alt="">INSIGNIA GANADA<b>${esc(caso.insignia)}</b></div>
     </aside>`;
-  raiz.querySelector('.caso-cabeza').append(logo('casos', 'Volver al archivo de casos'));
+  cabeza(raiz.querySelector('.caso-cabeza'));
   const tarjeta = raiz.querySelector('.informe'), zona = raiz.querySelector('.informe-zona'), estado = raiz.querySelector('.informe-estado');
   // Inclinación 3D que sigue al mouse
   if (!sinMovimiento()) {
@@ -221,5 +227,6 @@ export function pintarInforme(ctx) {
     } catch (e) { if (e?.name !== 'AbortError') estado.textContent = 'No se pudo compartir.'; }
   });
   raiz.querySelector('[data-archivo]').addEventListener('click', () => ir('casos'));
+  raiz.querySelector('[data-siguiente]').addEventListener('click', () => irAlSiguiente(ctx));
   if (ctx.escena && g) { ctx.escena.planeta('derecha'); ctx.escena.volarA(g.lat, g.lon); ctx.escena.marcadores([{ id: caso.id, lat: g.lat, lon: g.lon, estado: 'resuelto', foco: false }]); }
 }

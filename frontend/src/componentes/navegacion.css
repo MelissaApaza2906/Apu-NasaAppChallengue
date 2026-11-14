@@ -1,0 +1,28 @@
+/* Botón "‹ Volver" de la cabeza (secundario: contorno claro, sin cuña roja) y aviso de 2 s */
+.btn-volver.btn-apu {
+  --alto: clamp(36px, 4.6cqh, 44px);
+  flex: none; gap: .55em; padding: 0 1.2em 0 .95em;
+  font: 600 clamp(10px, 1.4cqh, 13px) var(--letra-texto); letter-spacing: .18em;
+  background: rgba(11, 25, 46, .78);
+}
+.btn-volver .flecha { font-size: 1.9em; line-height: 0; transform: translateY(-.06em); }
+.btn-volver:hover { background: rgba(31, 65, 108, .85); box-shadow: none; }
+
+/* Celular: solo la flecha, en un círculo de 40 px */
+@media (max-width: 1000px), (max-height: 560px) {
+  .btn-volver.btn-apu { --alto: 40px; width: 40px; height: 40px; min-height: 40px; padding: 0; border-radius: 50%; }
+  .btn-volver .texto { display: none; }
+  .btn-volver .flecha { font-size: 26px; transform: translate(-1px, -2px); }
+}
+
+.aviso-apu {
+  position: absolute; z-index: 60; left: 50%; bottom: max(16px, 5cqh); margin: 0;
+  padding: .7em 1.4em; border: 1.5px solid rgba(91, 160, 255, .65); border-radius: 999px;
+  background: rgba(11, 25, 46, .94); color: var(--nieve); font: 600 clamp(12px, 1.7cqh, 15px) var(--letra-texto);
+  box-shadow: 0 .8cqh 2.4cqh rgba(0, 0, 0, .45); pointer-events: none; white-space: nowrap;
+  transform: translateX(-50%);
+  animation: avisoEntra .25s ease-out, avisoSale .3s ease-in calc(var(--dura, 2000ms) - 300ms) forwards;
+}
+.aviso-apu::before { content: '↺ '; color: var(--dato-nieve); }
+@keyframes avisoEntra { from { opacity: 0; transform: translate(-50%, 10px); } }
+@keyframes avisoSale { to { opacity: 0; transform: translate(-50%, 6px); } }

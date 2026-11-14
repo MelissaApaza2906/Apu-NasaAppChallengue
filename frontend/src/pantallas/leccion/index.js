@@ -12,8 +12,9 @@ import './leccion.css';
 import { ir } from '../../router.js';
 import { LECCIONES, BLOQUES } from '../../contenido/lecciones.js';
 import { insigniaPorId } from '../../contenido/insignias.js';
-import { leerProgreso, completarLeccion, guardarHipotesis, leerAvance, guardarAvance } from '../../servicios/progreso.js';
+import { leerProgreso, completarLeccion, guardarHipotesis, leerAvance, guardarAvance, subirAvance } from '../../servicios/progreso.js';
 import { darInsignia } from '../../componentes/nueva-insignia.js';
+import { botonVolver, avisar } from '../../componentes/navegacion.js';
 import { cargarDatos, marcas, rellenar, esc } from './datos.js';
 import { VISUALES, MONTAR, escena, linea } from './visuales.js';
 
@@ -27,6 +28,7 @@ const ICONO_ETIQUETA = { Nieve: '❄', Nube: '☁', Sal: '🧂', Agua: '💧' };
 let vivo = false;
 let temporizadores = [];
 let quitar = [];
+let alSalir = null; // guarda el avance (navegador → Firestore) al dejar la lección
 
 const sinEtiquetas = (t) => String(t ?? '').replace(/<[^>]*>/g, '');
 const mezclar = (a) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
@@ -57,15 +59,32 @@ export function montar(contenedor, params = []) {
     alcanzada: Number.isInteger(previo.alcanzada) ? previo.alcanzada : 0,
     carta: Number.isInteger(previo.carta) ? Math.min(l.tarjetas.length - 1, previo.carta) : 0,
     volteada: false, vistas: new Set([0]),
-    pregunta: Number.isInteger(previo.pregunta) ? previo.pregunta : 0,
-    aciertos: Number.isInteger(previo.aciertos) ? previo.aciertos : 0,
+    // pregunta: la que se ve (-1 = la primera sin responder) · respuestas[i] = { bien, r } (r: lo que eligió)
+    pregunta: Number.isInteger(previo.pregunta) ? previo.pregunta : -1,
+    respuestas: Array.isArray(previo.respuestas) ? previo.respuestas.map((x) => (x && typeof x === 'object' ? x : null))
+      // avance viejo (solo pregunta y aciertos): las ya respondidas quedan con su acierto, sin la opción elegida
+      : Number.isInteger(previo.pregunta) ? Array.from({ length: previo.pregunta }, (_, k) => ({ bien: k < (previo.aciertos ?? 0) })) : [],
     fallosSeguidos: 0
   };
-  if (est.fase === 'trivia' && !Number.isInteger(previo.pregunta)) { est.pregunta = 0; est.aciertos = 0; }
-  const guardar = () => guardarAvance(l.id, {
-    fase: est.fase, pagina: est.pagina, chequeos: est.chequeos, alcanzada: est.alcanzada,
-    carta: est.carta, pregunta: est.pregunta, aciertos: est.aciertos
-  });
+  if (!Array.isArray(previo.respuestas) && Number.isInteger(previo.pregunta)) est.pregunta = -1;
+  const aciertos = () => est.respuestas.filter((x) => x?.bien).length;
+  let tocado = false; // si solo entró y salió, no se pisa lo guardado (p. ej. una lección que quedó en la meta)
+  const guardar = () => {
+    tocado = true;
+    guardarAvance(l.id, {
+      fase: est.fase, pagina: est.pagina, chequeos: est.chequeos, alcanzada: est.alcanzada,
+      carta: est.carta, pregunta: est.pregunta, respuestas: est.respuestas, aciertos: aciertos()
+    });
+  };
+  // Al salir (ruta nueva, botón atrás o cerrar la pestaña): primero el navegador, luego Firestore
+  alSalir = () => { if (tocado) guardar(); subirAvance(); };
+  const alOcultar = (e) => { if (vivo && (e.type === 'pagehide' || document.visibilityState === 'hidden')) alSalir?.(); };
+  document.addEventListener('visibilitychange', alOcultar);
+  window.addEventListener('pagehide', alOcultar);
+  quitar.push(() => { document.removeEventListener('visibilitychange', alOcultar); window.removeEventListener('pagehide', alOcultar); });
+  // ¿Vuelve a una lección empezada? (no cuenta si la dejó en la meta: esa ya terminó)
+  const reanuda = Boolean(previo.fase) && previo.fase !== 'meta'
+    && (previo.fase !== 'teoria' || previo.pagina > 0 || (previo.chequeos ?? []).some(Boolean));
 
   // Datos reales y perfil (llegan después: se vuelve a pintar con las marcas llenas)
   let d = {}, perfil = {}, m = marcas({}, {}), cargado = false;
@@ -79,7 +98,7 @@ export function montar(contenedor, params = []) {
     <div class="lec-fondo" aria-hidden="true"></div>
     <span class="lec-esq arriba" aria-hidden="true"></span><span class="lec-esq abajo" aria-hidden="true"></span>
     <header class="lec-cabeza">
-      <button type="button" class="lec-logo" aria-label="Volver a las etapas"><img src="/img/logo-apu.png" alt=""></button>
+      <button type="button" class="lec-logo" aria-label="Ir al menú principal"><img src="/img/logo-apu.png" alt=""></button>
       <nav class="lec-camino" aria-label="Fases de la lección"><ol></ol></nav>
     </header>
     <main class="lec-cuerpo" tabindex="-1"></main>
@@ -91,7 +110,8 @@ export function montar(contenedor, params = []) {
     <div class="lec-confeti" aria-hidden="true"></div>`;
   const $ = (s) => raiz.querySelector(s);
   const cuerpo = $('.lec-cuerpo');
-  $('.lec-logo').addEventListener('click', () => ir('etapas'));
+  $('.lec-logo').addEventListener('click', () => ir('menu'));
+  $('.lec-logo').after(botonVolver('Ruta', 'etapas', 'Volver a la ruta de lecciones'));
 
   // ── El Jukumari: dice (globo blanco) y piensa (nube punteada)
   let consejos = [], nConsejo = 0, reloj = 0;
@@ -126,7 +146,8 @@ export function montar(contenedor, params = []) {
       const puntos = f === 'teoria' ? `<span class="puntos" aria-hidden="true">${l.paginas.map((_, k) =>
         `<i class="${est.chequeos[k] ? 'ok' : ''}${est.fase === 'teoria' && k === est.pagina ? ' aqui' : ''}"></i>`).join('')}</span>` : '';
       const une = i ? `<li class="lec-une ${i <= est.alcanzada ? 'hecha' : ''}" aria-hidden="true"></li>` : '';
-      const puede = i <= est.alcanzada && f !== est.fase && f !== 'meta';
+      // Se vuelve a cualquier fase ya alcanzada; a la meta, solo con toda la trivia respondida
+      const puede = i <= est.alcanzada && f !== est.fase && (f !== 'meta' || (cargado && triviaCompleta()));
       return `${une}<li><button type="button" class="lec-fase ${clase}" data-fase="${f}" ${puede ? '' : 'disabled'}
         ${f === est.fase ? 'aria-current="step"' : ''} aria-label="${NOMBRE_FASE[f]}${clase === 'hecha' ? ', hecha' : ''}${f === 'teoria' ? `, ${est.chequeos.filter(Boolean).length} de 4 páginas` : ''}">
         ${clase === 'hecha' ? '<span aria-hidden="true">✓</span>' : ''}${NOMBRE_FASE[f]}${puntos}</button></li>`;
@@ -138,13 +159,19 @@ export function montar(contenedor, params = []) {
     if (b && !b.disabled) irA(b.dataset.fase);
   });
 
-  const irA = async (fase) => {
+  // irA(fase, { reiniciar, pagina, carta, pregunta }): reiniciar borra las respuestas (solo "Repetir trivia")
+  const irA = async (fase, op = {}) => {
     const i = FASES.indexOf(fase);
     est.alcanzada = Math.max(est.alcanzada, i);
     est.fase = fase;
     raiz.classList.toggle('en-meta', fase === 'meta');
     $('.lec-confeti').replaceChildren();
-    if (fase === 'trivia') { est.pregunta = 0; est.aciertos = 0; est.fallosSeguidos = 0; }
+    if (Number.isInteger(op.pagina)) est.pagina = op.pagina;
+    if (Number.isInteger(op.carta)) { est.carta = op.carta; est.volteada = false; }
+    if (fase === 'trivia') {
+      if (op.reiniciar) { est.respuestas = []; est.fallosSeguidos = 0; }
+      est.pregunta = Number.isInteger(op.pregunta) ? op.pregunta : -1;
+    }
     guardar();
     pintarCamino();
     await pintarFase();
@@ -182,7 +209,7 @@ export function montar(contenedor, params = []) {
         </div>
       </div>
       <div class="lec-pie">
-        <button type="button" class="btn-apu secundario" data-ant ${i === 0 ? 'disabled' : ''}>ANTERIOR</button>
+        ${i === 0 ? '<span></span>' : '<button type="button" class="btn-apu secundario" data-ant>‹ Anterior</button>'}
         ${curiosos ? `<button type="button" class="lec-libro" aria-haspopup="dialog">📖 ${p.paraCuriosos ? 'Para curiosos' : 'Fuentes'}</button>` : '<span></span>'}
         <button type="button" class="btn-apu" data-sig ${est.chequeos[i] ? '' : 'disabled'}>${ultima ? 'IR A TARJETAS' : 'SIGUIENTE PÁGINA'}</button>
       </div>
@@ -218,7 +245,10 @@ export function montar(contenedor, params = []) {
         jukumari(l.jukumari.fallo, p.jukumari.piensa);
       }
     }));
-    cuerpo.querySelector('[data-ant]').addEventListener('click', () => { est.pagina -= 1; guardar(); pintarCamino(); pintarTeoria(); cuerpo.scrollTop = 0; });
+    cuerpo.querySelector('[data-ant]')?.addEventListener('click', () => {
+      est.pagina -= 1; guardar(); pintarCamino(); pintarTeoria(); cuerpo.scrollTop = 0;
+      cuerpo.querySelector('h1')?.focus({ preventScroll: true });
+    });
     cuerpo.querySelector('[data-sig]').addEventListener('click', () => {
       if (!est.chequeos[i]) return;
       if (ultima) { irA('tarjetas'); return; }
@@ -266,7 +296,7 @@ export function montar(contenedor, params = []) {
       <div class="lec-pie">
         <ol class="lec-puntitos" aria-label="Tarjetas">${l.tarjetas.map((_, i) => `<li><button type="button" data-c="${i}" aria-label="Tarjeta ${i + 1}"></button></li>`).join('')}</ol>
         <span class="lec-pie-der">
-          <button type="button" class="btn-apu secundario" data-ant>ANTERIOR</button>
+          <button type="button" class="btn-apu secundario" data-ant>‹ Anterior</button>
           <button type="button" class="btn-apu" data-sig>SIGUIENTE</button>
         </span>
       </div>`;
@@ -286,7 +316,7 @@ export function montar(contenedor, params = []) {
         b.className = i === est.carta ? 'actual' : est.vistas.has(i) ? 'vista' : '';
         if (i === est.carta) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
       });
-      cuerpo.querySelector('[data-ant]').disabled = est.carta === 0;
+      cuerpo.querySelector('[data-ant]').setAttribute('aria-label', est.carta === 0 ? 'Anterior: volver a la teoría, página 4' : 'Tarjeta anterior');
       cuerpo.querySelector('[data-sig]').textContent = est.carta === total - 1 ? 'IR A LA TRIVIA' : 'SIGUIENTE';
       if (est.volteada) jukumari('¡Eso es! Léela otra vez en voz alta.', '¿La podría explicar con mis palabras?');
       else jukumari('Gira la tarjeta. ¡Te servirá en la trivia!', est.carta < total - 1 ? `Faltan ${total - est.carta - 1} tarjetas más…` : '¡La última! Después, la trivia.');
@@ -294,7 +324,8 @@ export function montar(contenedor, params = []) {
     const mover = (i) => { est.carta = i; est.volteada = false; est.vistas.add(i); guardar(); pintar(true); };
     carta.addEventListener('click', () => { est.volteada = !est.volteada; pintar(false); });
     cuerpo.querySelector('.lec-puntitos').addEventListener('click', (e) => { const b = e.target.closest('[data-c]'); if (b) mover(Number(b.dataset.c)); });
-    cuerpo.querySelector('[data-ant]').addEventListener('click', () => est.carta > 0 && mover(est.carta - 1));
+    // En la primera tarjeta, "Anterior" vuelve a la última página de la teoría
+    cuerpo.querySelector('[data-ant]').addEventListener('click', () => (est.carta > 0 ? mover(est.carta - 1) : irA('teoria', { pagina: l.paginas.length - 1 })));
     cuerpo.querySelector('[data-sig]').addEventListener('click', () => (est.carta < total - 1 ? mover(est.carta + 1) : irA('trivia')));
     est.vistas.add(est.carta);
     pintar(false);
@@ -304,23 +335,30 @@ export function montar(contenedor, params = []) {
   // ── Trivia
   // "juez" necesita la serie real (series.json); si no está, esa pregunta se salta
   const preguntas = () => l.trivia.filter((q) => q.tipo !== 'juez' || d.serie);
+  const triviaCompleta = () => preguntas().every((_, i) => est.respuestas[i]);
+  // Una pregunta ya respondida se ve en modo lectura (con su respuesta); "‹ Anterior" lleva a la de antes
+  // y, desde la primera, a la última tarjeta.
   function pintarTrivia() {
     const lista = preguntas(), total = lista.length;
+    if (est.pregunta < 0) { const k = lista.findIndex((_, i) => !est.respuestas[i]); est.pregunta = k < 0 ? 0 : k; guardar(); }
     if (est.pregunta >= total) { irA('meta'); return; }
-    const q = lista[est.pregunta];
-    let respondida = false;
+    const i = est.pregunta, q = lista[i];
+    const previa = est.respuestas[i] ?? null;
+    let respondida = Boolean(previa);
+    const copos = () => { const n = aciertos(); return lista.map((_, k) => `<span class="${k < n ? 'lleno' : ''}">❄</span>`).join(''); };
     cuerpo.innerHTML = `
       <div class="lec-trivia-cabeza">
-        <p class="lec-ceja">TRIVIA · PREGUNTA ${est.pregunta + 1} DE ${total}</p>
-        <span class="lec-copos" role="img" aria-label="${est.aciertos} aciertos de ${total}">${lista.map((_, i) => `<span class="${i < est.aciertos ? 'lleno' : ''}">❄</span>`).join('')}</span>
+        <p class="lec-ceja">TRIVIA · PREGUNTA ${i + 1} DE ${total}${previa ? ' · YA RESPONDIDA' : ''}</p>
+        <span class="lec-copos" role="img" aria-label="${aciertos()} aciertos de ${total}">${copos()}</span>
       </div>
       <h1 class="lec-titulo chico" tabindex="-1">${H(q.pregunta)}</h1>
-      <div class="lec-q"></div>
+      <div class="lec-q ${previa ? 'lectura' : ''}"></div>
       <div class="lec-explica-fila">
         <p class="lec-explica" aria-live="polite"></p>
         <span class="lec-pie-der">
+          <button type="button" class="btn-apu secundario" data-ant aria-label="${i === 0 ? 'Anterior: volver a las tarjetas' : 'Pregunta anterior'}">‹ Anterior</button>
           <button type="button" class="btn-apu secundario lec-pista" hidden>💡 PISTA</button>
-          <button type="button" class="btn-apu" data-sig hidden>${est.pregunta === total - 1 ? 'VER MI RESULTADO' : 'SIGUIENTE'}</button>
+          <button type="button" class="btn-apu" data-sig ${previa ? '' : 'hidden'}>${i === total - 1 ? 'VER MI RESULTADO' : 'SIGUIENTE'}</button>
         </span>
       </div>`;
     const zona = cuerpo.querySelector('.lec-q');
@@ -334,56 +372,71 @@ export function montar(contenedor, params = []) {
     };
     botonPista.addEventListener('click', mostrarPista);
 
-    // Al responder: copos, explicación, Jukumari y (si falla) la pista
-    const responder = (bien, prefijo = '') => {
+    // Al responder: se guarda la respuesta, copos, explicación, Jukumari y (si falla) la pista
+    const responder = (bien, prefijo = '', r = null) => {
       if (respondida) return;
       respondida = true;
-      if (bien) { est.aciertos += 1; est.fallosSeguidos = 0; } else est.fallosSeguidos += 1;
-      cuerpo.querySelectorAll('.lec-copos span').forEach((c, k) => c.classList.toggle('lleno', k < est.aciertos));
-      cuerpo.querySelector('.lec-copos').setAttribute('aria-label', `${est.aciertos} aciertos de ${total}`);
+      est.respuestas[i] = { bien, r };
+      if (bien) est.fallosSeguidos = 0; else est.fallosSeguidos += 1;
+      guardar(); // si sale ahora, vuelve a esta pregunta en modo lectura
+      cuerpo.querySelector('.lec-copos').innerHTML = copos();
+      cuerpo.querySelector('.lec-copos').setAttribute('aria-label', `${aciertos()} aciertos de ${total}`);
       explica.innerHTML = `<b class="${bien ? 'bien' : 'mal'}">${prefijo || (bien ? '¡Bien!' : 'Casi.')}</b> ${H(q.explicacion)}`;
       const sig = cuerpo.querySelector('[data-sig]');
       sig.hidden = false;
-      if (bien) jukumari(l.jukumari.acierto, est.pregunta < total - 1 ? 'Otra más…' : '¡Vamos a ver tu resultado!');
+      if (bien) jukumari(l.jukumari.acierto, i < total - 1 ? 'Otra más…' : '¡Vamos a ver tu resultado!');
       else {
         jukumari(l.jukumari.fallo, q.pista ? 'Toca “Pista” si quieres una ayuda.' : '¡Así se aprende!');
         if (q.pista) botonPista.hidden = false;
         if (est.fallosSeguidos >= 2) mostrarPista(); // dos fallos seguidos: la pista aparece sola
       }
-      est.pregunta += 1; guardar(); est.pregunta -= 1; // si sale ahora, vuelve a la siguiente pregunta
       sig.focus();
     };
+    const volver = () => {
+      if (i === 0) { irA('tarjetas', { carta: l.tarjetas.length - 1 }); return; }
+      est.pregunta = i - 1; guardar(); pintarTrivia(); cuerpo.scrollTop = 0; cuerpo.querySelector('h1')?.focus({ preventScroll: true });
+    };
+    cuerpo.querySelector('[data-ant]').addEventListener('click', volver);
     cuerpo.querySelector('[data-sig]').addEventListener('click', () => {
-      est.pregunta += 1; guardar();
+      est.pregunta = i + 1; guardar();
       if (est.pregunta < total) { pintarTrivia(); cuerpo.scrollTop = 0; cuerpo.querySelector('h1')?.focus({ preventScroll: true }); }
       else irA('meta');
     });
 
     const TIPOS = { opciones: triviaOpciones, pixeles: triviaOpciones, clasificar: triviaClasificar, ordenar: triviaOrdenar, juez: triviaJuez };
-    (TIPOS[q.tipo] ?? triviaOpciones)(q, zona, responder);
-    jukumari(est.pregunta === 0 ? 'Si fallas, te explico por qué. ¡Así se aprende!' : '¡Otra más! Tú puedes.', 'Lee todas las opciones antes de tocar…');
+    (TIPOS[q.tipo] ?? triviaOpciones)(q, zona, responder, previa);
+    if (previa) {
+      explica.innerHTML = `<b class="${previa.bien ? 'bien' : 'mal'}">${previa.bien ? 'Acertaste.' : 'Fallaste esta.'}</b> ${H(q.explicacion)}`;
+      jukumari('Así respondiste esta pregunta.', i < total - 1 ? 'Toca “Siguiente” para seguir…' : '¿Vemos tu resultado?');
+      conConsejos([]);
+      return;
+    }
+    jukumari(i === 0 ? 'Si fallas, te explico por qué. ¡Así se aprende!' : '¡Otra más! Tú puedes.', 'Lee todas las opciones antes de tocar…');
     conConsejos(['Lee la pregunta otra vez, despacio.', 'Si dudas, piensa en las tarjetas que volteaste.']);
   }
 
-  function triviaOpciones(q, zona, responder) {
+  // previa: { bien, r } si ya se respondió (se pinta en modo lectura). r = índice elegido
+  function triviaOpciones(q, zona, responder, previa) {
     const pix = q.tipo === 'pixeles' && Array.isArray(q.valores)
       ? `<div class="lec-pixeles" role="img" aria-label="Píxeles: ${q.valores.join(', ')}">${q.valores.map((v) => `<span class="${v > 100 ? 'aviso' : v >= (q.umbral ?? 40) ? 'si' : 'no'}" style="--v:${Math.min(100, v)}">${v}</span>`).join('')}</div>` : '';
     zona.innerHTML = `${pix}<div class="lec-opciones">${q.opciones.map((o, i) => `<button type="button" class="lec-opcion" data-i="${i}"><span class="letra">${LETRAS[i]}</span><span>${H(o)}</span></button>`).join('')}</div>`;
     const ops = [...zona.querySelectorAll('.lec-opcion')];
+    const marcar = (elegida) => ops.forEach((x, j) => {
+      x.disabled = true;
+      if (j === q.correcta) { x.classList.add('correcta'); x.querySelector('.letra').textContent = '✓'; }
+      else if (j === elegida) { x.classList.add('mal'); x.querySelector('.letra').textContent = '✕'; }
+    });
+    if (previa) { marcar(Number.isInteger(previa.r) ? previa.r : null); return; }
     ops.forEach((b) => b.addEventListener('click', () => {
-      const i = Number(b.dataset.i), bien = i === q.correcta;
-      ops.forEach((x, j) => {
-        x.disabled = true;
-        if (j === q.correcta) { x.classList.add('correcta'); x.querySelector('.letra').textContent = '✓'; }
-        else if (x === b) { x.classList.add('mal'); x.querySelector('.letra').textContent = '✕'; }
-      });
-      responder(bien);
+      const i = Number(b.dataset.i);
+      marcar(i);
+      responder(i === q.correcta, '', i);
     }));
   }
 
-  // Clasificar: toca una etiqueta y luego la escena (o el recorte) donde va
-  function triviaClasificar(q, zona, responder) {
-    const asignadas = q.escenas.map(() => null);
+  // Clasificar: toca una etiqueta y luego la escena (o el recorte) donde va. r = etiqueta puesta en cada escena
+  function triviaClasificar(q, zona, responder, previa) {
+    const asignadas = q.escenas.map((e, i) => (previa ? (Array.isArray(previa.r) ? previa.r[i] ?? null : e.correcta) : null));
     let elegida = null;
     zona.innerHTML = `
       <p class="lec-instruccion">Toca una etiqueta y luego ${q.escenas[0]?.img ? 'la foto' : 'el recorte'} donde va. Mira la forma, no solo el color.</p>
@@ -397,6 +450,20 @@ export function montar(contenedor, params = []) {
     const etiquetas = [...zona.querySelectorAll('.lec-etiqueta')];
     const escenas = [...zona.querySelectorAll('.lec-escena')];
     const revisar = zona.querySelector('[data-revisar]');
+    const revisado = () => {
+      let ok = 0;
+      escenas.forEach((b, i) => {
+        const bien = asignadas[i] === q.escenas[i].correcta;
+        if (bien) ok += 1;
+        b.disabled = true;
+        b.classList.add(bien ? 'bien' : 'mal');
+        b.querySelector('[data-asig]').textContent = `${bien ? '✓' : '✕'} ${asignadas[i] ?? '—'}${bien ? '' : ` → ${q.escenas[i].correcta}`}`;
+      });
+      etiquetas.forEach((x) => { x.disabled = true; });
+      revisar.hidden = true;
+      return ok;
+    };
+    if (previa) { revisado(); return; }
     etiquetas.forEach((b) => b.addEventListener('click', () => {
       elegida = b.dataset.t;
       etiquetas.forEach((x) => x.setAttribute('aria-checked', String(x === b)));
@@ -410,25 +477,17 @@ export function montar(contenedor, params = []) {
       revisar.disabled = asignadas.some((x) => !x);
     }));
     revisar.addEventListener('click', () => {
-      let ok = 0;
-      escenas.forEach((b, i) => {
-        const bien = asignadas[i] === q.escenas[i].correcta;
-        if (bien) ok += 1;
-        b.disabled = true;
-        b.classList.add(bien ? 'bien' : 'mal');
-        b.querySelector('[data-asig]').textContent = `${bien ? '✓' : '✕'} ${asignadas[i]}${bien ? '' : ` → ${q.escenas[i].correcta}`}`;
-      });
-      etiquetas.forEach((x) => { x.disabled = true; });
-      revisar.hidden = true;
-      responder(ok === q.escenas.length, `${ok} de ${q.escenas.length}.`);
+      const ok = revisado();
+      responder(ok === q.escenas.length, `${ok} de ${q.escenas.length}.`, [...asignadas]);
     });
   }
 
-  // Ordenar: arrastra (o usa ↑ ↓) y toca "Revisar"
-  function triviaOrdenar(q, zona, responder) {
+  // Ordenar: arrastra (o usa ↑ ↓) y toca "Revisar". r = el orden en que quedaron
+  function triviaOrdenar(q, zona, responder, previa) {
     const correcto = q.pasos;
     let orden = mezclar(correcto.map((_, i) => i));
     if (orden.every((x, i) => x === i)) orden = [...orden.slice(1), orden[0]];
+    if (previa) orden = Array.isArray(previa.r) && previa.r.length === correcto.length ? [...previa.r] : correcto.map((_, i) => i);
     let arrastrado = null;
     zona.innerHTML = `<p class="lec-instruccion">Arrastra las tarjetas al orden correcto (o usa las flechas) y toca “Revisar”.</p>
       <ol class="lec-orden"></ol><div class="lec-pie derecha"><button type="button" class="btn-apu" data-revisar>REVISAR</button></div>`;
@@ -442,6 +501,7 @@ export function montar(contenedor, params = []) {
             : `<span class="flechas"><button type="button" data-sube="${pos}" aria-label="Subir" ${pos === 0 ? 'disabled' : ''}>↑</button><button type="button" data-baja="${pos}" aria-label="Bajar" ${pos === orden.length - 1 ? 'disabled' : ''}>↓</button></span>`}</li>`;
       }).join('');
     };
+    if (previa) { zona.querySelector('[data-revisar]').hidden = true; pintar(true); return; }
     const mover = (de, a) => { const [x] = orden.splice(de, 1); orden.splice(a, 0, x); pintar(); };
     // Tras mover, el foco sigue a la tarjeta (en la misma flecha si se puede)
     const enfocar = (pos, prefiere) => {
@@ -467,32 +527,37 @@ export function montar(contenedor, params = []) {
       e.currentTarget.hidden = true;
       pintar(true);
       const ok = orden.filter((k, pos) => k === pos).length;
-      responder(ok === orden.length, ok === orden.length ? '¡Perfecto!' : `${ok} de ${orden.length}.`);
+      responder(ok === orden.length, ok === orden.length ? '¡Perfecto!' : `${ok} de ${orden.length}.`, [...orden]);
     });
   }
 
-  // Juez: 5 series de pura suerte (los mismos valores reales, en otro orden) + la real
-  function triviaJuez(q, zona, responder) {
+  // Juez: 5 series de pura suerte (los mismos valores reales, en otro orden) + la real. r = { elegido, pos }
+  function triviaJuez(q, zona, responder, previa) {
     const s = d.serie;
     const real = s.valores.filter(Number.isFinite);
     const suertes = Array.from({ length: 5 }, () => { let v; do v = mezclar(real); while (v.every((x, i) => x === real[i])); return v; });
-    const pos = Math.floor(Math.random() * 6);
+    const pos = Number.isInteger(previa?.r?.pos) ? previa.r.pos : Math.floor(Math.random() * 6);
     const series = [...suertes.slice(0, pos), real, ...suertes.slice(pos)];
     zona.innerHTML = `<p class="lec-instruccion">5 gráficos son suerte (los mismos valores, en otro orden) y 1 es tu serie real de ${s.desde}–${s.hasta}.</p>
       <div class="lec-juez">${series.map((v, i) => `<button type="button" class="lec-mini-juez" data-i="${i}" aria-label="Gráfico ${LETRAS[i]}">${linea(v, 160, 56)}<span>${LETRAS[i]}</span></button>`).join('')}</div>`;
     const bs = [...zona.querySelectorAll('.lec-mini-juez')];
+    const marcar = (elegido) => {
+      bs.forEach((x, j) => { x.disabled = true; if (j === pos) x.classList.add('real'); else if (j === elegido) x.classList.add('mal'); });
+      bs[pos].querySelector('span').textContent = `${LETRAS[pos]} · la real`;
+    };
+    if (previa) { marcar(previa.r?.elegido ?? null); return; }
     bs.forEach((b) => b.addEventListener('click', () => {
       const i = Number(b.dataset.i);
-      bs.forEach((x, j) => { x.disabled = true; if (j === pos) x.classList.add('real'); else if (x === b) x.classList.add('mal'); });
-      bs[pos].querySelector('span').textContent = `${LETRAS[pos]} · la real`;
-      responder(i === pos);
+      marcar(i);
+      responder(i === pos, '', { elegido: i, pos });
     }));
   }
 
   // ── Meta
   function pintarMeta() {
     const total = preguntas().length;
-    const aprobo = est.aciertos >= Math.ceil(total * APROBAR);
+    const n = aciertos();
+    const aprobo = n >= Math.ceil(total * APROBAR);
     const ins = l.insignia ? insigniaPorId(l.insignia) : null;
     const medalla = ins?.img
       ? `<img src="${esc(ins.img)}" alt="Insignia ${esc(ins.nombre)}">`
@@ -505,18 +570,20 @@ export function montar(contenedor, params = []) {
         <h1 class="lec-titulo grande" tabindex="-1">${aprobo ? '¡MISIÓN CUMPLIDA!' : '¡CASI LO LOGRAS!'}</h1>
         <div class="lec-medalla"><span class="lec-brillo" aria-hidden="true"></span>${medalla}</div>
         <h2 class="lec-medalla-nombre">${esc(nombre)}</h2>
-        <p class="lec-puntaje"><span class="lec-copos grandes" aria-hidden="true">${Array.from({ length: total }, (_, i) => `<span class="${i < est.aciertos ? 'lleno' : ''}">❄</span>`).join('')}</span><b>${est.aciertos} de ${total}</b></p>
+        <p class="lec-puntaje"><span class="lec-copos grandes" aria-hidden="true">${Array.from({ length: total }, (_, i) => `<span class="${i < n ? 'lleno' : ''}">❄</span>`).join('')}</span><b>${n} de ${total}</b></p>
         ${aprobo ? `<div class="lec-sabes"><p class="lec-ceja verde">AHORA SABES</p><ul>${l.meta.ahoraSabes.map((x) => `<li>${H(x)}</li>`).join('')}</ul></div>` : ''}
-        <div class="lec-pie centro">
+        <div class="lec-pie centro lec-meta-botones">
+          <button type="button" class="btn-apu secundario" data-ruta>Volver a la ruta</button>
           ${aprobo
-            ? `<button type="button" class="btn-apu secundario" data-repetir>REPETIR TRIVIA</button>
-               <button type="button" class="btn-apu" data-seguir>${ultimo ? '¡IR A LOS CASOS!' : `LECCIÓN ${siguiente.numero}: ${esc((siguiente.titulo_corto ?? siguiente.titulo).toUpperCase())}`}</button>`
-            : `<button type="button" class="btn-apu secundario" data-teoria>VOLVER A LA TEORÍA</button>
-               <button type="button" class="btn-apu" data-repetir>REPETIR TRIVIA</button>`}
+            ? `<button type="button" class="btn-apu secundario" data-repetir>Repetir trivia</button>
+               <button type="button" class="btn-apu" data-seguir ${ultimo ? '' : `aria-label="Siguiente lección: ${esc(siguiente.titulo)}"`}>${ultimo ? '¡Ir a los casos!' : 'Siguiente lección ›'}</button>`
+            : `<button type="button" class="btn-apu secundario" data-teoria>Volver a la teoría</button>
+               <button type="button" class="btn-apu" data-repetir>Repetir trivia</button>`}
         </div>
       </div>`;
-    cuerpo.querySelector('[data-repetir]').addEventListener('click', () => irA('trivia'));
-    cuerpo.querySelector('[data-teoria]')?.addEventListener('click', () => { est.pagina = 0; irA('teoria'); });
+    cuerpo.querySelector('[data-ruta]').addEventListener('click', () => ir('etapas'));
+    cuerpo.querySelector('[data-repetir]').addEventListener('click', () => irA('trivia', { reiniciar: true }));
+    cuerpo.querySelector('[data-teoria]')?.addEventListener('click', () => irA('teoria', { pagina: 0 }));
     cuerpo.querySelector('[data-seguir]')?.addEventListener('click', () => ir(ultimo || l.meta.abreCasos ? 'casos' : `leccion/${siguiente.id}`));
     if (aprobo) {
       jukumari(l.jukumari.final, ultimo ? '¡A los casos!' : `Lo que viene: ${siguiente.titulo}`);
@@ -547,10 +614,15 @@ export function montar(contenedor, params = []) {
     // Con los datos y el perfil, se repinta lo que muestra marcas o datos (sin perder la respuesta en curso)
     if (est.fase === 'teoria') { const dice = $('[data-dice]').textContent; pintarTeoria(); $('[data-dice]').textContent = rellenar(dice, m); }
     else if (est.fase === 'tarjetas') pintarTarjetas();
+    pintarCamino(); // con los datos ya se sabe si la trivia está completa (para tocar META)
   });
+  if (reanuda) avisar('Seguiste donde lo dejaste');
 }
 
 export function desmontar() {
+  // Antes de irse (botón, logo o atrás del navegador): se guarda el avance
+  try { if (vivo) alSalir?.(); } catch { /* nada */ }
+  alSalir = null;
   vivo = false;
   temporizadores.forEach(clearTimeout);
   temporizadores = [];

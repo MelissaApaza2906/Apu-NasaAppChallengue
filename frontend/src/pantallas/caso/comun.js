@@ -1,5 +1,6 @@
 // Piezas comunes de #/casos y #/caso/…: formatos, el Jukumari (con los 3 niveles de ayuda) y el logo.
 import { ir } from '../../router.js';
+import { botonVolver } from '../../componentes/navegacion.js';
 
 export const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 export const fmt = (v, d = 2) => (Number.isFinite(v) ? v.toFixed(d).replace('.', ',').replace('-', '−') : '—');
@@ -19,6 +20,11 @@ export function logo(destino, etiqueta) {
   b.innerHTML = '<img src="/img/logo-apu.png" alt="">';
   b.addEventListener('click', () => ir(destino));
   return b;
+}
+
+// Cabeza de las pantallas de casos: logo (→ menú principal) + "‹ Archivo" (o el botón que se pase)
+export function cabeza(contenedor, texto = 'Archivo', destino = 'casos', etiqueta = 'Volver al archivo de casos') {
+  contenedor.prepend(logo('menu', 'Ir al menú principal'), botonVolver(texto, destino, etiqueta));
 }
 
 // El Jukumari de cuerpo entero, con su globo "dice" y su nube "piensa".

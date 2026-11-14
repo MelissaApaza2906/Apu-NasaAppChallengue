@@ -18,7 +18,8 @@
 .lec-esq.abajo { bottom: 4cqh; border-left: 0; border-top: 0; }
 
 /* ── Cabeza: logo + fases en píldoras (TEORÍA ●●●● — TARJETAS — TRIVIA — META) ── */
-.lec-cabeza { position: absolute; z-index: 3; top: 2.6cqh; left: 2cqw; right: 30cqw; display: flex; align-items: center; gap: 4cqw; }
+.lec-cabeza { position: absolute; z-index: 3; top: 2.6cqh; left: 2cqw; right: 30cqw; display: flex; align-items: center; gap: 1.4cqw; }
+.lec-cabeza .btn-volver { margin-right: 1.4cqw; }
 .lec-logo { flex: none; padding: 7px; margin: -7px; border: 0; background: none; cursor: pointer; border-radius: 12px; } /* el relleno agranda el área táctil, no el logo */
 .lec-logo img { display: block; height: clamp(36px, 7cqh, 64px); width: auto; }
 .lec-logo:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 4px; }
@@ -352,6 +353,9 @@
 .lec-sabes ul { margin: .8cqh 0 0; padding: 0; list-style: none; font-size: var(--t-chico); line-height: 1.75; }
 .lec-sabes li::before { content: '✓ '; color: var(--nieve); }
 .lec-meta .lec-pie { margin-top: 2.2cqh; }
+.lec-meta-botones { gap: 1.4cqh 1cqw; }
+/* Trivia ya respondida: se ve tal cual quedó, sin poder cambiarla */
+.lec-q.lectura { pointer-events: none; }
 .lec-meta.sin-aprobar .lec-medalla > img, .lec-meta.sin-aprobar .lec-medalla > svg { filter: grayscale(1) brightness(.6); }
 .lec-meta.sin-aprobar .lec-brillo { opacity: .15; }
 
@@ -391,7 +395,10 @@
 /* ── Celular horizontal y pantallas bajas: el Jukumari se achica y sus globos van arriba del panel ── */
 @media (max-width: 1000px), (max-height: 560px) {
   .pantalla-leccion { --t-chico: clamp(10px, 2.6cqh, 13px); --t-texto: clamp(11px, 3cqh, 15px); }
-  .lec-cabeza { top: 1.6cqh; left: 2cqw; right: 26cqw; gap: 2cqw; }
+  .lec-cabeza { top: 1.6cqh; left: 2cqw; right: 26cqw; gap: 1.4cqw; }
+  .lec-cabeza .btn-volver { margin-right: .6cqw; }
+  /* META: botones apilados, el principal arriba */
+  .lec-meta-botones { flex-direction: column-reverse; align-items: stretch; width: min(100%, 420px); }
   .lec-logo img { height: clamp(28px, 9cqh, 44px); }
   .lec-fase { min-height: 34px; padding: 0 .8em; font-size: clamp(8px, 2.2cqh, 11px); letter-spacing: .08em; }
   .lec-une { width: 1.4cqw; margin: 0 .4cqw; }

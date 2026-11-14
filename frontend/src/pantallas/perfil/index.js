@@ -61,7 +61,7 @@ export function montar(contenedor) {
     <button type="button" class="etapas-volver vidrio" aria-label="Volver al menú">
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"/></svg>
     </button>
-    <img class="etapas-logo" src="/img/logo-apu.png" alt="APU">
+    <button type="button" class="etapas-logo" aria-label="Ir al menú principal"><img src="/img/logo-apu.png" alt="APU"></button>
 
     <section class="etapas-panel vidrio perfil-detective" aria-labelledby="perfil-apodo">
       <span class="etiqueta"><span class="barras" aria-hidden="true">//</span>DETECTIVE</span>
@@ -92,6 +92,7 @@ export function montar(contenedor) {
   const $ = (s) => raiz.querySelector(s);
 
   $('.etapas-volver').addEventListener('click', () => ir('menu'));
+  $('.etapas-logo').addEventListener('click', () => ir('menu'));
   $('[data-ajustes]').addEventListener('click', () => ir('ajustes'));
   $('[data-casos]').addEventListener('click', () => ir('casos'));
   $('.perfil-insignias').addEventListener('click', (e) => { if (e.target.closest('.insignia')) ir('insignias'); });
