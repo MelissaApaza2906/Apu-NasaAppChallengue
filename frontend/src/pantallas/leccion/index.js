@@ -31,7 +31,58 @@ let quitar = [];
 let alSalir = null; // guarda el avance (navegador → Firestore) al dejar la lección
 
 const sinEtiquetas = (t) => String(t ?? '').replace(/<[^>]*>/g, '');
-const mezclar = (a) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+const mezclar = (a, r = Math.random) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+
+// ── Respuestas mezcladas. lecciones.js no cambia: solo el orden en pantalla. El orden ("mapeo": qué opción
+// original va en cada lugar) se guarda en el avance del intento, así "‹ Anterior" y recargar lo muestran igual.
+//   mezcla.teoria[p] = { orden }            chequeo "¿Lo entendiste?" de la página p (se queda siempre)
+//   mezcla.trivia[k] = { orden } | { pos, semilla }   pregunta k de l.trivia ("Repetir trivia" la renueva)
+// La correcta nunca cae en la misma letra que en la pregunta con letras anterior, y va a la letra menos usada.
+const semillaNueva = () => { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch { return Math.floor(Math.random() * 2 ** 32); } };
+const azar = (semilla) => { let a = semilla >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+// Fisher-Yates de 0…n-1 y luego la correcta pasa al lugar elegido
+const conCorrectaEn = (n, correcta, lugar, r) => { const o = mezclar([...Array(n).keys()], r); const k = o.indexOf(correcta); [o[k], o[lugar]] = [o[lugar], o[k]]; return o; };
+function lugares(ns, r) {
+  const uso = [];
+  let antes = -1;
+  return ns.map((n) => {
+    if (!n) return null; // pregunta sin letras (clasificar, ordenar)
+    const cand = [...Array(n).keys()].filter((p) => p !== antes || n < 2);
+    const menos = Math.min(...cand.map((p) => uso[p] ?? 0));
+    const mejores = cand.filter((p) => (uso[p] ?? 0) === menos);
+    const p = mejores[Math.floor(r() * mejores.length)];
+    uso[p] = (uso[p] ?? 0) + 1; antes = p;
+    return p;
+  });
+}
+function mezclaTeoria(l, semilla = semillaNueva()) {
+  const r = azar(semilla), chs = l.paginas.map((p) => p.chequeo);
+  const pos = lugares(chs.map((c) => c.opciones.length), r);
+  return chs.map((c, i) => ({ orden: conCorrectaEn(c.opciones.length, c.correcta, pos[i], r) }));
+}
+const conLetras = (q) => (q.tipo === 'opciones' || q.tipo === 'pixeles' || !q.tipo ? q.opciones.length : q.tipo === 'juez' ? 6 : 0);
+function mezclaTrivia(l, semilla = semillaNueva()) {
+  const r = azar(semilla);
+  const pos = lugares(l.trivia.map(conLetras), r);
+  return l.trivia.map((q, k) => {
+    if (q.tipo === 'juez') return { pos: pos[k], semilla: Math.floor(r() * 2 ** 31) };
+    if (q.tipo === 'clasificar') return { orden: mezclar([...q.escenas.keys()], r) };
+    if (q.tipo === 'ordenar') {
+      let o = mezclar([...q.pasos.keys()], r);
+      if (o.every((x, i) => x === i) && o.length > 1) o = [...o.slice(1), o[0]]; // nunca empieza ordenado
+      return { orden: o };
+    }
+    return { orden: conCorrectaEn(q.opciones.length, q.correcta, pos[k], r) };
+  });
+}
+// ¿El mapeo guardado sigue sirviendo para el contenido actual? (si cambió lecciones.js, se rehace)
+const esPermutacion = (o, n) => Array.isArray(o) && o.length === n && [...o].sort((a, b) => a - b).every((x, i) => x === i);
+const teoriaValida = (m, l) => Array.isArray(m) && m.length === l.paginas.length && m.every((x, i) => esPermutacion(x?.orden, l.paginas[i].chequeo.opciones.length));
+const triviaValida = (m, l) => Array.isArray(m) && m.length === l.trivia.length && m.every((x, k) => {
+  const q = l.trivia[k];
+  if (q.tipo === 'juez') return Number.isInteger(x?.pos) && Number.isInteger(x?.semilla);
+  return esPermutacion(x?.orden, q.tipo === 'clasificar' ? q.escenas.length : q.tipo === 'ordenar' ? q.pasos.length : q.opciones.length);
+});
 
 export function montar(contenedor, params = []) {
   vivo = true;
@@ -64,16 +115,25 @@ export function montar(contenedor, params = []) {
     respuestas: Array.isArray(previo.respuestas) ? previo.respuestas.map((x) => (x && typeof x === 'object' ? x : null))
       // avance viejo (solo pregunta y aciertos): las ya respondidas quedan con su acierto, sin la opción elegida
       : Number.isInteger(previo.pregunta) ? Array.from({ length: previo.pregunta }, (_, k) => ({ bien: k < (previo.aciertos ?? 0) })) : [],
-    fallosSeguidos: 0
+    fallosSeguidos: 0,
+    mezcla: {
+      teoria: teoriaValida(previo.mezcla?.teoria, l) ? previo.mezcla.teoria : mezclaTeoria(l),
+      trivia: triviaValida(previo.mezcla?.trivia, l) ? previo.mezcla.trivia : mezclaTrivia(l)
+    }
   };
   if (!Array.isArray(previo.respuestas) && Number.isInteger(previo.pregunta)) est.pregunta = -1;
+  // Mezcla recién hecha: se guarda ya (sin tocar lo demás), para que recargar muestre el mismo orden
+  if (est.mezcla.teoria !== previo.mezcla?.teoria || est.mezcla.trivia !== previo.mezcla?.trivia) {
+    const { t: _t, ...resto } = previo;
+    guardarAvance(l.id, { ...resto, mezcla: est.mezcla });
+  }
   const aciertos = () => est.respuestas.filter((x) => x?.bien).length;
   let tocado = false; // si solo entró y salió, no se pisa lo guardado (p. ej. una lección que quedó en la meta)
   const guardar = () => {
     tocado = true;
     guardarAvance(l.id, {
       fase: est.fase, pagina: est.pagina, chequeos: est.chequeos, alcanzada: est.alcanzada,
-      carta: est.carta, pregunta: est.pregunta, respuestas: est.respuestas, aciertos: aciertos()
+      carta: est.carta, pregunta: est.pregunta, respuestas: est.respuestas, aciertos: aciertos(), mezcla: est.mezcla
     });
   };
   // Al salir (ruta nueva, botón atrás o cerrar la pestaña): primero el navegador, luego Firestore
@@ -169,7 +229,7 @@ export function montar(contenedor, params = []) {
     if (Number.isInteger(op.pagina)) est.pagina = op.pagina;
     if (Number.isInteger(op.carta)) { est.carta = op.carta; est.volteada = false; }
     if (fase === 'trivia') {
-      if (op.reiniciar) { est.respuestas = []; est.fallosSeguidos = 0; }
+      if (op.reiniciar) { est.respuestas = []; est.fallosSeguidos = 0; est.mezcla.trivia = mezclaTrivia(l); } // orden nuevo
       est.pregunta = Number.isInteger(op.pregunta) ? op.pregunta : -1;
     }
     guardar();
@@ -203,7 +263,7 @@ export function montar(contenedor, params = []) {
           <div class="lec-chequeo" role="group" aria-labelledby="lec-cheq-p">
             <p class="lec-ceja">¿LO ENTENDISTE?</p>
             <p id="lec-cheq-p" class="lec-cheq-pregunta">${H(ch.pregunta)}</p>
-            <div class="lec-cheq-ops">${ch.opciones.map((o, k) => `<button type="button" class="lec-opcion chica" data-k="${k}"><span class="letra">${LETRAS[k]}</span><span>${H(o)}</span></button>`).join('')}</div>
+            <div class="lec-cheq-ops">${est.mezcla.teoria[i].orden.map((k, lugar) => `<button type="button" class="lec-opcion chica" data-k="${k}"><span class="letra">${LETRAS[lugar]}</span><span>${H(ch.opciones[k])}</span></button>`).join('')}</div>
             <p class="lec-explica" aria-live="polite"></p>
           </div>
         </div>
@@ -226,7 +286,7 @@ export function montar(contenedor, params = []) {
     const ops = [...cuerpo.querySelectorAll('.lec-cheq-ops .lec-opcion')];
     const explica = cuerpo.querySelector('.lec-chequeo .lec-explica');
     const marcarBien = () => {
-      ops.forEach((b, k) => { b.disabled = true; if (k === ch.correcta) { b.classList.add('correcta'); b.querySelector('.letra').textContent = '✓'; } });
+      ops.forEach((b) => { b.disabled = true; if (Number(b.dataset.k) === ch.correcta) { b.classList.add('correcta'); b.querySelector('.letra').textContent = '✓'; } });
       explica.innerHTML = `<b class="bien">¡Bien!</b> ${H(ch.explicacion)}`;
       cuerpo.querySelector('[data-sig]').disabled = false;
       cuerpo.querySelector('.lec-falta').hidden = true;
@@ -404,7 +464,8 @@ export function montar(contenedor, params = []) {
     });
 
     const TIPOS = { opciones: triviaOpciones, pixeles: triviaOpciones, clasificar: triviaClasificar, ordenar: triviaOrdenar, juez: triviaJuez };
-    (TIPOS[q.tipo] ?? triviaOpciones)(q, zona, responder, previa);
+    const mz = est.mezcla.trivia[l.trivia.indexOf(q)]; // el orden de este intento
+    (TIPOS[q.tipo] ?? triviaOpciones)(q, zona, responder, previa, mz);
     if (previa) {
       explica.innerHTML = `<b class="${previa.bien ? 'bien' : 'mal'}">${previa.bien ? 'Acertaste.' : 'Fallaste esta.'}</b> ${H(q.explicacion)}`;
       jukumari('Así respondiste esta pregunta.', i < total - 1 ? 'Toca “Siguiente” para seguir…' : '¿Vemos tu resultado?');
@@ -416,12 +477,15 @@ export function montar(contenedor, params = []) {
   }
 
   // previa: { bien, r } si ya se respondió (se pinta en modo lectura). r = índice elegido
-  function triviaOpciones(q, zona, responder, previa) {
+  // mz.orden[lugar] = índice original de la opción que va en ese lugar (las letras se ponen después de mezclar)
+  function triviaOpciones(q, zona, responder, previa, mz) {
+    const orden = mz?.orden ?? q.opciones.map((_, i) => i);
     const pix = q.tipo === 'pixeles' && Array.isArray(q.valores)
       ? `<div class="lec-pixeles" role="img" aria-label="Píxeles: ${q.valores.join(', ')}">${q.valores.map((v) => `<span class="${v > 100 ? 'aviso' : v >= (q.umbral ?? 40) ? 'si' : 'no'}" style="--v:${Math.min(100, v)}">${v}</span>`).join('')}</div>` : '';
-    zona.innerHTML = `${pix}<div class="lec-opciones">${q.opciones.map((o, i) => `<button type="button" class="lec-opcion" data-i="${i}"><span class="letra">${LETRAS[i]}</span><span>${H(o)}</span></button>`).join('')}</div>`;
+    zona.innerHTML = `${pix}<div class="lec-opciones">${orden.map((i, lugar) => `<button type="button" class="lec-opcion" data-i="${i}"><span class="letra">${LETRAS[lugar]}</span><span>${H(q.opciones[i])}</span></button>`).join('')}</div>`;
     const ops = [...zona.querySelectorAll('.lec-opcion')];
-    const marcar = (elegida) => ops.forEach((x, j) => {
+    const marcar = (elegida) => ops.forEach((x) => {
+      const j = Number(x.dataset.i);
       x.disabled = true;
       if (j === q.correcta) { x.classList.add('correcta'); x.querySelector('.letra').textContent = '✓'; }
       else if (j === elegida) { x.classList.add('mal'); x.querySelector('.letra').textContent = '✕'; }
@@ -435,16 +499,19 @@ export function montar(contenedor, params = []) {
   }
 
   // Clasificar: toca una etiqueta y luego la escena (o el recorte) donde va. r = etiqueta puesta en cada escena
-  function triviaClasificar(q, zona, responder, previa) {
+  // asignadas[i] va por el índice ORIGINAL de la escena; en pantalla salen en el orden de mz.orden
+  function triviaClasificar(q, zona, responder, previa, mz) {
     const asignadas = q.escenas.map((e, i) => (previa ? (Array.isArray(previa.r) ? previa.r[i] ?? null : e.correcta) : null));
+    const orden = mz?.orden ?? q.escenas.map((_, i) => i);
+    const lugarDe = (i) => orden.indexOf(i) + 1; // "Escena 1" = la primera en pantalla
     let elegida = null;
     zona.innerHTML = `
       <p class="lec-instruccion">Toca una etiqueta y luego ${q.escenas[0]?.img ? 'la foto' : 'el recorte'} donde va. Mira la forma, no solo el color.</p>
-      <div class="lec-escenas ${q.escenas[0]?.img ? '' : 'textos'}">${q.escenas.map((e, i) => `
-        <button type="button" class="lec-escena" data-e="${i}" aria-label="${e.img ? `Escena ${i + 1}` : esc(sinEtiquetas(e.texto))}: sin etiqueta">
+      <div class="lec-escenas ${q.escenas[0]?.img ? '' : 'textos'}">${orden.map((i) => { const e = q.escenas[i]; return `
+        <button type="button" class="lec-escena" data-e="${i}" aria-label="${e.img ? `Escena ${lugarDe(i)}` : esc(sinEtiquetas(e.texto))}: sin etiqueta">
           ${e.img ? escena(e.img) : `<span class="lec-recorte-texto">${H(e.texto)}</span>`}
-          <span class="lec-escena-pie"><span>${e.img ? `Escena ${i + 1}` : ''}</span><b data-asig></b></span>
-        </button>`).join('')}</div>
+          <span class="lec-escena-pie"><span>${e.img ? `Escena ${lugarDe(i)}` : ''}</span><b data-asig></b></span>
+        </button>`; }).join('')}</div>
       <div class="lec-etiquetas" role="radiogroup" aria-label="Etiquetas">${q.etiquetas.map((t) => `<button type="button" role="radio" aria-checked="false" class="lec-etiqueta" data-t="${esc(t)}">${ICONO_ETIQUETA[t] ? `<span aria-hidden="true">${ICONO_ETIQUETA[t]}</span> ` : ''}${esc(t)}</button>`).join('')}</div>
       <div class="lec-pie derecha"><button type="button" class="btn-apu" data-revisar disabled>REVISAR</button></div>`;
     const etiquetas = [...zona.querySelectorAll('.lec-etiqueta')];
@@ -452,7 +519,8 @@ export function montar(contenedor, params = []) {
     const revisar = zona.querySelector('[data-revisar]');
     const revisado = () => {
       let ok = 0;
-      escenas.forEach((b, i) => {
+      escenas.forEach((b) => {
+        const i = Number(b.dataset.e);
         const bien = asignadas[i] === q.escenas[i].correcta;
         if (bien) ok += 1;
         b.disabled = true;
@@ -468,12 +536,13 @@ export function montar(contenedor, params = []) {
       elegida = b.dataset.t;
       etiquetas.forEach((x) => x.setAttribute('aria-checked', String(x === b)));
     }));
-    escenas.forEach((b, i) => b.addEventListener('click', () => {
+    escenas.forEach((b) => b.addEventListener('click', () => {
+      const i = Number(b.dataset.e);
       if (!elegida) { jukumari('Primero toca una etiqueta de abajo.', 'Después, la escena donde va.'); return; }
       asignadas[i] = elegida;
       b.querySelector('[data-asig]').textContent = elegida;
       b.classList.add('con-etiqueta');
-      b.setAttribute('aria-label', `${q.escenas[i].img ? `Escena ${i + 1}` : sinEtiquetas(q.escenas[i].texto)}: ${elegida}`);
+      b.setAttribute('aria-label', `${q.escenas[i].img ? `Escena ${lugarDe(i)}` : sinEtiquetas(q.escenas[i].texto)}: ${elegida}`);
       revisar.disabled = asignadas.some((x) => !x);
     }));
     revisar.addEventListener('click', () => {
@@ -483,10 +552,11 @@ export function montar(contenedor, params = []) {
   }
 
   // Ordenar: arrastra (o usa ↑ ↓) y toca "Revisar". r = el orden en que quedaron
-  function triviaOrdenar(q, zona, responder, previa) {
+  // El orden inicial viene de la mezcla del intento (nunca es el correcto)
+  function triviaOrdenar(q, zona, responder, previa, mz) {
     const correcto = q.pasos;
-    let orden = mezclar(correcto.map((_, i) => i));
-    if (orden.every((x, i) => x === i)) orden = [...orden.slice(1), orden[0]];
+    let orden = Array.isArray(mz?.orden) ? [...mz.orden] : mezclar(correcto.map((_, i) => i));
+    if (orden.every((x, i) => x === i) && orden.length > 1) orden = [...orden.slice(1), orden[0]];
     if (previa) orden = Array.isArray(previa.r) && previa.r.length === correcto.length ? [...previa.r] : correcto.map((_, i) => i);
     let arrastrado = null;
     zona.innerHTML = `<p class="lec-instruccion">Arrastra las tarjetas al orden correcto (o usa las flechas) y toca “Revisar”.</p>
@@ -532,11 +602,13 @@ export function montar(contenedor, params = []) {
   }
 
   // Juez: 5 series de pura suerte (los mismos valores reales, en otro orden) + la real. r = { elegido, pos }
-  function triviaJuez(q, zona, responder, previa) {
+  // Las 5 series de suerte salen de la semilla del intento: al volver se ven los mismos gráficos
+  function triviaJuez(q, zona, responder, previa, mz) {
     const s = d.serie;
     const real = s.valores.filter(Number.isFinite);
-    const suertes = Array.from({ length: 5 }, () => { let v; do v = mezclar(real); while (v.every((x, i) => x === real[i])); return v; });
-    const pos = Number.isInteger(previa?.r?.pos) ? previa.r.pos : Math.floor(Math.random() * 6);
+    const r = azar(mz?.semilla ?? semillaNueva());
+    const suertes = Array.from({ length: 5 }, () => { let v, n = 0; do v = mezclar(real, r); while (v.every((x, i) => x === real[i]) && ++n < 50); return v; });
+    const pos = Number.isInteger(previa?.r?.pos) ? previa.r.pos : Number.isInteger(mz?.pos) ? mz.pos : Math.floor(Math.random() * 6);
     const series = [...suertes.slice(0, pos), real, ...suertes.slice(pos)];
     zona.innerHTML = `<p class="lec-instruccion">5 gráficos son suerte (los mismos valores, en otro orden) y 1 es tu serie real de ${s.desde}–${s.hasta}.</p>
       <div class="lec-juez">${series.map((v, i) => `<button type="button" class="lec-mini-juez" data-i="${i}" aria-label="Gráfico ${LETRAS[i]}">${linea(v, 160, 56)}<span>${LETRAS[i]}</span></button>`).join('')}</div>`;

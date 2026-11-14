@@ -8,6 +8,20 @@ export const fmtP = (p) => (Number.isFinite(p) ? (p < 0.001 ? '< 0,001' : fmt(p,
 export const conSigno = (v, d = 2) => (Number.isFinite(v) ? `${v > 0 ? '+' : ''}${fmt(v, d)}` : '—');
 export const miles = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 export const sinMovimiento = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Orden mezclado FIJO para cada caso (Fisher-Yates con una semilla sacada del texto): al volver o recargar se ve
+// igual, sin guardar nada. lugar: si se da, la opción `correcta` (índice original) termina en ese lugar.
+export function ordenFijo(n, texto, correcta = null, lugar = null) {
+  let h = 2166136261;
+  for (const c of String(texto)) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  let a = h >>> 0;
+  const r = () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const o = [...Array(n).keys()];
+  for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+  if (correcta !== null && lugar !== null) { const k = o.indexOf(correcta); [o[k], o[lugar % n]] = [o[lugar % n], o[k]]; }
+  return o;
+}
+// Celular (mismo corte que el CSS de los casos)
+export const esCelular = () => window.matchMedia('(max-width: 1000px), (max-height: 560px)').matches;
 // Lo que dicen los datos: con p < 0,05 el rumbo de la pendiente; si no, "no cambió de forma clara"
 export const rumboDatos = (stats) => (!stats ? null : stats.p < 0.05 ? stats.rumbo : 'no cambió de forma clara');
 export const ICONO_RUMBO = { 'bajó': '📉', 'subió': '📈', 'no cambió': '➖', 'no cambió de forma clara': '➖' };

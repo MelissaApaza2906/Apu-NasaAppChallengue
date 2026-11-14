@@ -177,30 +177,49 @@ export function crearEnVivo({ globo, pantalla }) {
       b.tabIndex = -1;
       b.setAttribute('aria-label', `${TIPOS[e.tipo] ?? 'Evento'}: ${e.titulo}`);
       b.innerHTML = FORMA[e.tipo] ?? FORMA.iceberg;
-      b.addEventListener('click', () => abrirTarjeta(e, b));
+      const pin = { e, b, pos: Cesium.Cartesian3.fromDegrees(e.lon, e.lat, 0), ve: false, grupo: null, cuenta: 1 };
+      b.addEventListener('click', () => (pin.grupo?.length > 1 ? abrirGrupo(pin.grupo.map((x) => x.e), b) : abrirTarjeta(e, b)));
       cajaPines.append(b);
-      return { e, b, pos: Cesium.Cartesian3.fromDegrees(e.lon, e.lat, 0), ve: false };
+      return pin;
     });
     cajaPines.hidden = !conEventos || !visible;
     viewer?.scene.requestRender();
   }
 
+  // Icebergs que en pantalla quedan a menos de JUNTAR px se agrupan en un solo pin con su número
+  // (en la Antártida hay decenas, uno encima de otro). Al tocar el grupo, la tarjeta los lista.
+  const JUNTAR = 26;
   function moverPines() {
     if (!cajaPines || cajaPines.hidden || !viewer) return;
     const escena = viewer.scene;
     const w = escena.canvas.clientWidth;
     const h = escena.canvas.clientHeight;
     ocultador.cameraPosition = viewer.camera.positionWC;
+    const lideres = [];
     for (const p of pines) {
-      const ve = ocultador.isPointVisible(p.pos)
+      let ve = ocultador.isPointVisible(p.pos)
         && Cesium.defined(escena.cartesianToCanvasCoordinates(p.pos, aux))
         && aux.x >= 4 && aux.x <= w - 4 && aux.y >= 4 && aux.y <= h - 4;
+      p.grupo = null;
+      if (ve && p.e.tipo === 'iceberg') {
+        const cerca = lideres.find((l) => Math.hypot(l.x - aux.x, l.y - aux.y) < JUNTAR);
+        if (cerca) { cerca.grupo.push(p); ve = false; } // queda dentro del grupo de otro pin
+        else { p.x = aux.x; p.y = aux.y; p.grupo = [p]; lideres.push(p); }
+      }
       if (ve !== p.ve) {
         p.ve = ve;
         p.b.classList.toggle('oculto', !ve);
         p.b.tabIndex = ve ? 0 : -1;
       }
       if (ve) p.b.style.transform = `translate(${aux.x.toFixed(1)}px, ${aux.y.toFixed(1)}px)`;
+    }
+    for (const l of lideres) {
+      const n = l.grupo.length;
+      if (l.cuenta === n) continue;
+      l.cuenta = n;
+      l.b.classList.toggle('grupo', n > 1);
+      l.b.dataset.cuenta = n > 1 ? String(n) : '';
+      l.b.setAttribute('aria-label', n > 1 ? `${n} icebergs juntos: tocar para verlos` : `${TIPOS.iceberg}: ${l.e.titulo}`);
     }
   }
 
@@ -216,6 +235,25 @@ export function crearEnVivo({ globo, pantalla }) {
       <p>Última observación: ${escapar(fechaLarga(e.fecha, { utc: true }))}</p>
       <p class="envivo-fuente">Fuente: NASA EONET</p>${respaldo}`;
     tarjeta.querySelector('.envivo-cerrar').addEventListener('click', cerrarTarjeta);
+    tarjeta.hidden = false;
+    tarjeta.querySelector('.envivo-cerrar').focus();
+  }
+  // Grupo de icebergs: la lista (los más recientes primero); al tocar uno, su tarjeta
+  function abrirGrupo(eventos, desde) {
+    quienAbrio = desde;
+    pines.forEach((p) => p.b.classList.toggle('elegido', p.b === desde));
+    const lista = [...eventos].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+    const respaldo = infoEventos.enVivo ? '' : `<p class="envivo-respaldo">Actualizado el ${escapar(fechaLarga(infoEventos.fecha))}</p>`;
+    tarjeta.innerHTML = `
+      <button type="button" class="envivo-cerrar" aria-label="Cerrar">${CERRAR}</button>
+      <span class="envivo-tipo iceberg">${FORMA.iceberg}${lista.length} icebergs en esta zona</span>
+      <ul class="envivo-lista">${lista.map((e, i) => `<li><button type="button" data-i="${i}">${escapar(e.titulo)}<small>${escapar(fechaLarga(e.fecha, { utc: true }))}</small></button></li>`).join('')}</ul>
+      <p class="envivo-fuente">Fuente: NASA EONET</p>${respaldo}`;
+    tarjeta.querySelector('.envivo-cerrar').addEventListener('click', cerrarTarjeta);
+    tarjeta.querySelector('.envivo-lista').addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-i]');
+      if (b) abrirTarjeta(lista[Number(b.dataset.i)], desde);
+    });
     tarjeta.hidden = false;
     tarjeta.querySelector('.envivo-cerrar').focus();
   }

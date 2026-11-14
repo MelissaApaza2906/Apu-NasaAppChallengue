@@ -143,8 +143,13 @@
 
 /* Celular horizontal / pantallas bajas: el panel ocupa la derecha y el Jukumari se esconde tras él */
 @media (max-height: 560px) {
-  .etapa { --bola: clamp(26px, 6.4cqh, 40px); gap: 1cqh; }
-  .etapa.siguiente:not(.meta) { --bola: clamp(38px, 10cqh, 56px); }
+  /* Los nodos van cada 6,8 cqh (index.js): las bolas caben sin encimarse */
+  .etapa { --bola: clamp(22px, 6cqh, 34px); gap: 1cqh; }
+  .etapa.siguiente:not(.meta) { --bola: clamp(26px, 7.4cqh, 40px); }
+  .etapa.meta .bola { --bola: clamp(24px, 6.6cqh, 36px); }
+  .etapa .nombre { font-size: clamp(9px, 2.6cqh, 12px); }
+  .etapa.siguiente:not(.meta) .nombre { font-size: clamp(10px, 3cqh, 14px); }
+  .etapa .textos { gap: 0; line-height: 1.15; }
   .etapa .paso { display: none; }
   .etapa.siguiente .paso, .etapa.elegida .paso { display: block; }
   .pantalla-etapas > .etapas-panel { top: 3cqh; bottom: 3cqh; max-height: none; width: clamp(240px, 36cqw, 340px); right: 2cqw; }

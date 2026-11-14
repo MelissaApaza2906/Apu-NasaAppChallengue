@@ -7,7 +7,7 @@ import { GLACIARES, HISTORIAS, historiaDe } from '../../contenido/glaciares.js';
 import { completarCaso, ganarInsignia } from '../../servicios/progreso.js';
 import { pixelesDeCaja } from '../../servicios/casos-datos.js';
 import { CAJAS } from '../../componentes/casos/capas-escena.js';
-import { esc, fmt, fmtP, miles, rumboDatos, ICONO_RUMBO, sinMovimiento } from './comun.js';
+import { esc, fmt, fmtP, miles, rumboDatos, ICONO_RUMBO, sinMovimiento, esCelular, ordenFijo } from './comun.js';
 
 const TIPOS = { dato: ['DATO', 'verde'], aclarar: ['HAY QUE ACLARAR', 'amarillo'], suposicion: ['SUPOSICIÓN', 'rojo'] };
 const ORDEN = ['dato', 'aclarar', 'suposicion'];
@@ -101,11 +101,13 @@ export const PASOS = [
   // ── 1 · Evidencia: 3 tarjetas que giran
   (ctx) => {
     const { caso, cuerpo, juku, est } = ctx;
-    const T = [
+    const T0 = [
       { id: 'nieve', icono: '❄', nombre: 'Nieve', sat: '🛰 MODIS · Terra', det: '500 m · diario · desde 2000', chip: ['ELEGIDA', 'verde'], txt: 'Responde tu misión: MODIS ve la nieve casi todos los días.', dice: '¡Bien! La nieve es lo que MODIS ve mejor.' },
       { id: 'lluvia', icono: '🌧', nombre: 'Lluvia', sat: '🛰 GPM IMERG', det: '~10 km · cada 30 min', chip: ['COMPARAR', 'azul'], txt: 'No es la misión, pero sirve para comparar en el interrogatorio.', dice: 'La lluvia sirve para comparar, no para responder la misión.' },
       { id: 'litros', icono: '💧', nombre: 'Litros de agua', sat: '🛰 —', det: 'MODIS no lo mide', chip: ['NO SIRVE', 'rojo'], txt: 'Ningún satélite de APU cuenta litros: el tamaño del hielo no es agua.', dice: '¡Ojo! MODIS no mide litros de agua.' }
     ];
+    // Tarjetas mezcladas: la que sirve (nieve) cambia de lugar de un caso a otro
+    const T = ordenFijo(T0.length, `${caso.id}:variable`, 0, Number(caso.exp) || 0).map((i) => T0[i]);
     let elegida = est.elecciones.variable ?? null;
     cuerpo.innerHTML = `
       <p class="caso-ceja">${esc(ctx.ceja('PISTA 1 · EVIDENCIA'))}</p>
@@ -370,7 +372,7 @@ export const PASOS = [
     else sig.disabled = true;
     juku.decir('Interroga a los datos: ¡un detective desconfía!', '¿Aguantará con otro umbral?');
     juku.pista('Si p es menor que 0,05, sería muy raro ver ese dibujo por pura suerte. Corre las pruebas: si el rumbo se mantiene, el resultado es más confiable.');
-    ctx.escena?.montana(caso, { girar: true, clase: 'desenfocada' });
+    ctx.escena?.montana(caso, { girar: !esCelular(), clase: 'desenfocada' }); // en celular, quieta: no distrae ni gasta batería
     ctx.conectarPie(() => ctx.completar(5, {}));
   },
 
@@ -379,8 +381,9 @@ export const PASOS = [
     const { caso, cuerpo, juku, est, datos } = ctx;
     const st = serieElegida(ctx).stats;
     const datosDicen = rumboDatos(st);
-    const RUMBOS = ['bajó', 'no cambió de forma clara', 'subió'];
-    const PALABRAS = ['va de acuerdo con', 'no alcanza para afirmar', 'demuestra'];
+    // Las opciones del veredicto (la conclusión) salen mezcladas, con un orden fijo para cada caso
+    const RUMBOS = ordenFijo(3, `${caso.id}:rumbo`).map((i) => ['bajó', 'no cambió de forma clara', 'subió'][i]);
+    const PALABRAS = ordenFijo(3, `${caso.id}:palabras`).map((i) => ['va de acuerdo con', 'no alcanza para afirmar', 'demuestra'][i]);
     const previo = est.veredicto ?? {};
     cuerpo.innerHTML = `
       <p class="caso-ceja">${esc(ctx.ceja('VEREDICTO'))}</p>
@@ -436,6 +439,6 @@ export const PASOS = [
       ganarInsignia(`guardian-${caso.id}`).catch(() => {}); // "Guardián de …" (contenido/insignias.js); la anima la pantalla de caso resuelto
       ir(`caso/${caso.id}/resuelto`);
     });
-    ctx.escena?.montana(caso, { girar: true, clase: 'desenfocada' });
+    ctx.escena?.montana(caso, { girar: !esCelular(), clase: 'desenfocada' }); // en celular, quieta: no distrae ni gasta batería
   }
 ];

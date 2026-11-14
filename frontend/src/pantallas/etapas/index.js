@@ -24,7 +24,14 @@ const META = { id: 'meta', titulo: 'Caso de la nieve', paso: 'Etapa 2 · Detecti
 // El arco empieza debajo del título (en pantallas bajas, un poco más abajo)
 const CX = '6cqw', CY = 50, RM = 34, RA = 44, A1 = 62;
 const bajo = window.matchMedia('(max-height: 560px)');
-const ANG = (i) => { const a0 = bajo.matches ? -36 : -48; return a0 + (A1 - a0) * i / TOTAL; }; // 11 nodos: 0…9 lecciones, 10 la meta
+// 11 nodos: 0…9 lecciones, 10 la meta. En pantallas altas, a ángulos iguales. En pantallas bajas (celular
+// horizontal), a ALTURAS iguales sobre el mismo arco: con ángulos iguales, abajo quedaban a ~15 px y se enciman.
+const Y0 = 23, Y1 = 91; // cqh: del primer nodo (debajo del título) al de la meta
+const ANG = (i) => {
+  if (!bajo.matches) return -48 + (A1 + 48) * i / TOTAL;
+  const y = Y0 + (Y1 - Y0) * i / TOTAL;
+  return Math.asin((y - CY) / RA) * 180 / Math.PI;
+};
 const CANDADO = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 

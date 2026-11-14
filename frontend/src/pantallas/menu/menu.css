@@ -146,6 +146,11 @@
 .envivo-tipo { display: flex; align-items: center; gap: 6px; padding-right: 36px; font: 600 12px var(--letra-texto); letter-spacing: .04em; text-transform: uppercase; }
 .envivo-tipo svg { width: 14px; height: 14px; }
 .envivo-tipo.iceberg { color: #8FDBFF; }
+.envivo-lista { margin: 4px 0 2px; padding: 0; list-style: none; max-height: min(180px, 34cqh); overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.envivo-lista button { width: 100%; min-height: 40px; padding: 4px 8px; border: 0; border-radius: 8px; background: rgba(79, 141, 255, .1); color: var(--nieve); font: 600 13px var(--letra-texto); text-align: left; cursor: pointer; display: flex; flex-direction: column; justify-content: center; }
+.envivo-lista button:hover { background: rgba(79, 141, 255, .25); }
+.envivo-lista button:focus-visible { outline: 2px solid #8FDBFF; outline-offset: -2px; }
+.envivo-lista small { font: 500 11px var(--letra-dato); color: #A9B4CC; }
 .envivo-tipo.volcan { color: #FF8A3D; }
 .envivo-tarjeta .envivo-fuente, .envivo-tarjeta .envivo-respaldo { font: 500 11.5px var(--letra-dato); color: #A9B4CC; }
 .envivo-cerrar { position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: none; border-radius: 50%; background: transparent; color: var(--nieve); cursor: pointer; }
