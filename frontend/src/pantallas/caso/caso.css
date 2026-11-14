@@ -226,7 +226,7 @@
 .resuelto-insignia { position: relative; width: clamp(110px, 26cqh, 240px); aspect-ratio: 1; animation: casoInsignia 1s .5s cubic-bezier(.2, 1.5, .4, 1) both; }
 .resuelto-insignia img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 3cqh rgba(248, 174, 5, .75)); }
 @keyframes casoInsignia { from { transform: scale(.2) rotate(-25deg); opacity: 0; } }
-.resuelto-titulo { margin: 0; font: 300 clamp(36px, 10cqh, 100px) / 1 var(--letra-titulo); letter-spacing: .04em; background: linear-gradient(180deg, #FFFFFF 10%, #8FDBFF 60%, #4F8DFF); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 2cqh rgba(143, 219, 255, .55)); animation: casoAparece .8s 1.2s both; }
+.resuelto-titulo { outline: none; margin: 0; font: 300 clamp(36px, 10cqh, 100px) / 1 var(--letra-titulo); letter-spacing: .04em; background: linear-gradient(180deg, #FFFFFF 10%, #8FDBFF 60%, #4F8DFF); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 2cqh rgba(143, 219, 255, .55)); animation: casoAparece .8s 1.2s both; }
 .resuelto-insignia-nombre { margin: 0; font: 700 var(--t-texto) var(--letra-texto); animation: casoAparece .6s 1.5s both; }
 .resuelto-insignia-nombre b { color: var(--dato-tendencia); }
 @keyframes casoAparece { from { opacity: 0; transform: translateY(2cqh); } }
@@ -332,11 +332,14 @@
   .interro-grilla > :last-child { grid-column: 1 / -1; }
   .resuelto-chips { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .resuelto-chips > div { min-width: 0; padding: 1cqh .6cqw; }
-  .resuelto-titulo { font-size: clamp(26px, 9cqh, 60px); }
-  .resuelto-insignia { width: clamp(70px, 22cqh, 140px); }
-  .resuelto-escena { padding: 2cqh 27cqw 0 3cqw; gap: 1cqh; }
-  .sello-cerrado { left: 3cqw; top: 14cqh; font-size: clamp(14px, 5cqh, 26px); }
-  .resuelto-xp { left: auto; right: -2cqw; top: -5cqh; }
+  .resuelto-titulo { font-size: clamp(24px, 8cqh, 54px); }
+  .resuelto-insignia { width: clamp(60px, 18cqh, 120px); }
+  /* En pantallas bajas (iPhone horizontal: 342 px) la barra del veredicto llegaba al borde: más compacto y, si falta, se desliza */
+  .resuelto-escena { padding: 2cqh 27cqw 3cqh 3cqw; gap: .8cqh; overflow-y: auto; }
+  /* El sello CERRADO arriba a la derecha (a la izquierda tapaba el inicio de "CASO RESUELTO") */
+  .sello-cerrado { left: auto; right: 3cqw; top: 16cqh; font-size: clamp(14px, 5cqh, 26px); }
+  /* +250 XP a la izquierda: a la derecha lo tapaba el globo del Jukumari */
+  .resuelto-xp { left: 0; right: auto; top: -5cqh; }
   .informe-zona { left: 3cqw; top: 6cqh; width: 66cqw; }
   .informe-acciones { right: 1cqw; top: auto; bottom: 2cqh; width: 25cqw; gap: 1cqh; }
   .informe-insignia { display: none; }
