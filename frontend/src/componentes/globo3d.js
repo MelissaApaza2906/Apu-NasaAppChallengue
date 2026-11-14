@@ -190,7 +190,16 @@ export function crearGlobo(contenedor, opciones = {}) {
 
   function apagarViewer() {
     limpiezas.splice(0).forEach((fn) => fn());
-    if (viewer && !viewer.isDestroyed()) viewer.destroy();
+    if (viewer && !viewer.isDestroyed()) {
+      // La vista de la montaña (vista-realista.js) lleva los créditos de Cesium a su propia caja y los devuelve
+      // al cerrarse, pero ese cierre es asíncrono: si el menú se desmonta antes, destroy() no los encuentra y
+      // lanza NotFoundError (removeChild). Se devuelven aquí antes de destruir.
+      try {
+        const caja = viewer.cesiumWidget?.creditContainer, creditos = viewer.creditDisplay?.container;
+        if (caja && creditos && creditos.parentNode !== caja) caja.appendChild(creditos);
+      } catch (e) { console.warn(e); }
+      viewer.destroy();
+    }
     viewer = null;
   }
 
