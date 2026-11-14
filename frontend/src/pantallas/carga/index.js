@@ -58,6 +58,7 @@ export function montar(contenedor) {
 
     <div class="carga-columna">
       <img class="logo" src="/img/logo-apu.png" alt="APU">
+      <p class="lema entra" style="animation-delay:.1s">Investiga cómo cambian los glaciares de los Andes con datos reales de la NASA</p>
       <h1 class="titulo entra" style="animation-delay:.15s">
         <span class="barras" aria-hidden="true">//</span>
         <span class="palabra">CARGANDO</span>
@@ -79,11 +80,12 @@ export function montar(contenedor) {
         <span class="porcentaje">0%</span>
       </div>
 
-      <section class="sabias entra" aria-live="polite" style="animation-delay:.6s">
+      <section class="sabias entra" tabindex="0" aria-label="¿Sabías que…? Se pausa al pasar el mouse o al tocarlo" style="animation-delay:.6s">
         <span class="signo" aria-hidden="true">?</span>
         <div>
           <span class="rotulo">¿SABÍAS QUE…?</span>
-          <p class="dato"></p>
+          <p class="dato" aria-live="polite"></p>
+          <div class="sabias-puntos" aria-hidden="true"></div>
         </div>
       </section>
     </div>`;
@@ -91,15 +93,46 @@ export function montar(contenedor) {
 
   crearCopos(raiz.querySelector('.carga-nieve'));
 
-  // ¿Sabías que…? cambia cada 4,2 s (se reinicia la animación de entrada)
+  // ¿Sabías que…? Cada dato dura 8 s o 300 ms por palabra (lo que sea más), con fundido.
+  // Se pausa con el mouse encima, con el foco o al tocarlo (otro toque lo reanuda). Puntitos: posición.
+  const sabias = raiz.querySelector('.sabias');
   const dato = raiz.querySelector('.dato');
-  let iDato = 0;
+  const puntos = raiz.querySelector('.sabias-puntos');
+  puntos.innerHTML = SABIAS_QUE.map(() => '<span></span>').join('');
+  const duracionDe = (t) => Math.max(8000, 300 * t.trim().split(/\s+/).length);
+  let iDato = 0, restante = 0, desde = 0, reloj = 0, fundido = 0;
+  const pausas = new Set(); // 'mouse' | 'foco' | 'toque'
+  const programar = () => {
+    clearTimeout(reloj);
+    if (pausas.size) return;
+    desde = performance.now();
+    reloj = setTimeout(siguiente, restante);
+  };
   const mostrarDato = () => {
     dato.textContent = SABIAS_QUE[iDato];
-    dato.classList.remove('nuevo'); void dato.offsetWidth; dato.classList.add('nuevo');
+    [...puntos.children].forEach((p, i) => p.classList.toggle('actual', i === iDato));
+    dato.classList.remove('sale');
+    restante = duracionDe(SABIAS_QUE[iDato]);
+    programar();
   };
+  function siguiente() {
+    dato.classList.add('sale'); // fundido de salida (.4 s) y entra el siguiente
+    fundido = setTimeout(() => { iDato = (iDato + 1) % SABIAS_QUE.length; mostrarDato(); }, 400);
+  }
+  const pausar = (motivo, si) => {
+    if (si === pausas.has(motivo)) return;
+    if (si) { if (!pausas.size) { clearTimeout(reloj); restante = Math.max(0, restante - (performance.now() - desde)); } pausas.add(motivo); }
+    else { pausas.delete(motivo); programar(); }
+    sabias.classList.toggle('en-pausa', pausas.size > 0);
+  };
+  // (pointerenter solo con mouse: en celular, el toque genera un "mouseenter" que nunca sale)
+  sabias.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') pausar('mouse', true); });
+  sabias.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') pausar('mouse', false); });
+  sabias.addEventListener('focusin', () => { if (sabias.matches(':focus-visible')) pausar('foco', true); });
+  sabias.addEventListener('focusout', () => pausar('foco', false));
+  sabias.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') pausar('toque', !pausas.has('toque')); });
   mostrarDato();
-  intervalos.push(setInterval(() => { iDato = (iDato + 1) % SABIAS_QUE.length; mostrarDato(); }, 4200));
+  esperas.push({ limpiar: () => { clearTimeout(reloj); clearTimeout(fundido); } });
 
   // El Jukumari habla: al llegar, cada 7,2 s y cuando lo tocan
   const dialogo = raiz.querySelector('.dialogo');
@@ -143,7 +176,7 @@ export function montar(contenedor) {
 
 export function desmontar() {
   intervalos.forEach(clearInterval);
-  esperas.forEach(clearTimeout);
+  esperas.forEach((e) => (e?.limpiar ? e.limpiar() : clearTimeout(e)));
   intervalos = [];
   esperas = [];
 }

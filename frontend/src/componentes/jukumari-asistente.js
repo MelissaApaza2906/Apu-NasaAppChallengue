@@ -21,7 +21,7 @@ const POR_RUTA = { '': 'carga', menu: 'menu', acceso: 'acceso', etapas: 'etapas'
 const CON_PISTA = new Set(['leccion', 'caso', 'casos']);
 // Pantallas con su propio Jukumari: ahí el flotante global se esconde. Única lista: se usa en cada cambio de ruta.
 //   '' = carga · leccion = #/leccion/:id (teoría, tarjetas, trivia y meta) · casos · caso = #/caso/:id y su informe · etapas
-export const RUTAS_CON_GUIA = new Set(['', 'leccion', 'casos', 'caso', 'etapas']);
+export const RUTAS_CON_GUIA = new Set(['', 'leccion', 'casos', 'caso', 'etapas', 'menu']); // menu: el planeta va sin Jukumari flotante
 const rutaActual = () => location.hash.replace(/^#\/?/, '').split('/')[0];
 const conGuiaPropia = () => RUTAS_CON_GUIA.has(rutaActual()) || !(rutaActual() in POR_RUTA);
 // Lo que el Jukumari nunca debe tapar (los pines del globo se mueven todo el tiempo: no cuentan)

@@ -42,6 +42,7 @@ export function iniciarRutas(contenedor) {
     if (actual?.desmontar) actual.desmontar();
     contenedor.replaceChildren();
     rutaPrevia = rutaMontada; rutaMontada = pedida;
+    document.documentElement.dataset.ruta = RUTAS[nombre] ? nombre : ''; // base.css: la carga y el menú también van en vertical
     actual = pantalla;
     actual.montar(contenedor, params);
   };

@@ -15,36 +15,41 @@ import { ir } from '../../router.js';
 import { cargarRegion } from '../../servicios/datos.js';
 import { GLACIARES, historiaDe } from '../../contenido/glaciares.js';
 import { abrirMontana } from './montanas-puente.js';
-import { leerProgreso, verGlaciar, casosResueltos } from '../../servicios/progreso.js';
+import { leerProgreso, verGlaciar, casosResueltos, estadoCaso } from '../../servicios/progreso.js';
+import { LECCIONES } from '../../contenido/lecciones.js';
 import { CASOS } from '../../contenido/casos.js';
 import { apagarEscena3d } from '../../servicios/escena3d-estado.js';
 import { darInsignia } from '../../componentes/nueva-insignia.js';
-import { avatarPorId } from '../../contenido/avatares.js';
 import { crearEnVivo } from '../../componentes/en-vivo.js';
 
 const AVISO_CAPA = 'No se pudo cargar la capa de NASA. El planeta sigue con la imagen normal.';
 const EN_PREPARACION = 'En preparación';
-// Opciones del botón flotante de capas (arriba a la derecha)
-const CAPAS_MENU = [
-  { capa: null, n: 'Normal' },
-  { capa: 'hoy', n: 'Hoy (nubes reales)' }
-];
 
-// Íconos del riel (mismos trazos que la maqueta)
+const svg = (trazos, ancho = 1.6) => `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${ancho}" stroke-linecap="round" stroke-linejoin="round">${trazos}</svg>`;
+// Íconos del riel
 const ICONOS = {
-  explorar: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5 13.5 13.5 8.5 15.5 10.5 10.5z"/>',
-  entrenar: '<path d="M3 8l9-4 9 4-9 4z"/><path d="M7 10v5c0 1.5 2.5 3 5 3s5-1.5 5-3v-5"/>',
-  perfil: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',
-  ajustes: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>'
+  explorar: '<circle cx="12" cy="12" r="5.6"/><ellipse cx="12" cy="12" rx="10.6" ry="3.6" transform="rotate(-22 12 12)"/>',
+  entrenar: '<path d="M12 6.6C10 5 7 4.4 2.8 4.9v13.4c4.2-.5 7.2.1 9.2 1.7 2-1.6 5-2.2 9.2-1.7V4.9C17 4.4 14 5 12 6.6z"/><path d="M12 6.6V20"/>',
+  casos: '<path d="M13.5 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h5.5"/><path d="M13.5 3 19 8.5V11"/><path d="M13.5 3v5.5H19"/><circle cx="16" cy="16" r="3.2"/><path d="m18.4 18.4 2.6 2.6"/>',
+  ajustes: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'
 };
 const RIEL = [
-  { k: 'explorar', n: 'Explorar el globo', ruta: null, actual: true },
-  { k: 'entrenar', n: 'Entrenamiento', ruta: 'etapas' },
-  { k: 'perfil', n: 'Mi perfil', ruta: 'perfil' },
-  { k: 'ajustes', n: 'Ajustes', ruta: 'ajustes' }
+  { k: 'explorar', n: 'Explorar', ruta: null, actual: true },
+  { k: 'entrenar', n: 'Entrenar', ruta: 'etapas' },
+  { k: 'casos', n: 'Casos', ruta: 'casos' },
+  { k: 'ajustes', n: 'Ajustes', ruta: 'ajustes', aparte: true }
 ];
-// Capas: 3 rombos apilados
-const ICONO_CAPAS = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3 20 7 12 11 4 7z"/><path d="M12 8.5 20 12.5 12 16.5 4 12.5z" opacity=".75"/><path d="M12 14 20 18 12 22 4 18z" opacity=".5"/></svg>';
+// Capas: el botón (3 rombos ↔ ✕) y sus opciones. FONDO: uno a la vez. CAPAS: se prenden y se apagan.
+const ICONO_CAPAS = svg('<path d="M12 3 20 7 12 11 4 7z"/><path d="M4 12.5 12 16.5 20 12.5" opacity=".75"/><path d="M4 18 12 22 20 18" opacity=".5"/>');
+const ICONO_CERRAR = svg('<path d="M6 6l12 12M18 6 6 18"/>', 2.2);
+const FONDOS = [
+  { capa: '', n: 'Mapa normal', i: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3Z"/>' },
+  { capa: 'hoy', n: 'Nubes de hoy', i: '<path d="M7 18.5h10.2a4.3 4.3 0 0 0 .4-8.6A6 6 0 0 0 6 9.4a4.6 4.6 0 0 0 1 9.1z"/>' }
+];
+const CAPAS = [
+  { k: 'eventos', n: 'Eventos en vivo', si: true, i: '<circle cx="12" cy="10.5" r="1.7"/><path d="M8.6 7.1a4.8 4.8 0 0 0 0 6.8M15.4 7.1a4.8 4.8 0 0 1 0 6.8M5.8 4.3a8.8 8.8 0 0 0 0 12.4M18.2 4.3a8.8 8.8 0 0 1 0 12.4M12 12.2V21"/>' },
+  { k: 'foto-dia', n: 'MODIS del día', si: false, t: 'Foto MODIS de 250 m del día despejado de cada glaciar, en la lupa', i: '<rect x="9.6" y="9.6" width="4.8" height="4.8" rx="1" transform="rotate(45 12 12)"/><path d="M4.5 4.5l3.6 3.6M15.9 15.9l3.6 3.6M3 8.4 8.4 3M15.6 21 21 15.6"/>' }
+];
 const AVISO_NUBES = 'Cargando nubes de NASA…';
 const MONTANA = '<svg aria-hidden="true" viewBox="0 0 32 20" fill="none" stroke="#F2F4F8" stroke-width="1.7" stroke-linejoin="round"><path d="M1 19 11 5l6 8 4-5 10 11"/><path d="M8 9.5 11 5l3 4"/></svg>';
 
@@ -92,30 +97,52 @@ export function montar(contenedor) {
       <span class="separador" aria-hidden="true"></span>
     </header>
 
+    <header class="menu-titulo">
+      <p class="menu-modo"><span class="barras" aria-hidden="true">//</span> MODO EXPLORACIÓN</p>
+      <h1 class="menu-h1"><span class="brillo">EXPLORA LOS <b>GLACIARES</b> DEL PLANETA</span></h1>
+      <p class="menu-pista">Elige un glaciar abajo o toca un <span aria-hidden="true">❄</span><span class="solo-lector">copo</span> en el planeta</p>
+    </header>
+
     <div class="menu-arriba-der entra-der">
-      <div class="menu-estado">
-        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="#F2F4F8" stroke-width="1.5"><rect x="9" y="9" width="6" height="6" rx="1" transform="rotate(45 12 12)"/><path d="M4 4l4 4M16 16l4 4M3 8l5-5M16 21l5-5"/></svg>
-        <span class="punto" aria-hidden="true"></span>Monitoreo satelital
-      </div>
-      <div class="menu-capas-caja">
-        <button type="button" class="boton-capas hud" aria-label="Capas de datos de NASA" title="Capas de datos de NASA" aria-haspopup="menu" aria-expanded="false" aria-controls="menu-capas">${ICONO_CAPAS}</button>
-        <div class="menu-capas hud" id="menu-capas" role="menu" aria-label="Capas de datos de NASA" hidden>
-          ${CAPAS_MENU.map((c) => `<button type="button" role="menuitemradio" data-capa="${c.capa ?? ''}" aria-checked="${c.capa === null}">${c.n}</button>`).join('')}
-          <span class="separador" role="separator"></span>
-          <button type="button" role="menuitemcheckbox" data-eventos aria-checked="true">Eventos en vivo</button>
-          <button type="button" role="menuitemcheckbox" data-foto-dia aria-checked="false" title="Foto MODIS de 250 m del día despejado de cada glaciar, en la lupa">Imagen MODIS del día</button>
+      <div class="capas">
+        <button type="button" class="capas-boton" aria-expanded="false" aria-controls="capas-lista">
+          <span class="capas-circulo">${ICONO_CAPAS}</span>
+          <span class="capas-cuenta" aria-hidden="true"></span>
+          <span class="capas-nombre" aria-hidden="true">CAPAS</span>
+        </button>
+        <div class="capas-lista" id="capas-lista" hidden>
+          <p class="capas-grupo" id="capas-fondo">FONDO</p>
+          <div role="radiogroup" aria-labelledby="capas-fondo">
+            ${FONDOS.map((f) => `<button type="button" class="capas-op fondo" role="radio" data-capa="${f.capa}" aria-checked="${f.capa === ''}"><span class="pildora">${f.n}<i aria-hidden="true">✓</i></span><span class="circulo">${svg(f.i)}</span></button>`).join('')}
+          </div>
+          <p class="capas-grupo" id="capas-capas">CAPAS</p>
+          <div role="group" aria-labelledby="capas-capas">
+            ${CAPAS.map((c) => `<button type="button" class="capas-op capa" data-${c.k} aria-pressed="${c.si}"${c.t ? ` title="${c.t}"` : ''}><span class="pildora">${c.n}<i aria-hidden="true">✓</i></span><span class="circulo">${svg(c.i)}</span></button>`).join('')}
+          </div>
         </div>
       </div>
       <p class="menu-cargando" role="status" hidden>${AVISO_NUBES}</p>
       <p class="menu-aviso" role="status" hidden>${AVISO_CAPA}</p>
     </div>
 
-    <nav class="menu-riel hud entra-izq" aria-label="Menú">
-      ${RIEL.map((m) => `
-        <button type="button" class="redondo${m.actual ? ' actual' : ''}" data-k="${m.k}" data-ruta="${m.ruta ?? ''}" aria-label="${m.n}" title="${m.n}"${m.actual ? ' aria-current="page"' : ''}>
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICONOS[m.k]}</svg>
+    <nav class="menu-riel entra-izq" aria-label="Menú">
+      ${RIEL.map((m) => `${m.aparte ? '<span class="riel-separador" aria-hidden="true"></span>' : ''}
+        <button type="button" class="riel-item${m.actual ? ' actual' : ''}" data-k="${m.k}" data-ruta="${m.ruta ?? ''}"${m.actual ? ' aria-current="page"' : ''}>
+          <span class="riel-circulo">${svg(ICONOS[m.k])}<span class="riel-aviso" hidden></span></span>
+          <span class="riel-nombre">${m.n}</span>
         </button>`).join('')}
     </nav>
+
+    <section class="menu-carrusel entra-abajo" aria-label="Glaciares">
+      <button type="button" class="carrusel-flecha" data-paso="-1" aria-label="Glaciares anteriores">${svg('<path d="M15 5l-7 7 7 7"/>', 2.2)}</button>
+      <ol class="carrusel-pista">
+        ${GLACIARES.map((g, i) => `<li><button type="button" class="tarjeta-glaciar${g.principal ? ' principal' : ''}" data-id="${g.id}" aria-pressed="false">
+          <span class="tg-foto" style="background-image:url('${g.foto?.src ?? '/img/fondo-illimani.webp'}')">${g.principal ? '<span class="tg-caso">NUESTRO CASO</span>' : ''}</span>
+          <span class="tg-texto"><span class="tg-num">${String(i + 1).padStart(2, '0')}</span><b class="tg-nombre">${escapar(g.nombre)}</b><span class="tg-lugar">${escapar(g.pais)} · ${grados(g.lat, 'N', 'S')}</span><span class="tg-ver" aria-hidden="true">Ver glaciar ›</span></span>
+        </button></li>`).join('')}
+      </ol>
+      <button type="button" class="carrusel-flecha" data-paso="1" aria-label="Glaciares siguientes">${svg('<path d="M9 5l7 7-7 7"/>', 2.2)}</button>
+    </section>
 
     <aside class="menu-pestana" aria-label="Historia del glaciar" hidden>
       <div class="pestana-portada">
@@ -147,43 +174,108 @@ export function montar(contenedor) {
   const $ = (s) => raiz.querySelector(s);
 
   // ---------------------------------------------------------------
-  // Navegación y menú "Capas de datos"
+  // Navegación (riel) y avisos: ✓ en Entrenar con las 10 lecciones; casos nuevos en Casos
   // ---------------------------------------------------------------
   $('.logo-btn').addEventListener('click', () => ir(''));
   raiz.querySelectorAll('.menu-riel [data-ruta]').forEach((b) => {
     b.addEventListener('click', () => { if (b.dataset.ruta) ir(b.dataset.ruta); });
   });
-  // Botón flotante de capas: el menú se abre debajo (CSS) y se cierra al elegir o al tocar fuera
-  const botonCapas = $('.boton-capas');
-  const menuCapas = $('.menu-capas');
+  const ponerAviso = (k, texto, etiqueta) => {
+    const b = $(`.menu-riel [data-k="${k}"]`), a = b.querySelector('.riel-aviso');
+    a.hidden = !texto; a.textContent = texto ?? '';
+    b.setAttribute('aria-label', etiqueta);
+  };
+  leerProgreso().then((p) => {
+    if (!vivo) return;
+    const hechas = LECCIONES.filter((l) => (p.lecciones ?? []).includes(l.id)).length;
+    const todas = hechas === LECCIONES.length;
+    ponerAviso('entrenar', todas ? '✓' : null, todas ? `Entrenar: las ${LECCIONES.length} lecciones terminadas` : `Entrenar: ${hechas} de ${LECCIONES.length} lecciones`);
+    $('.menu-riel [data-k="entrenar"] .riel-aviso').classList.toggle('listo', todas);
+    // Casos nuevos: abiertos (como en #/casos) y todavía sin empezar
+    const resueltos = casosResueltos(p);
+    const nuevos = CASOS.filter((c, i) => !resueltos.has(c.id) && !estadoCaso(p, c.id) &&
+      (i === 0 ? todas : resueltos.has(CASOS[i - 1].id) || (i > 1 && resueltos.has(CASOS[i - 2].id)))).length;
+    ponerAviso('casos', nuevos ? String(nuevos) : null, nuevos ? `Casos: ${nuevos} ${nuevos === 1 ? 'caso nuevo' : 'casos nuevos'}` : 'Casos');
+  }).catch(() => {});
+
+  // ---------------------------------------------------------------
+  // Capas: botón redondo (número rojo = capas activas) que despliega FONDO y CAPAS hacia abajo
+  // ---------------------------------------------------------------
+  const botonCapas = $('.capas-boton');
+  const listaCapas = $('.capas-lista');
+  const contarCapas = () => {
+    const n = listaCapas.querySelectorAll('.capa[aria-pressed="true"]').length + (listaCapas.querySelector('.fondo[data-capa="hoy"]').getAttribute('aria-checked') === 'true' ? 1 : 0);
+    const c = $('.capas-cuenta');
+    c.textContent = String(n); c.hidden = !n;
+    const abierta = !listaCapas.hidden;
+    botonCapas.setAttribute('aria-label', abierta ? 'Cerrar capas' : `Capas de datos de NASA: ${n} ${n === 1 ? 'activa' : 'activas'}`);
+  };
   function abrirCapas(abrir) {
-    menuCapas.hidden = !abrir;
+    listaCapas.hidden = !abrir;
+    $('.capas').classList.toggle('abierta', abrir);
     botonCapas.setAttribute('aria-expanded', String(abrir));
-    if (abrir) (menuCapas.querySelector('[aria-checked="true"]') ?? menuCapas.querySelector('button')).focus();
+    $('.capas-circulo').innerHTML = abrir ? ICONO_CERRAR : ICONO_CAPAS;
+    $('.capas-nombre').textContent = abrir ? 'CERRAR' : 'CAPAS';
+    contarCapas();
   }
-  botonCapas.addEventListener('click', () => abrirCapas(menuCapas.hidden));
-  menuCapas.addEventListener('click', (e) => {
-    const ev = e.target.closest('[role="menuitemcheckbox"]');
-    if (ev) { // "Eventos en vivo" / "Imagen MODIS del día": se prenden o se apagan; el menú sigue abierto
-      const si = ev.getAttribute('aria-checked') !== 'true';
-      ev.setAttribute('aria-checked', String(si));
-      if (ev.hasAttribute('data-foto-dia')) globo?.ponerFotoDelDia?.(si);
+  botonCapas.addEventListener('click', () => abrirCapas(listaCapas.hidden));
+  listaCapas.addEventListener('click', (e) => {
+    const capa = e.target.closest('.capa');
+    if (capa) { // "Eventos en vivo" / "MODIS del día": se prenden o se apagan
+      const si = capa.getAttribute('aria-pressed') !== 'true';
+      capa.setAttribute('aria-pressed', String(si));
+      if (capa.hasAttribute('data-foto-dia')) globo?.ponerFotoDelDia?.(si);
       else enVivo?.eventos(si);
-      return;
     }
-    const b = e.target.closest('[role="menuitemradio"]'); if (!b) return;
-    menuCapas.querySelectorAll('[data-capa]').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
-    pedirCapa(b.dataset.capa || null);
-    abrirCapas(false);
-    botonCapas.focus();
+    const fondo = e.target.closest('.fondo');
+    if (fondo && fondo.getAttribute('aria-checked') !== 'true') {
+      listaCapas.querySelectorAll('.fondo').forEach((x) => x.setAttribute('aria-checked', String(x === fondo)));
+      pedirCapa(fondo.dataset.capa || null);
+    }
+    contarCapas();
   });
-  menuCapas.addEventListener('keydown', (e) => {
-    const items = [...menuCapas.querySelectorAll('button')];
+  listaCapas.addEventListener('keydown', (e) => {
+    const items = [...listaCapas.querySelectorAll('button')];
     const i = items.indexOf(document.activeElement);
-    if (e.key === 'Escape') { abrirCapas(false); botonCapas.focus(); }
     if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
     if (e.key === 'ArrowUp') { e.preventDefault(); items[(i + items.length - 1) % items.length].focus(); }
   });
+  contarCapas();
+
+  // ---------------------------------------------------------------
+  // Carrusel de glaciares (uno por marcador). Tarjeta → vuela, marca el pin y abre la ficha;
+  // pin → marca su tarjeta y la deja a la vista (los dos pasan por alElegir → abrirPestana)
+  // ---------------------------------------------------------------
+  const pista = $('.carrusel-pista');
+  const tarjetas = [...pista.querySelectorAll('.tarjeta-glaciar')];
+  function marcarTarjeta(id) {
+    tarjetas.forEach((t) => {
+      const si = t.dataset.id === id;
+      t.classList.toggle('elegida', si);
+      t.setAttribute('aria-pressed', String(si));
+      if (si) { // centrarla dentro de la pista (sin mover la página)
+        const b = t.parentElement.getBoundingClientRect(), p = pista.getBoundingClientRect();
+        const x = pista.scrollLeft + (b.left - p.left) - (p.width - b.width) / 2;
+        pista.scrollTo({ left: x, behavior: sinMovimiento.matches ? 'auto' : 'smooth' });
+      }
+    });
+  }
+  pista.addEventListener('click', (e) => {
+    const t = e.target.closest('.tarjeta-glaciar'); if (!t) return;
+    if (t.classList.contains('elegida') && elegido?.id === t.dataset.id) { $('.pestana-ver').focus(); return; } // "Ver glaciar ›": la ficha ya está abierta
+    if (globo?.elegirGlaciar) globo.elegirGlaciar(t.dataset.id);
+    else { const g = GLACIARES.find((x) => x.id === t.dataset.id); if (g) abrirPestana(g); }
+  });
+  raiz.querySelectorAll('.carrusel-flecha').forEach((f) => f.addEventListener('click', () => {
+    pista.scrollBy({ left: Number(f.dataset.paso) * pista.clientWidth * 0.8, behavior: sinMovimiento.matches ? 'auto' : 'smooth' });
+  }));
+  const flechas = () => {
+    const [a, s] = raiz.querySelectorAll('.carrusel-flecha');
+    a.disabled = pista.scrollLeft < 4;
+    s.disabled = pista.scrollLeft + pista.clientWidth > pista.scrollWidth - 4;
+  };
+  pista.addEventListener('scroll', flechas, { passive: true });
+  requestAnimationFrame(flechas);
   // Pide la capa al globo; si NASA no responde, el planeta queda como estaba y se avisa
   function pedirCapa(capa) {
     const aviso = $('.menu-aviso');
@@ -214,7 +306,7 @@ export function montar(contenedor) {
   const ponerEnVivo = () => {
     if (!vivo || enVivo) return;
     enVivo = crearEnVivo({ globo, pantalla: raiz });
-    enVivo.eventos($('[data-eventos]').getAttribute('aria-checked') === 'true');
+    enVivo.eventos($('[data-eventos]').getAttribute('aria-pressed') === 'true');
     if (import.meta.env.DEV) window.__enVivo = enVivo; // para las pruebas en el navegador
   };
   import('../../componentes/globo3d.js')
@@ -252,6 +344,7 @@ export function montar(contenedor) {
   function abrirPestana(g) {
     cerrarMontana();
     elegido = g;
+    marcarTarjeta(g.id);
     raiz.classList.add('con-pestana');
     // Con el globo 3D, la cámara baja al glaciar y el globo ocupa todo el espacio libre (menu.css)
     raiz.classList.toggle('con-zoom', Boolean(globo?.viewer));
@@ -315,6 +408,7 @@ export function montar(contenedor) {
   function cerrarPestana() {
     if (!elegido) return;
     elegido = null;
+    marcarTarjeta(null);
     cancelAnimationFrame(cuenta);
     raiz.classList.remove('con-pestana', 'con-zoom');
     pestana.hidden = true;
@@ -347,6 +441,7 @@ export function montar(contenedor) {
     }
     if (!vivo) { montana?.cerrar(); montana = null; return; }
     $('.menu-volver').hidden = false;
+    document.documentElement.classList.add('pide-horizontal'); // en celular vertical, la montaña pide girar
     enVivo?.mostrar(false);
     $('.menu-volver').focus();
     avisarAsistente(conMasa ? { contexto: 'montana', masa: true } : 'montana');
@@ -355,6 +450,7 @@ export function montar(contenedor) {
     if (!montana) return;
     montana.cerrar();
     montana = null;
+    document.documentElement.classList.remove('pide-horizontal');
     $('.menu-volver').hidden = true;
     enVivo?.mostrar(true);
     avisarAsistente(elegido ? 'glaciar' : 'menu');
@@ -365,11 +461,12 @@ export function montar(contenedor) {
   const avisarAsistente = (contexto) => window.dispatchEvent(new CustomEvent('apu:contexto', { detail: contexto }));
 
   const tocarFuera = (e) => {
-    if (!menuCapas.hidden && !e.target.closest('.menu-capas') && !e.target.closest('.boton-capas')) abrirCapas(false);
+    if (!listaCapas.hidden && !e.target.closest('.capas')) abrirCapas(false);
   };
   const conTeclado = (e) => {
     if (e.key !== 'Escape') return;
-    if (montana) cerrarMontana();
+    if (!listaCapas.hidden) { abrirCapas(false); botonCapas.focus(); }
+    else if (montana) cerrarMontana();
     else if (elegido) cerrarPestana();
   };
   document.addEventListener('pointerdown', tocarFuera);
@@ -380,16 +477,6 @@ export function montar(contenedor) {
     cancelAnimationFrame(cuenta);
     cerrarMontana();
   };
-
-  // "Mi perfil" del riel (→ #/perfil): la cara del avatar elegido en el registro (si no hay, el ícono)
-  leerProgreso().then((p) => {
-    const a = avatarPorId(p.avatar);
-    if (!vivo || !a) return;
-    const boton = $('.menu-riel [data-k="perfil"]');
-    boton.classList.add('con-avatar');
-    boton.innerHTML = `<img src="${a.cara}" alt="" width="36" height="36">`;
-    boton.title = `Mi perfil (${a.nombre})`;
-  }).catch(() => {});
 }
 
 export function desmontar() {

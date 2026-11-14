@@ -2,22 +2,27 @@
 .pantalla-menu { position: absolute; inset: 0; overflow: hidden; color: var(--nieve); font-family: var(--letra-texto); }
 /* El planeta se centra en el espacio libre entre el riel y el borde derecho (o la pestaña abierta) */
 .pantalla-menu {
-  --boton-riel: clamp(44px, 8cqh, 72px);
-  --riel-der: calc(1.6cqw + var(--boton-riel) + 4cqh);
+  --boton-riel: clamp(44px, 8cqh, 72px);              /* botones redondos de la vista de la montaña */
+  --boton-nav: clamp(46px, 8.4cqh, 76px);             /* riel: círculo de cada botón (ícono al 47 %) */
+  --riel-ancho: calc(var(--boton-nav) + 20px);
+  --riel-der: calc(1.6cqw + var(--riel-ancho) + 2cqh);
   --margen: 2.6cqh;
+  --arriba: clamp(84px, 17cqh, 160px);                /* banda del título */
+  --abajo: clamp(96px, 21cqh, 190px);                 /* banda del carrusel */
   --ancho-pestana: clamp(280px, 30cqw, 420px);
   --borde-der: 0px;                                   /* lo que ocupa la pestaña a la derecha */
   --libre: calc(100cqw - var(--riel-der) - var(--margen) - var(--borde-der));
-  --diam: min(92cqh, var(--libre));
+  --alto-libre: calc(100cqh - var(--arriba) - var(--abajo));
+  --diam: min(var(--alto-libre), var(--libre));
   --planeta-izq: calc(var(--riel-der) + (var(--libre) - var(--diam)) / 2);
-  --planeta-arriba: calc((100cqh - var(--diam)) / 2);
+  --planeta-arriba: calc(var(--arriba) + (var(--alto-libre) - var(--diam)) / 2);
   /* Vista de la montaña (montanas-puente.css): panel de datos a la derecha y "Volver al planeta" abajo */
   --ancho-panel: clamp(260px, 28cqw, 450px);
   --panel-izq: calc(100cqw - 2.6cqh - var(--ancho-panel) - 2cqh);
   --carrusel-arriba: calc(3.2cqh + 52px);
 }
 /* Con la pestaña: el planeta, más chico y un poco más arriba (deja libre la esquina del Jukumari asistente) */
-.pantalla-menu.con-pestana { --borde-der: var(--ancho-pestana); --diam: min(86cqh, var(--libre)); --planeta-arriba: max(1.5cqh, calc((100cqh - var(--diam)) / 2 - 7cqh)); }
+.pantalla-menu.con-pestana { --borde-der: var(--ancho-pestana); }
 
 /* Fondo galáctico */
 .menu-cielo {
@@ -48,7 +53,9 @@
 .entra-izq { animation: menuIzq .8s cubic-bezier(.2, .8, .2, 1) .1s both; }
 @keyframes menuDer { from { opacity: 0; translate: 4cqh 0; } to { opacity: 1; translate: 0 0; } }
 @keyframes menuIzq { from { opacity: 0; translate: -4cqh 0; } to { opacity: 1; translate: 0 0; } }
-@keyframes menuAbajo { from { opacity: 0; translate: 0 3cqh; } to { opacity: 1; translate: 0 0; } } /* la usa el recuadro de la montaña */
+@keyframes menuAbajo { from { opacity: 0; translate: 0 3cqh; } to { opacity: 1; translate: 0 0; } } /* la usan el recuadro de la montaña y el carrusel */
+.entra-abajo { animation: menuAbajo .8s cubic-bezier(.2, .8, .2, 1) .3s both; }
+.solo-lector { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* ---------- Órbita y planeta (se corren a la izquierda al abrir la pestaña) ---------- */
 .menu-orbita, .menu-planeta { position: absolute; transition: left .6s cubic-bezier(.2, .8, .2, 1), top .6s cubic-bezier(.2, .8, .2, 1), width .6s cubic-bezier(.2, .8, .2, 1), height .6s cubic-bezier(.2, .8, .2, 1), opacity .4s; }
@@ -60,7 +67,7 @@
 .menu-planeta .tierra { width: 100%; height: 100%; display: block; }
 /* Zoom máximo a un glaciar (globo3d.js baja a ~350 km): el globo ocupa TODO el espacio libre, de la
    barra de botones a la pestaña y de arriba abajo, sin forma de círculo; la órbita punteada se va */
-.pantalla-menu.con-zoom .menu-planeta { left: var(--riel-der); top: 0; width: calc(100cqw - var(--riel-der) - var(--borde-der)); height: 100cqh; }
+.pantalla-menu.con-zoom .menu-planeta { left: var(--riel-der); top: var(--arriba); width: calc(100cqw - var(--riel-der) - var(--borde-der)); height: var(--alto-libre); }
 .pantalla-menu.con-zoom .menu-orbita { opacity: 0; }
 
 /* Lente circular (globo3d.js, de cerca): diámetro = alto libre − 4cqh (sin pasar del ancho libre).
@@ -95,7 +102,7 @@
 .logo-btn:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
 .menu-logo .separador { width: 1.5px; height: 6cqh; background: rgba(242, 244, 248, .6); }
 /* Arriba a la derecha: "Monitoreo satelital" y, debajo, el botón flotante de capas (se corren con la pestaña) */
-.menu-arriba-der { position: absolute; z-index: 6; top: 2.8cqh; right: calc(var(--margen) + var(--borde-der)); display: flex; flex-direction: column; align-items: flex-end; gap: 1.2cqh; transition: right .6s cubic-bezier(.2, .8, .2, 1); }
+.menu-arriba-der { position: absolute; z-index: 6; top: 2.4cqh; right: calc(var(--margen) + var(--borde-der)); display: flex; flex-direction: column; align-items: flex-end; gap: 1.2cqh; transition: right .6s cubic-bezier(.2, .8, .2, 1); }
 .menu-estado { display: flex; align-items: center; gap: 1.4cqh; padding: 1.1cqh 2.4cqh; border-radius: 999px; border: 1.5px solid rgba(91, 160, 255, .7); background: rgba(8, 18, 48, .8); font-weight: 600; font-size: clamp(12px, 2.2cqh, 20px); }
 .menu-estado svg { width: 3cqh; height: 3cqh; }
 .menu-estado .punto { width: 1.2cqh; height: 1.2cqh; border-radius: 50%; background: #3DDC84; box-shadow: 0 0 1cqh #3DDC84; }
@@ -104,43 +111,112 @@
 .menu-cargando { border: 1px solid rgba(91, 160, 255, .45); background: rgba(8, 18, 48, .85); color: #D7DEEA; }
 .menu-aviso[hidden], .menu-cargando[hidden] { display: none; }
 
-/* ---------- Riel de 4 botones (arriba, para dejar libre la esquina del Jukumari asistente) ---------- */
-.menu-riel { position: absolute; z-index: 3; left: 1.6cqw; top: 14cqh; padding: 1.4cqh; border-radius: 999px; display: flex; flex-direction: column; gap: 1.6cqh; }
-.menu-riel .redondo { width: var(--boton-riel); height: var(--boton-riel); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--nieve); cursor: pointer; border: 1.5px solid rgba(242, 244, 248, .75); background: rgba(8, 18, 48, .6); transition: background .15s, box-shadow .15s; }
-.menu-riel .redondo svg { width: 46%; height: 46%; }
-.menu-riel .redondo.actual { border: 2.5px solid var(--rojo-apu); background: rgba(209, 32, 33, .16); box-shadow: 0 0 1.8cqh rgba(209, 32, 33, .6); }
-.menu-riel .redondo:not(.actual):hover { background: rgba(31, 65, 108, .9); box-shadow: 0 0 1.6cqh rgba(242, 244, 248, .3); }
-.menu-riel .redondo:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
-/* "Mi expediente" con el avatar elegido: su cara en un círculo de 36 px */
-.menu-riel .redondo.con-avatar img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; display: block; }
+/* ---------- Título (arriba, centrado entre el riel y las capas) ---------- */
+.menu-titulo { position: absolute; z-index: 3; top: 2.4cqh; left: var(--riel-der); right: calc(var(--margen) + var(--borde-der) + 76px); text-align: center; pointer-events: none; transition: right .6s cubic-bezier(.2, .8, .2, 1), opacity .3s; }
+.menu-modo { margin: 0; font: 400 clamp(9px, 1.5cqh, 14px) var(--letra-titulo); letter-spacing: .32em; color: #A9C8FF; }
+.menu-modo .barras { color: var(--rojo-apu); font-style: italic; letter-spacing: -.1em; }
+.menu-h1 { margin: .8cqh 0 0; font: 400 clamp(15px, 4cqh, 38px) / 1.15 var(--letra-titulo); letter-spacing: .08em; text-wrap: balance; }
+.menu-h1 b { font-weight: 700; }
+/* Brillo que recorre el título una sola vez al entrar */
+.menu-h1 .brillo {
+  background: linear-gradient(100deg, #F2F4F8 38%, #FFFFFF 47%, #8FDBFF 50%, #FFFFFF 53%, #F2F4F8 62%) 100% 0 / 260% 100% no-repeat;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: menuTituloBrillo 1.8s ease-in-out .6s 1 both;
+}
+@keyframes menuTituloBrillo { from { background-position: 100% 0; } to { background-position: 0 0; } }
+.menu-pista { margin: .8cqh 0 0; font: 500 clamp(11px, 1.9cqh, 16px) / 1.35 var(--letra-texto); color: #D7DEEA; }
+.menu-pista span[aria-hidden] { color: #8FDBFF; }
 
-/* Botón flotante de capas (52 px, 3 rombos) y su menú, que se abre debajo */
-.menu-capas-caja { position: relative; }
-.boton-capas { width: 52px; height: 52px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--nieve); cursor: pointer; transition: box-shadow .15s; }
-.boton-capas svg { width: 26px; height: 26px; }
-.boton-capas:hover, .boton-capas[aria-expanded="true"] { box-shadow: 0 0 1.6cqh rgba(242, 244, 248, .35); }
-.boton-capas:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
-.menu-capas { position: absolute; z-index: 1; top: calc(100% + 8px); right: 0; display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 14px; }
-.menu-capas[hidden] { display: none; }
-.menu-capas button { min-height: 44px; padding: 0 16px; display: flex; align-items: center; border: 1.5px solid transparent; border-radius: 10px; background: transparent; color: var(--nieve); cursor: pointer; font: 500 clamp(12px, 1.9cqh, 16px) var(--letra-texto); white-space: nowrap; text-align: left; }
-.menu-capas button[aria-checked="true"] { border-color: var(--rojo-apu); background: rgba(209, 32, 33, .16); }
-.menu-capas button:hover { background: rgba(31, 65, 108, .9); }
-.menu-capas button:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
-.menu-capas .separador { height: 1px; margin: 2px 8px; background: rgba(242, 244, 248, .25); }
-/* "Eventos en vivo": casilla que se prende o se apaga */
-.menu-capas [role="menuitemcheckbox"] { gap: 10px; }
-.menu-capas [role="menuitemcheckbox"]::before { content: ''; flex: none; width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid rgba(242, 244, 248, .8); box-sizing: border-box; }
-.menu-capas [role="menuitemcheckbox"][aria-checked="true"]::before { border-color: var(--rojo-apu); background: var(--rojo-apu) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5 6.5 11.5 12.5 5' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% no-repeat; }
+/* ---------- Riel: cápsula vertical con nombre debajo de cada botón ---------- */
+.menu-riel {
+  position: absolute; z-index: 3; left: 1.6cqw; top: calc(2.4cqh + clamp(40px, 10cqh, 92px) + 1.6cqh);
+  width: var(--riel-ancho); padding: 1.4cqh 0; border-radius: 999px; display: flex; flex-direction: column; align-items: center; gap: 1.2cqh;
+  background: linear-gradient(160deg, rgba(14, 30, 72, .88), rgba(8, 18, 48, .88)); border: 1px solid rgba(91, 160, 255, .45);
+  box-shadow: 0 0 3cqh rgba(31, 95, 200, .25), inset 0 0 2cqh rgba(31, 95, 200, .12); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.riel-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: #D7DEEA; cursor: pointer; font: 600 clamp(10px, 1.45cqh, 13px) / 1.1 var(--letra-texto); letter-spacing: .03em; -webkit-tap-highlight-color: transparent; }
+.riel-circulo { position: relative; width: var(--boton-nav); height: var(--boton-nav); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--nieve); border: 1.5px solid rgba(242, 244, 248, .55); background: rgba(8, 18, 48, .6); transition: background .15s, box-shadow .15s, border-color .15s; }
+.riel-circulo svg { width: 47%; height: 47%; }
+.riel-item.actual { color: #FF8A8A; }
+.riel-item.actual .riel-circulo { border: 2.5px solid var(--rojo-apu); background: rgba(209, 32, 33, .18); box-shadow: 0 0 1.8cqh rgba(209, 32, 33, .65), inset 0 0 1.2cqh rgba(209, 32, 33, .35); }
+.riel-item:not(.actual):hover .riel-circulo { background: rgba(31, 65, 108, .9); border-color: rgba(242, 244, 248, .85); box-shadow: 0 0 1.6cqh rgba(242, 244, 248, .3); }
+.riel-item:not(.actual):hover { color: var(--nieve); }
+.riel-item:focus-visible { outline: none; }
+.riel-item:focus-visible .riel-circulo { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
+.riel-aviso { position: absolute; top: -3px; right: -5px; min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box; border-radius: 11px; background: var(--rojo-apu); color: #fff; font: 700 12px / 22px var(--letra-texto); text-align: center; box-shadow: 0 0 0 2px #060E22; }
+.riel-aviso.listo { background: #2BC56B; }
+.riel-aviso[hidden] { display: none; }
+.riel-separador { width: 56%; height: 1px; margin: .2cqh 0; background: rgba(242, 244, 248, .3); }
+
+/* ---------- Capas: botón redondo arriba a la derecha que despliega opciones hacia abajo ---------- */
+.capas { position: relative; display: flex; flex-direction: column; align-items: flex-end; }
+.capas-boton { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: var(--nieve); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.capas-circulo { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid rgba(91, 160, 255, .6); background: linear-gradient(160deg, rgba(14, 30, 72, .92), rgba(8, 18, 48, .92)); box-shadow: 0 0 2cqh rgba(31, 95, 200, .35); transition: border-color .15s, box-shadow .15s; }
+.capas-circulo svg { width: 26px; height: 26px; }
+.capas-boton:hover .capas-circulo, .capas.abierta .capas-circulo { border-color: var(--nieve); box-shadow: 0 0 1.6cqh rgba(242, 244, 248, .35); }
+.capas-boton:focus-visible { outline: none; }
+.capas-boton:focus-visible .capas-circulo { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
+.capas-cuenta { position: absolute; top: -3px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 10px; background: var(--rojo-apu); font: 700 11px / 20px var(--letra-texto); text-align: center; box-shadow: 0 0 0 2px #060E22; }
+.capas-cuenta[hidden], .capas.abierta .capas-cuenta { display: none; }
+.capas-nombre { font: 400 10px var(--letra-titulo); letter-spacing: .16em; text-shadow: 0 1px 4px rgba(0, 0, 0, .8); }
+.capas-lista { position: absolute; z-index: 1; top: calc(100% + 10px); right: 4px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.capas-lista[hidden] { display: none; }
+.capas-lista > div { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.capas-grupo { margin: 2px 4px 0 0; font: 700 10px var(--letra-texto); letter-spacing: .22em; color: #A9C8FF; text-shadow: 0 1px 4px rgba(0, 0, 0, .9); }
+.capas-op { display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: none; color: var(--nieve); cursor: pointer; animation: capasBaja .22s ease-out both; -webkit-tap-highlight-color: transparent; }
+.capas-lista > div:last-of-type .capas-op { animation-delay: .06s; }
+@keyframes capasBaja { from { opacity: 0; translate: 0 -10px; } to { opacity: 1; translate: 0 0; } }
+.capas-op .pildora { display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; background: rgba(8, 18, 48, .92); border: 1px solid rgba(91, 160, 255, .4); font: 600 13px var(--letra-texto); white-space: nowrap; box-shadow: 0 2px 10px rgba(0, 0, 0, .35); }
+.capas-op .pildora i { display: none; font-style: normal; font-weight: 800; }
+.capas-op .circulo { flex: none; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid rgba(242, 244, 248, .55); background: rgba(8, 18, 48, .9); transition: background .15s, border-color .15s, box-shadow .15s; }
+.capas-op .circulo svg { width: 22px; height: 22px; }
+.capas-op:hover .circulo { border-color: var(--nieve); }
+.capas-op:focus-visible { outline: none; }
+.capas-op:focus-visible .circulo { outline: 3px solid var(--nieve); outline-offset: 2px; }
+.capas-op.fondo[aria-checked="true"] .circulo { background: #1F5FC8; border-color: #8FB8FF; box-shadow: 0 0 1.4cqh rgba(79, 141, 255, .65); }
+.capas-op.fondo[aria-checked="true"] .pildora { border-color: rgba(143, 184, 255, .8); }
+.capas-op.fondo[aria-checked="true"] .pildora i { display: inline; color: #8FB8FF; }
+.capas-op.capa[aria-pressed="true"] .circulo { background: var(--rojo-apu); border-color: #FF8A8A; box-shadow: 0 0 1.4cqh rgba(209, 32, 33, .65); }
+.capas-op.capa[aria-pressed="true"] .pildora { border-color: rgba(255, 107, 107, .8); }
+.capas-op.capa[aria-pressed="true"] .pildora i { display: inline; color: #FF6B6B; }
+
+/* ---------- Carrusel de glaciares (abajo, entre el riel y el borde o la pestaña) ---------- */
+.menu-carrusel { --banda: calc(var(--abajo) - 2.4cqh); position: absolute; z-index: 4; left: var(--riel-der); right: calc(var(--margen) + var(--borde-der)); bottom: 1.4cqh; height: var(--banda); display: flex; align-items: center; gap: 8px; transition: right .6s cubic-bezier(.2, .8, .2, 1); }
+.carrusel-flecha { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid rgba(242, 244, 248, .6); background: rgba(8, 18, 48, .85); color: var(--nieve); cursor: pointer; }
+.carrusel-flecha svg { width: 20px; height: 20px; }
+.carrusel-flecha:hover:not(:disabled) { background: rgba(31, 65, 108, .95); border-color: var(--nieve); }
+.carrusel-flecha:disabled { opacity: .3; cursor: default; }
+.carrusel-flecha:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
+.carrusel-pista { flex: 1; min-width: 0; height: 100%; margin: 0; padding: 0 2px; list-style: none; display: flex; align-items: flex-end; gap: 10px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; scroll-snap-type: x proximity; overscroll-behavior-x: contain; }
+.carrusel-pista::-webkit-scrollbar { display: none; }
+.carrusel-pista li { flex: none; scroll-snap-align: center; }
+.tarjeta-glaciar {
+  --alto: calc(var(--banda) * .84);
+  width: calc(var(--alto) * 1.05); height: var(--alto); display: flex; flex-direction: column; padding: 0; overflow: hidden;
+  border-radius: 12px; border: 1.5px solid rgba(91, 160, 255, .4); background: rgba(8, 18, 48, .9); color: var(--nieve);
+  cursor: pointer; text-align: left; font: inherit; transition: width .3s cubic-bezier(.2, .8, .2, 1), height .3s cubic-bezier(.2, .8, .2, 1), border-color .2s, box-shadow .2s;
+}
+.tarjeta-glaciar:hover { border-color: rgba(242, 244, 248, .8); }
+.tarjeta-glaciar:focus-visible { outline: 3px solid var(--nieve); outline-offset: 2px; }
+.tarjeta-glaciar.elegida { --alto: var(--banda); width: calc(var(--alto) * 1.15); border: 2px solid var(--rojo-apu); box-shadow: 0 0 1.8cqh rgba(209, 32, 33, .6); }
+.tg-foto { position: relative; flex: 1; min-height: 0; background: #0B192E center / cover no-repeat; }
+.tg-caso { position: absolute; left: 6px; top: 6px; padding: 2px 6px; border-radius: 3px; background: var(--rojo-apu); font: 400 8.5px / 1.3 var(--letra-titulo); letter-spacing: .06em; }
+.tg-texto { flex: none; display: flex; flex-direction: column; gap: 1px; padding: 5px 9px 7px; min-width: 0; }
+.tg-num { font: 500 10px var(--letra-dato); color: #FF6B6B; }
+.tg-nombre { font: 700 13px / 1.2 var(--letra-texto); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg-lugar { font: 500 11px / 1.2 var(--letra-texto); color: #A9B4CC; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg-ver { display: none; margin-top: 2px; font: 700 11.5px var(--letra-texto); color: #FF8A8A; }
+.tarjeta-glaciar.elegida .tg-ver { display: block; }
 
 /* ---------- En vivo (componentes/en-vivo.js): chip de Terra y tarjeta de evento, abajo a la derecha ---------- */
 .envivo-chip, .envivo-tarjeta { position: absolute; z-index: 4; right: calc(var(--margen) + var(--borde-der)); transition: right .6s cubic-bezier(.2, .8, .2, 1); color: var(--nieve); }
-.envivo-chip { bottom: calc(1.4cqh + 20px); min-height: 32px; max-width: calc(100cqw - var(--riel-der) - var(--margen) - var(--borde-der)); padding: 5px 12px; border-radius: 999px; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; cursor: pointer; font: 600 12px / 1.3 var(--letra-texto); text-align: right; }
+.envivo-chip { bottom: calc(var(--abajo) + 18px); min-height: 32px; max-width: calc(100cqw - var(--riel-der) - var(--margen) - var(--borde-der)); padding: 5px 12px; border-radius: 999px; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; cursor: pointer; font: 600 12px / 1.3 var(--letra-texto); text-align: right; }
 .envivo-chip .envivo-texto { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .envivo-chip small { font: 500 11px / 1.2 var(--letra-texto); color: #A9B4CC; }
 .envivo-chip[hidden], .envivo-chip small[hidden], .envivo-tarjeta[hidden] { display: none; }
 .envivo-chip:hover { box-shadow: 0 0 1.6cqh rgba(242, 244, 248, .35); }
 .envivo-chip:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 2px; }
-.envivo-tarjeta { bottom: calc(1.4cqh + 64px); width: min(260px, calc(100cqw - var(--riel-der) - var(--margen) - var(--borde-der))); padding: 12px 14px; border-radius: 14px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.35; animation: menuAbajo .3s ease-out both; }
+.envivo-tarjeta { bottom: calc(var(--abajo) + 62px); width: min(260px, calc(100cqw - var(--riel-der) - var(--margen) - var(--borde-der))); padding: 12px 14px; border-radius: 14px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.35; animation: menuAbajo .3s ease-out both; }
 .envivo-tarjeta h3 { margin: 0; padding-right: 36px; font: 700 15px / 1.25 var(--letra-texto); }
 .envivo-tarjeta p { margin: 0; color: #D7DEEA; }
 .envivo-tipo { display: flex; align-items: center; gap: 6px; padding-right: 36px; font: 600 12px var(--letra-texto); letter-spacing: .04em; text-transform: uppercase; }
@@ -159,7 +235,7 @@
 .envivo-cerrar:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: -3px; }
 
 /* Crédito de NASA: una línea, abajo a la derecha */
-.menu-credito { position: absolute; z-index: 2; right: var(--margen); bottom: 1.4cqh; margin: 0; white-space: nowrap; font: 500 11px / 1.2 var(--letra-texto); color: #D7DEEA; opacity: .6; pointer-events: none; transition: right .6s cubic-bezier(.2, .8, .2, 1); }
+.menu-credito { position: absolute; z-index: 2; right: var(--margen); bottom: calc(var(--abajo) - 2px); margin: 0; white-space: nowrap; font: 500 11px / 1.2 var(--letra-texto); color: #D7DEEA; opacity: .6; pointer-events: none; transition: right .6s cubic-bezier(.2, .8, .2, 1); }
 .pantalla-menu.con-pestana .menu-credito { right: calc(var(--ancho-pestana) + var(--margen)); }
 
 /* ---------- Pestaña de historia (lateral derecha, de arriba a abajo) ---------- */
@@ -230,7 +306,7 @@
 .menu-volver:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
 /* Con la vista de la montaña, la pestaña y el botón de capas se esconden */
 .pantalla-menu.con-montana .menu-pestana,
-.pantalla-menu.con-montana .menu-capas-caja { display: none; }
+.pantalla-menu.con-montana .capas,
 
 /* ---------- Panel de datos y máquina del tiempo de la vista de la montaña ---------- */
 .menu-panel { position: absolute; z-index: 5; right: 2.6cqh; top: 11.4cqh; bottom: var(--carrusel-arriba); width: var(--ancho-panel); padding: 2.6cqh; border-radius: 2.2cqh; display: flex; flex-direction: column; gap: 1.6cqh; overflow-y: auto; }
@@ -302,7 +378,8 @@
 @media (max-height: 500px) {
   .pantalla-menu { --ancho-pestana: 50cqw; }
   .pantalla-menu.con-pestana { --diam: min(92cqh, var(--libre)); --planeta-arriba: calc((100cqh - var(--diam)) / 2); }
-  .menu-riel { gap: 1.2cqh; padding: 1cqh; }
+  .pantalla-menu { --arriba: 62px; --abajo: 96px; }
+  .pantalla-menu.con-pestana .menu-titulo { opacity: 0; } /* con la ficha abierta no entra */
   .pestana-portada { min-height: 104px; }
   .menu-panel .grafico svg text { font-size: 15.5px; } /* el panel mide 260 px: 15,5 unidades = 12 px */
   .menu-panel select { font-size: 12px; }
@@ -311,10 +388,46 @@
 
 /* ---------- Menos movimiento: sin animaciones ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .menu-orbita, .menu-planeta, .menu-credito, .menu-arriba-der, .envivo-chip, .envivo-tarjeta, .globo3d-lente, .globo3d.lente .globo3d-lente { transition: none; }
-  .envivo-tarjeta { animation: none; }
+  .menu-orbita, .menu-planeta, .menu-credito, .menu-arriba-der, .menu-titulo, .menu-carrusel, .tarjeta-glaciar, .riel-circulo, .capas-circulo, .capas-op .circulo, .envivo-chip, .envivo-tarjeta, .globo3d-lente, .globo3d.lente .globo3d-lente { transition: none; }
+  .envivo-tarjeta, .menu-h1 .brillo, .capas-op, .entra-abajo { animation: none; }
   .menu-estrellas span, .menu-planeta.maqueta, .entra-der, .entra-izq,
   .menu-pestana.entra,
   .pestana-linea::before, .pestana-linea li, .linea-graf,
   .pestana-ver.btn-mision::before { animation: none; }
 }
+
+/* ---------- Celular vertical: barra inferior con ícono y nombre; la ficha sube desde abajo ---------- */
+@media (orientation: portrait) and (max-width: 600px) {
+  .pantalla-menu { --barra: calc(66px + env(safe-area-inset-bottom)); --riel-der: var(--margen); --margen: 10px; --arriba: 138px; --abajo: calc(var(--barra) + 136px); --ancho-pestana: 0px; }
+  .pantalla-menu.con-pestana { --borde-der: 0px; }
+  .menu-logo { left: 12px; top: 10px; }
+  .logo-btn img { height: 44px; }
+  .menu-logo .separador { display: none; }
+  .menu-arriba-der { top: 8px; right: 10px; }
+  .menu-titulo { top: 62px; left: 12px; right: 12px; }
+  .menu-modo { font-size: 9px; }
+  .menu-h1 { margin-top: 4px; font-size: 17px; }
+  .menu-pista { margin-top: 4px; font-size: 12px; }
+  .menu-riel {
+    left: 0; right: 0; top: auto; bottom: 0; width: auto; height: var(--barra); padding: 6px 8px env(safe-area-inset-bottom);
+    flex-direction: row; justify-content: space-around; align-items: center; gap: 0; border-radius: 18px 18px 0 0; border-width: 1px 0 0;
+  }
+  .riel-item { flex: 1; gap: 3px; font-size: 11px; }
+  .riel-circulo { width: 38px; height: 38px; border-width: 0 !important; background: transparent; box-shadow: none !important; }
+  .riel-item.actual .riel-circulo { background: rgba(209, 32, 33, .2); box-shadow: 0 0 0 1.5px var(--rojo-apu), 0 0 12px rgba(209, 32, 33, .6) !important; }
+  .riel-circulo svg { width: 24px; height: 24px; }
+  .riel-aviso { top: -4px; right: -8px; min-width: 18px; height: 18px; font-size: 10.5px; line-height: 18px; }
+  .riel-separador { flex: none; width: 1px; height: 34px; margin: 0; }
+  .menu-carrusel { left: 6px; right: 6px; bottom: calc(var(--barra) + 8px); height: 124px; --banda: 124px; gap: 4px; }
+  .carrusel-flecha { width: 36px; height: 36px; }
+  .menu-credito { left: 10px; right: 10px; bottom: calc(var(--abajo) + 2px); text-align: center; white-space: normal; }
+  /* Ficha del glaciar: hoja que sube desde abajo, sobre el carrusel */
+  .menu-pestana { top: auto; left: 0; right: 0; bottom: var(--barra); width: auto; height: 58cqh; border-left: 0; border-top: 1px solid rgba(91, 160, 255, .45); border-radius: 18px 18px 0 0; box-shadow: 0 -2cqh 4cqh rgba(0, 0, 0, .45); }
+  .menu-pestana.entra { animation-name: pestanaSube; }
+  .pantalla-menu.con-pestana .menu-titulo { opacity: 0; }
+  .pantalla-menu.con-pestana .menu-carrusel, .pantalla-menu.con-pestana .envivo-chip, .pantalla-menu.con-pestana .envivo-tarjeta, .pantalla-menu.con-pestana .menu-credito { visibility: hidden; }
+  .capas-lista { top: calc(100% + 16px); }
+  .pantalla-menu.con-zoom .menu-planeta { left: 0; width: 100cqw; height: calc(42cqh - var(--barra)); }
+  .envivo-chip, .envivo-tarjeta { right: 10px; }
+}
+@keyframes pestanaSube { from { transform: translateY(100%); } to { transform: none; } }

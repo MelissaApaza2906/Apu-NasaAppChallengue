@@ -115,5 +115,27 @@
 .sabias > div { display: flex; flex-direction: column; gap: .5cqh; min-width: 0; }
 .sabias .rotulo { font: 400 clamp(8px, 1.4cqh, 13px) var(--letra-titulo); letter-spacing: .28em; color: #FF6B6B; }
 .sabias .dato { margin: 0; font-size: clamp(11px, 2.1cqh, 19px); line-height: 1.45; color: #E6EBF3; }
-.sabias .dato.nuevo { animation: cargaDato .6s ease-out both; }
-@keyframes cargaDato { from { opacity: 0; transform: translateX(2cqh); } to { opacity: 1; transform: none; } }
+.sabias .dato { min-height: 4.35em; opacity: 1; transition: opacity .4s ease; }
+.sabias .dato.sale { opacity: 0; }
+.sabias:focus-visible { outline: 3px solid var(--rojo-apu); outline-offset: 3px; }
+.sabias-puntos { display: flex; gap: 6px; margin-top: .4cqh; }
+.sabias-puntos span { width: 6px; height: 6px; border-radius: 50%; background: rgba(242, 244, 248, .3); transition: background .3s, width .3s; }
+.sabias-puntos span.actual { width: 16px; border-radius: 3px; background: #FF6B6B; }
+.sabias.en-pausa .sabias-puntos span.actual { background: #F2F4F8; }
+
+/* Lema bajo el logo */
+.carga-columna .lema { margin: -1cqh 0 0; max-width: min(46cqw, 92cqh); font: 500 clamp(12px, 2.1cqh, 19px) / 1.4 var(--letra-texto); color: #D7DEEA; text-wrap: balance; }
+
+/* Celular vertical: todo en una columna (el Jukumari no entra y se oculta) */
+@media (orientation: portrait) and (max-width: 600px) {
+  .carga-columna { left: 6%; right: 6%; top: 4cqh; bottom: 6cqh; gap: 2cqh; }
+  .carga-columna .logo { height: 18cqh; }
+  .carga-columna .lema, .btn-mision, .carga-columna .barra, .sabias { width: 100%; max-width: none; }
+  .carga-columna .titulo { font-size: 22px; letter-spacing: .3em; }
+  .btn-mision { height: 56px; }
+  .btn-mision .texto { font-size: 14px; }
+  .sabias .dato { font-size: 14px; }
+  .carga-juku { display: none; }
+  .carga-profundidad { -webkit-mask-image: none; mask-image: none; }
+}
+@media (prefers-reduced-motion: reduce) { .sabias .dato, .sabias-puntos span { transition: none; } }
