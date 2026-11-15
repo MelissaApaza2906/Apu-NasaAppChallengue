@@ -1,5 +1,5 @@
 {
- "guardado": "2026-11-14T13:32:03.803Z",
+ "guardado": "2026-11-15T13:56:25.281Z",
  "eventos": [
   {
    "id": "EONET_2736",
@@ -45,9 +45,9 @@
    "id": "EONET_12716",
    "titulo": "Iceberg A85",
    "tipo": "iceberg",
-   "lat": -56.46,
-   "lon": -45.13,
-   "fecha": "2026-11-06T00:00:00Z"
+   "lat": -55.94,
+   "lon": -45.95,
+   "fecha": "2026-11-13T00:00:00Z"
   },
   {
    "id": "EONET_5359",
@@ -69,33 +69,33 @@
    "id": "EONET_6320",
    "titulo": "Iceberg A81",
    "tipo": "iceberg",
-   "lat": -55.81,
-   "lon": -35.52,
-   "fecha": "2026-11-06T00:00:00Z"
+   "lat": -55.48,
+   "lon": -34.36,
+   "fecha": "2026-11-13T00:00:00Z"
   },
   {
    "id": "EONET_6424",
    "titulo": "Iceberg D33B",
    "tipo": "iceberg",
-   "lat": -55.87,
-   "lon": -42.25,
-   "fecha": "2026-10-30T00:00:00Z"
+   "lat": -55.19,
+   "lon": -39.34,
+   "fecha": "2026-11-13T00:00:00Z"
   },
   {
    "id": "EONET_6474",
    "titulo": "Iceberg D35",
    "tipo": "iceberg",
-   "lat": -60.15,
-   "lon": -44.72,
-   "fecha": "2026-11-06T00:00:00Z"
+   "lat": -59.8,
+   "lon": -43.29,
+   "fecha": "2026-11-13T00:00:00Z"
   },
   {
    "id": "EONET_6523",
    "titulo": "Iceberg A83",
    "tipo": "iceberg",
-   "lat": -59.61,
-   "lon": -49.52,
-   "fecha": "2026-10-30T00:00:00Z"
+   "lat": -58.98,
+   "lon": -48.45,
+   "fecha": "2026-11-13T00:00:00Z"
   },
   {
    "id": "EONET_10212",
@@ -109,9 +109,9 @@
    "id": "EONET_12618",
    "titulo": "Iceberg A84",
    "tipo": "iceberg",
-   "lat": -69.02,
-   "lon": -89.73,
-   "fecha": "2026-11-06T00:00:00Z"
+   "lat": -68.39,
+   "lon": -90.01,
+   "fecha": "2026-11-13T00:00:00Z"
   }
  ]
 }
